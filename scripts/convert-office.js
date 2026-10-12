@@ -28,7 +28,11 @@ try{
   app=new ActiveXObject('PowerPoint.Application');security=app.AutomationSecurity;app.AutomationSecurity=3;doc=app.Presentations.Open(req.input,true,false,false);
   var o=output('slides.pdf','all_slides');o.pages=doc.Slides.Count;doc.SaveAs(o.path,32);out.push(o);
  }else if(/^vsd[xm]?$/.test(ext)){
-  app=new ActiveXObject('Visio.InvisibleApp');doc=app.Documents.OpenEx(req.input,2+64+128);var o=output('drawing.pdf','all_pages');o.pages=doc.Pages.Count;doc.ExportAsFixedFormat(1,o.path,1,0);out.push(o);
+  app=new ActiveXObject('Visio.InvisibleApp');doc=app.Documents.OpenEx(req.input,2+64+128);
+  if(req.visioSvg){
+   var pageNumber=req.visioSvg.page;if(pageNumber<1||pageNumber>doc.Pages.Count||pageNumber!==Math.floor(pageNumber))throw Error('Visio page out of range');
+   var page=doc.Pages.Item(pageNumber),o={path:fso.BuildPath(req.directory,'page-'+pageNumber+'.svg'),kind:'svg',scope:'selected_page',page:pageNumber,pageName:page.Name};page.Export(o.path);out.push(o);
+  }else{var o=output('drawing.pdf','all_pages');o.pages=doc.Pages.Count;doc.ExportAsFixedFormat(1,o.path,1,0);out.push(o);}
  }else if(/^xls[xmb]?$/.test(ext)){
   stage='excel_open';app=new ActiveXObject('Excel.Application');security=app.AutomationSecurity;app.AutomationSecurity=3;doc=app.Workbooks.Open(req.input,0,true);pp=new ActiveXObject('PowerPoint.Application');var index=0;
   if(req.cellSelection){
