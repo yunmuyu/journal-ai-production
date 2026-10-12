@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.12-r1",
+  "id": "2026.10.12-r2",
   "createdAt": "2026-10-12T01:13:39.752Z",
   "status": "production-pinned",
   "constraints": {
@@ -110,31 +110,6 @@
       "path": "adobe/window-state.ps1",
       "sha256": "cf91294d1e24334428df23cd6badea9f514a14e40cf855bb15bee33144c8d46e",
       "bytes": 1901
-    },
-    {
-      "path": "examples/S02.plan.json",
-      "sha256": "8b12dcfc8b98f80f3e4dc031ba2d22bb2c70cacdd528e9982f6faede692a311c",
-      "bytes": 3496
-    },
-    {
-      "path": "examples/S03.plan.json",
-      "sha256": "920baf5e7344b36b7f96c1e69e02bb59464cc033562ccd5017b4027b88be9450",
-      "bytes": 1988
-    },
-    {
-      "path": "examples/S07.plan.json",
-      "sha256": "a99055f0cfc918fd8291baed136ae55faf167d68d4d54b5ab02c895f74926634",
-      "bytes": 442
-    },
-    {
-      "path": "examples/S08.plan.json",
-      "sha256": "41fa08593755780847b0a8dc09002f08826a2a1c4bae77b0f5756c2b691b7b24",
-      "bytes": 5194
-    },
-    {
-      "path": "examples/SVG.plan.json",
-      "sha256": "90145b4bd4d9724b402b9df25aba04216b9f6a7d63a4046ed3a64c538e3045d4",
-      "bytes": 515
     },
     {
       "path": "lib/adobe-health.mjs",
@@ -357,5 +332,7 @@
       "bytes": 12209
     }
   ],
-  "skillSha256": "cf805505b2797600493d45a84b5a48024341358af6be627134ba48d36b95e476"
+  "skillSha256": "cf805505b2797600493d45a84b5a48024341358af6be627134ba48d36b95e476",
+  "supersedes": "2026.10.12-r1",
+  "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged."
 }
