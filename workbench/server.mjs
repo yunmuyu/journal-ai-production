@@ -29,6 +29,7 @@ http.createServer((req,res)=>{
  if(req.headers.host!=='127.0.0.1:'+port){res.writeHead(403).end();return;}
  if(decisions.handle(req,res,url))return;
  if((url.pathname==='/classification'||url.pathname==='/classification/')&&url.searchParams.get('embedded')!=='1'){res.writeHead(302,{Location:'/#classification'}).end();return;}
+ if(url.pathname==='/classification'||url.pathname==='/classification/'){res.setHeader('Content-Type','text/html; charset=utf-8');fs.createReadStream(new URL('decision-review.html',import.meta.url)).pipe(res);return;}
  if(handleClassification(req,res,url))return;
  if(url.pathname.startsWith('/feedback/')){
   if(req.method!=='POST'||req.headers.origin!==origin){res.writeHead(403).end();return;}
@@ -61,7 +62,7 @@ http.createServer((req,res)=>{
  if(url.pathname.startsWith('/view/')){const file=model.files.get(url.pathname.split('/')[2]);if(!file||path.extname(file).toLowerCase()!=='.pdf'){res.writeHead(404).end();return;}res.setHeader('Content-Type','text/html; charset=utf-8');fs.createReadStream(new URL('viewer.html',import.meta.url)).pipe(res);return;}
  if(url.pathname.startsWith('/pdfjs/')){const name=url.pathname.slice(7);const files={'pdf.mjs':'build/pdf.mjs','pdf.worker.mjs':'build/pdf.worker.mjs'};const relative=files[name]||(name.startsWith('fonts/')&&/^[a-zA-Z0-9_.-]+$/.test(name.slice(6))?'standard_fonts/'+name.slice(6):null);if(!relative){res.writeHead(404).end();return;}const p='C:/Users/xdxxk/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/pdfjs-dist/'+relative;if(!fs.existsSync(p)){res.writeHead(404).end();return;}res.setHeader('Content-Type',name.endsWith('.mjs')?'text/javascript':'application/octet-stream');fs.createReadStream(p).pipe(res);return;}
  if(url.pathname==='/vendor/tabler.min.css'){res.setHeader('Content-Type','text/css; charset=utf-8');fs.createReadStream(new URL('vendor/package/dist/css/tabler.min.css',import.meta.url)).pipe(res);return;}
- const asset={'/':'index.html','/style.css':'style.css','/app.js':'app.js','/viewer.js':'viewer.js','/decision-panel.js':'decision-panel.js','/decision-panel.css':'decision-panel.css'}[url.pathname];
+ const asset={'/':'index.html','/style.css':'style.css','/app.js':'app.js','/viewer.js':'viewer.js','/decision-panel.js':'decision-panel.js','/decision-panel.css':'decision-panel.css','/decision-review.js':'decision-review.js','/decision-review.css':'decision-review.css'}[url.pathname];
  if(!asset){res.writeHead(404).end();return;}
  res.setHeader('Content-Type',types[path.extname(asset)]);fs.createReadStream(new URL(asset,import.meta.url)).pipe(res);
 }).listen(port,'127.0.0.1',()=>console.log(JSON.stringify({url:origin,rows:model.data.rows.length,pid:process.pid})));

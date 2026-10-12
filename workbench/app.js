@@ -11,7 +11,8 @@ function render(){
  $('toolbar').hidden=view!=='production';$('author-status-label').hidden=view!=='production';
  $('board').hidden=view!=='production';$('workspace-view').hidden=view!=='capabilities'&&view!=='queue'&&view!=='runtime';
  $('classification-view').hidden=view!=='classification';
- $('decision-pilot-bar').hidden=view!=='production';
+ document.body.classList.toggle('classification-mode',view==='classification');
+ $('decision-pilot-bar').hidden=true;
  if(view==='classification'&&!$('classification-frame').src)$('classification-frame').src=$('classification-frame').dataset.src;
  const total=articles.length,completed=articles.filter(a=>a.state==='全部通过').length,percent=total?Math.round(completed/total*100):0;
  $('counts').innerHTML=`<span class="progress-ring" style="--progress:${percent}%" aria-hidden="true"></span><span>已通过 <strong>${completed}/${total}</strong> 篇 · ${percent}%</span>`;
@@ -27,7 +28,7 @@ function render(){
  return `<div class="figure-todo" data-figure="${e(f.id)}"><div class="todo-line"><label class="accept-label"><input type="checkbox" class="form-check-input" data-accept="${e(f.id)}" aria-label="${e(a.label)}图${e(f.number)}验收通过" ${d.accepted?'checked':''} ${delivered?'':'disabled'}><strong>${e(a.label)} 图${e(f.number)}</strong></label><span class="badge review-status" data-status="${e(f.status)}">${e(({'待制作':'未完成','生产中':'制作中','终检通过':'全部通过','异常':'待修订','暂缓':'未完成'})[f.status]||f.status)}</span></div><div data-decision-slot="${e(f.id)}"></div><div class="feedback-box"><textarea class="form-control" data-text="${e(f.id)}" aria-label="${e(a.label)}图${e(f.number)}备注" placeholder="有问题在这里写，Ctrl+V 直接粘贴截图（可多张）">${e(d.text)}</textarea><div class="thumbnails" data-thumbs="${e(f.id)}"></div><div class="feedback-actions"><span role="status" data-save-status="${e(f.id)}">${e(d.error||(d.dirty?'尚未保存':''))}</span></div>${f.reason?`<p class="reason">${e(f.reason)}</p>`:''}</div></div>`;
  }).join('')}</article>`).join('')||'<p class="empty">此分类暂无文章。</p>';
  for(const a of chosen)for(const f of a.figures)thumbs(f.id);
- window.DecisionReview?.mount();
+
  if(focusFigure){document.querySelector(`[data-figure="${focusFigure}"]`)?.scrollIntoView({block:'nearest'});focusFigure=null;}
 }
 const evidence=d=>d.text?`<details class="evidence" data-key="evidence-${e(d.file?.token||d.name||'document')}"><summary>${e(d.name||'阅读接手说明')}</summary><pre>${e(d.text)}</pre></details>`:'<p class="text-secondary">记录文件尚不可用</p>';
