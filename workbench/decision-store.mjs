@@ -11,7 +11,7 @@ const fail=(status,message,fields)=>{throw Object.assign(Error(message),{status,
 const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const keysFit=(value,allowed)=>object(value)&&Object.keys(value).every(key=>allowed.includes(key));
 const textOk=(value,limit=2000)=>typeof value==='string'&&value.length<=limit;
-const unresolved=value=>/(?:未知|待确认|待验证|待确定|待人工决定|待核对|未核实|证据不足|证据不够)/.test(value);
+const unresolved=value=>/(?:未知|待判断|待填写|待确认|待验证|待确定|待人工决定|待核对|未核实|证据不足|证据不够)/.test(value);
 const snapshot=value=>JSON.parse(JSON.stringify(value));
 
 function loadPilot(pilotPath){
@@ -59,7 +59,7 @@ function saveAttribute(previous,proposal,figure,input){
   state:input.action==='attribute-confirm'?'confirmed':'draft',history:[...(current?.history||[]),entry]};
  const attributes={...previous?.attributes,[key]:updated};
  if(key==='method'){
-  updated.capacityCheck=input.value===before?'not-required':'pending-agent';
+  updated.capacityCheck=input.value===before?(current?.capacityCheck||'not-required'):'pending-agent';
   const column=attributes.columns,evidence=figure.capacityEvidence,calc=evidence?.calculation;
   if(input.value!==before&&column&&evidence?.method===input.value&&
     typeof evidence.basis==='string'&&evidence.basis.trim()&&

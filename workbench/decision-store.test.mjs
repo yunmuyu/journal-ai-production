@@ -179,6 +179,8 @@ test('加工方式变化无明确容量冲突时不推翻栏宽，只记录待Ag
  const next=f.store.save('f1',{revision:1,proposalVersion:'v1',action:'attribute-confirm',attribute:'method',value:'完整重绘'});
  assert.deepEqual(next.attributes.columns,columns.attributes.columns);
  assert.equal(next.attributes.method.capacityCheck,'pending-agent');
+ const confirmed=f.store.save('f1',{revision:2,proposalVersion:'v1',action:'attribute-confirm',attribute:'method',value:'完整重绘'});
+ assert.equal(confirmed.attributes.method.capacityCheck,'pending-agent');
 });
 
 test('明确capacityEvidence冲突时只将已保存栏宽置为需复核',t=>{
@@ -233,3 +235,11 @@ test('旧六项操作继续保留已审核属性',t=>{
  assert.deepEqual(next.attributes,first.attributes);
  assert.equal(next.state,'confirmed');
 });
+
+ test('真实旧字段文本可归一化，规格数字不冒充输出数量',()=>{
+ assert.equal(normalizeAttribute('method','PS直接处理：保留像素'),'PS直出');
+ assert.equal(normalizeAttribute('method','局部重排：保留模块'),'半重绘');
+ assert.equal(normalizeAttribute('split','拆分为 2 张；每张80 mm'),'拆2张');
+ assert.equal(normalizeAttribute('split','整体 1 张；80 mm'),'整体1张');
+ assert.equal(normalizeAttribute('split','80 mm / 160 mm'),'待判断');
+ });
