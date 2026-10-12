@@ -1,13 +1,15 @@
 import fs from 'node:fs';
-import {randomUUID} from 'node:crypto';
+import path from 'node:path';
+import {createHash,randomUUID} from 'node:crypto';
 
 const names=['sourceMatch','method','columns','split','contentTypes','preflight'];
+const labels={sourceMatch:'图源匹配',method:'制作方法',columns:'栏宽',split:'拆分规格',contentTypes:'内容类型',preflight:'制作前检查'};
 const actions=new Set(['draft','confirm','recheck','defer']);
 const fail=(status,message,fields)=>{throw Object.assign(Error(message),{status,...(fields?{fields}:{})});};
 const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const keysFit=(value,allowed)=>object(value)&&Object.keys(value).every(key=>allowed.includes(key));
 const textOk=(value,limit=2000)=>typeof value==='string'&&value.length<=limit;
-const unresolved=value=>/(?:未知|待确认|待验证|待确定|证据不足)/.test(value);
+const unresolved=value=>/(?:未知|待确认|待验证|待确定|待人工决定|待核对|未核实|证据不足|证据不够)/.test(value);
 const snapshot=value=>JSON.parse(JSON.stringify(value));
 
 function loadPilot(pilotPath){
@@ -37,7 +39,21 @@ function checkConfirm(proposal,input,changes){
  if(/(?:错误|不匹配|不是|找不到图源)/.test(input.fields.sourceMatch))issues.push('sourceMatch');
  const split=input.fields.split;
  if(/(?:拆分|分成|分为).{0,12}(?:[2-9]|两|三|四|五|六|七|八|九)(?:张|幅|个|栏)/.test(split)&&!/(?:\d+(?:\.\d+)?\s*(?:mm|cm|毫米|厘米))/i.test(split))issues.push('split');
- if(issues.length)fail(422,`请核对后再确认：${[...new Set(issues)].join('、')}`,[...new Set(issues)]);
+ if(issues.length){const fields=[...new Set(issues)];fail(422,`请核对后再确认：${fields.map(name=>labels[name]).join('、')}`,fields);}
+}
+
+function checkSources(figure,pilotPath){
+ if(figure.sourceFiles===undefined)return;
+ if(!Array.isArray(figure.sourceFiles))fail(409,'源文件清单不可读取，请刷新后核对');
+ for(const source of figure.sourceFiles){
+  if(!object(source)||!textOk(source.path,2000)||!source.path||
+    typeof source.sha256!=='string'||!/^[a-f\d]{64}$/i.test(source.sha256))
+   fail(409,'源文件清单不可读取，请刷新后核对');
+  let actual;
+  try{actual=createHash('sha256').update(fs.readFileSync(path.resolve(path.dirname(pilotPath),source.path))).digest('hex');}
+  catch{fail(409,'源文件不可读取，请刷新后核对');}
+  if(actual.toLowerCase()!==source.sha256.toLowerCase())fail(409,'源文件已变化，请刷新后核对');
+ }
 }
 
 export function createDecisionStore({recordsPath,pilotPath}){
@@ -63,6 +79,7 @@ export function createDecisionStore({recordsPath,pilotPath}){
     const pilot=loadPilot(pilotPath);
     const figure=pilot.figures.find(item=>item.id===id);
     if(!figure)fail(404,'图件未登记');
+    checkSources(figure,pilotPath);
     const proposal=figure.aiProposal;
     if(!proposal||!textOk(proposal.version,200)||!proposal.version||!textOk(proposal.sourceFingerprint,500)||
       !object(proposal.fields)||names.some(name=>!object(proposal.fields[name])||!textOk(proposal.fields[name].value)||
@@ -82,7 +99,7 @@ export function createDecisionStore({recordsPath,pilotPath}){
     const requiresReview=changes.length>0||names.some(name=>proposal.fields[name].certainty==='unknown');
     const state=input.action==='confirm'?(requiresReview?'needs-review':'confirmed'):
       input.action==='recheck'?'needs-review':input.action==='defer'?'deferred':'draft';
-    const semanticReview=requiresReview?'pending':'not-required';
+    const semanticReview=input.action==='recheck'||requiresReview?'pending':'not-required';
     const at=new Date().toISOString();
     const aiProposal=snapshot(proposal);
     const decision={revision:input.revision+1,proposalVersion:proposal.version,aiProposal,

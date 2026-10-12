@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import {createDecisionStore} from './decision-store.mjs';
 
 const names=['sourceMatch','method','columns','split','contentTypes','preflight'];
@@ -49,6 +50,7 @@ test('修改一项或多项后的确认留待语义复核',t=>{
 test('未知建议确认时要求明确修改或消歧说明，草稿可保存',t=>{
  const f=fixture(t,['method']);
  assert.throws(()=>f.store.save('f1',f.input),{status:422,fields:['method']});
+ assert.throws(()=>f.store.save('f1',f.input),error=>error.status===422&&error.message.includes('制作方法'));
  const draft=f.store.save('f1',{...f.input,action:'draft'});
  assert.equal(draft.state,'draft');
  const resolved=f.store.save('f1',{...f.input,revision:1,resolutions:{method:'作者原稿第3页明确写明'}});
@@ -70,7 +72,30 @@ test('暂缓与重核保留为不同决策，不改变生产状态',t=>{
  const f=fixture(t);
  assert.equal(f.store.save('f1',{...f.input,action:'defer'}).state,'deferred');
  assert.equal(f.store.save('f1',{...f.input,revision:1,action:'recheck'}).state,'needs-review');
+ assert.equal(records(f.recordsPath).figures.f1.productionDecision.semanticReview,'pending');
  assert.equal(records(f.recordsPath).figures.f1.status,'已验收');
+});
+
+test('新增未知措辞阻止确认，但制作后核验属于执行说明',t=>{
+ const f=fixture(t);
+ for(const value of ['待人工决定','待核对','未核实','证据不够'])
+  assert.throws(()=>f.store.save('f1',{...f.input,fields:{...f.input.fields,method:value}}),{status:422,fields:['method']});
+ assert.equal(f.store.save('f1',{...f.input,fields:{...f.input.fields,preflight:'制作后核验'}}).state,'needs-review');
+});
+
+test('可选源文件哈希变更或不可读取时拒绝保存',t=>{
+ const f=fixture(t),sourcePath=path.join(path.dirname(f.pilotPath),'source.txt');
+ fs.writeFileSync(sourcePath,'original');
+ const sha256=createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex');
+ const pilot=records(f.pilotPath);
+ pilot.figures[0].sourceFiles=[{path:sourcePath,sha256}];
+ fs.writeFileSync(f.pilotPath,JSON.stringify(pilot));
+ assert.equal(f.store.save('f1',f.input).state,'confirmed');
+ fs.writeFileSync(sourcePath,'changed');
+ assert.throws(()=>f.store.save('f1',{...f.input,revision:1}),error=>error.status===409&&error.message.includes('源文件'));
+ fs.unlinkSync(sourcePath);
+ assert.throws(()=>f.store.save('f1',{...f.input,revision:1}),error=>error.status===409&&error.message.includes('不可读取'));
+ assert.equal(records(f.recordsPath).figures.f1.productionDecision.revision,1);
 });
 
 test('读取刷新后的建议并将旧决策标为过期',t=>{
