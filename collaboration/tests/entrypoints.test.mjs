@@ -38,6 +38,7 @@ test('status is read-only and passes configured environment', () => {
 test('mutating command records start and result including failure', () => {
   const f = fixture();
   const job = path.join(f.workspaceRoot, 'new-job');
+  writeFileSync(path.join(f.workspaceRoot, 'plan.json'), JSON.stringify({route:'image',fontSize:8,widthMm:60}));
   assert.equal(run(['--config', f.configFile, 'render', 'new-job', 'plan.json'], () => ({status: 3})), 3);
   const events = readFileSync(path.join(job, 'tool-version-events.jsonl'), 'utf8').trimEnd().split(/\r?\n/).map(JSON.parse);
   assert.deepEqual(events.map(e => e.event), ['start', 'result']);
@@ -102,4 +103,25 @@ test('workRoot takes precedence and direct CLI status leaves no event', () => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /ready/);
   assert.equal(existsSync(path.join(job, 'tool-version-events.jsonl')), false);
+});
+
+test('render rejects unsupported rotation before invoking the fixed runtime and records the failure',()=>{
+ const f=fixture(),plan=path.join(f.workspaceRoot,'rotation.json');
+ writeFileSync(plan,JSON.stringify({route:'vector-reletter',fontSize:6.5,textGroups:[{rotation:30}]}));
+ let called=false;
+ assert.throws(()=>run(['--config',f.configFile,'render','blocked',plan],()=>{called=true;return{status:0};}),/rotation/);
+ assert.equal(called,false);
+ const events=readFileSync(path.join(f.workspaceRoot,'blocked','tool-version-events.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
+ assert.equal(events.at(-1).exitCode,1);
+ assert.match(events.at(-1).error,/rotation/);
+});
+
+test('render completion records one invocation identity, plan hash and elapsed wall time',()=>{
+ const f=fixture(),plan=path.join(f.workspaceRoot,'image.json');
+ writeFileSync(plan,JSON.stringify({route:'image',fontSize:8,widthMm:60}));
+ assert.equal(run(['--config',f.configFile,'render','observed',plan],()=>({status:0})),0);
+ const events=readFileSync(path.join(f.workspaceRoot,'observed','tool-version-events.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
+ assert.ok(events[0].invocationId);assert.equal(events[0].invocationId,events[1].invocationId);
+ assert.match(events[0].planFileHash,/^[a-f0-9]{64}$/);assert.equal(events[0].planFileHash,events[1].planFileHash);
+ assert.ok(Number.isFinite(events[1].durationMs)&&events[1].durationMs>=0);
 });
