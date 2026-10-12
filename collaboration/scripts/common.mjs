@@ -13,7 +13,7 @@ export function sha256(bytes) {
 }
 export function readRelease() {
   const bytes = readFileSync(releaseFile);
-  const release = JSON.parse(bytes);
+  const release = JSON.parse(bytes.toString('utf8').replace(/^﻿/, ''));
   if (!release.id || !Array.isArray(release.files) || !/^[a-f0-9]{64}$/.test(release.skillSha256)) throw Error('Invalid RELEASE.json');
   const names = new Set();
   for (const item of release.files) {
@@ -25,7 +25,7 @@ export function readRelease() {
 export function readMachine(file) {
   if (!file) throw Error('Pass --config to an external machine.json');
   const configFile = path.resolve(file);
-  const config = JSON.parse(readFileSync(configFile, 'utf8'));
+  const config = JSON.parse(readFileSync(configFile, 'utf8').replace(/^﻿/, ''));
   for (const key of ['runtimePath', 'workspaceRoot', 'recordRoot', 'pathMapFile', 'python', 'flowchartRoot']) {
     if (typeof config[key] !== 'string' || !config[key].trim()) throw Error('Missing machine configuration: ' + key);
     config[key] = path.resolve(path.dirname(configFile), config[key]);
