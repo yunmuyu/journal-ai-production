@@ -31,6 +31,3 @@
 [data-batch-result]{white-space:pre-wrap}
 
 #classification-frame{width:100%;height:calc(100vh - 170px);border:0}
-
-.classification-mode .page-header{display:none}
-.classification-mode #classification-frame{height:calc(100vh - 76px)}

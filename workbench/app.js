@@ -13,7 +13,7 @@ function render(){
  $('classification-view').hidden=view!=='classification';
  document.body.classList.toggle('classification-mode',view==='classification');
  $('decision-pilot-bar').hidden=true;
- if(view==='classification'&&!$('classification-frame').src)$('classification-frame').src=$('classification-frame').dataset.src;
+ if(view==='classification'&&!$('classification-frame').src)$('classification-frame').src=$('classification-frame').dataset.src+(new URLSearchParams(location.search).has('batch')?'&batch='+encodeURIComponent(new URLSearchParams(location.search).get('batch')):'');
  const total=articles.length,completed=articles.filter(a=>a.state==='全部通过').length,percent=total?Math.round(completed/total*100):0;
  $('counts').innerHTML=`<span class="progress-ring" style="--progress:${percent}%" aria-hidden="true"></span><span>已通过 <strong>${completed}/${total}</strong> 篇 · ${percent}%</span>`;
  if(view==='production'){
@@ -78,3 +78,15 @@ const initialView=document.querySelector('[data-view="'+location.hash.slice(1)+'
  refresh();setInterval(refresh,5000);
 
 
+
+// The review list lives in a same-origin frame; route wheels on its outer gutters to it.
+document.addEventListener('wheel',event=>{
+ if(view!=='classification'||event.ctrlKey||event.deltaX||event.target.closest('dialog,.author-panel,input,textarea,select'))return;
+ const frame=$('classification-frame'),rect=frame.getBoundingClientRect();
+ if(event.clientY<rect.top||event.clientY>rect.bottom)return;
+ const scroller=frame.contentDocument?.scrollingElement;if(!scroller)return;
+ const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?scroller.clientHeight:1);
+ if((delta>0&&scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight)||(delta<0&&scroller.scrollTop>0)){
+  event.preventDefault();scroller.scrollTop+=delta;
+ }
+},{passive:false});

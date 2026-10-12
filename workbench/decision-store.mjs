@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
+import {validateSourceInput,saveSourceReview} from './source-review-store.mjs';
 import {ATTRIBUTE_OPTIONS,normalizeAttribute} from './decision-attributes.mjs';
 
 const names=['sourceMatch','method','columns','split','contentTypes','preflight'];
@@ -24,6 +25,8 @@ function parseInput(input){
  if(!object(input)||!Number.isSafeInteger(input.revision)||input.revision<0||
    !textOk(input.proposalVersion,200)||!input.proposalVersion)
   fail(400,'制作决策格式不正确');
+ if(input.action==='delivery-note'){if(!keysFit(input,['revision','proposalVersion','action','text'])||!textOk(input.text,20000))fail(400,'拆分备注格式不正确');return input;}
+ if(['source-save','source-confirm'].includes(input.action))return validateSourceInput(input);
  if(attributeActions.has(input.action)){
   if(!keysFit(input,['revision','proposalVersion','action','attribute','value','operationId'])||
     !Object.hasOwn(ATTRIBUTE_OPTIONS,input.attribute)||
@@ -122,7 +125,7 @@ export function createDecisionStore({recordsPath,pilotPath}){
    if(typeof id!=='string'||id.length>200)fail(404,'图件未登记');
    const lock=recordsPath+'.feedback.lock';let handle;
    try{handle=fs.openSync(lock,'wx');}catch{fail(409,'生产记录正在保存，请稍后重试');}
-   let tmp;
+   let tmp;const created=[];
    try{
     const pilotBefore=fs.readFileSync(pilotPath,'utf8');
     const pilot=loadPilot(pilotPath);
@@ -139,14 +142,18 @@ export function createDecisionStore({recordsPath,pilotPath}){
     const records=JSON.parse(before);
     if(!object(records.figures))fail(500,'生产记录格式错误');
     const prior=records.figures[id]||{};
-    const previous=prior.productionDecision;
+    let previous=prior.productionDecision;
     if((previous?.revision||0)!==input.revision)fail(409,'制作决策已更新，请刷新后核对');
+    if(previous&&(previous.proposalVersion!==proposal.version||previous.aiProposal?.sourceFingerprint!==proposal.sourceFingerprint)){const oldProposal=snapshot(previous.aiProposal);previous={...previous,fields:Object.fromEntries(names.map(k=>[k,previous.fields?.[k]!==previous.aiProposal?.fields?.[k]?.value?previous.fields[k]:proposal.fields[k].value])),proposalVersion:proposal.version,aiProposal:snapshot(proposal),proposalHistory:[...(previous.proposalHistory||[]),{aiProposal:oldProposal,at:new Date().toISOString(),reason:'当前来源更新，保留已有人工属性与反馈'}],sourceReview:previous.sourceReview?{...previous.sourceReview,state:'draft'}:undefined};}
+
     let decision;
-    if(attributeActions.has(input.action))decision=saveAttribute(previous,proposal,figure,input);
+    if(input.action==='delivery-note'){const base=previous||{revision:0,proposalVersion:proposal.version,aiProposal:snapshot(proposal),fields:Object.fromEntries(names.map(name=>[name,proposal.fields[name].value])),changes:[],resolutions:{},state:'draft',userConfirmed:false,semanticReview:'not-required',history:[]};const at=new Date().toISOString();decision={...base,revision:input.revision+1,deliveryReview:{...previous?.deliveryReview,text:input.text,updatedAt:at,history:[...(previous?.deliveryReview?.history||[]),{action:'delivery-note',text:input.text,at,proposalVersion:proposal.version,sourceFingerprint:proposal.sourceFingerprint}]}};}
+    else if(['source-save','source-confirm'].includes(input.action))decision=saveSourceReview({previous,proposal,figure,pilot,input,recordsPath,created});
+    else if(attributeActions.has(input.action))decision=saveAttribute(previous,proposal,figure,input);
     else{
     const changes=names.filter(name=>input.fields[name]!==proposal.fields[name].value)
       .map(field=>({field,from:proposal.fields[field].value,to:input.fields[field]}));
-    if(input.action==='confirm')checkConfirm(proposal,input,changes);
+    if(input.action==='confirm'){if(previous?.sourceReview?.state==='needs-review')fail(422,'图源仍有未解决问题，请先完成图源核查',['sourceMatch']);checkConfirm(proposal,input,changes);}
     const userConfirmed=input.action==='confirm';
     const requiresReview=changes.length>0||names.some(name=>proposal.fields[name].certainty==='unknown');
     const state=input.action==='confirm'?(requiresReview?'needs-review':'confirmed'):
@@ -158,7 +165,10 @@ export function createDecisionStore({recordsPath,pilotPath}){
       fields:{...input.fields},changes,resolutions:{...input.resolutions},state,userConfirmed,semanticReview,
       history:[...(previous?.history||[]),{action:input.action,at,aiProposal:snapshot(proposal),changes:snapshot(changes),
         finalFields:{...input.fields},sourceFingerprint:proposal.sourceFingerprint}],
-      ...(previous?.attributes?{attributes:previous.attributes}:{})};
+      ...(previous?.attributes?{attributes:previous.attributes}:{}),
+      ...(previous?.sourceReview?{sourceReview:previous.sourceReview}:{}),
+      ...(previous?.deliveryReview?{deliveryReview:previous.deliveryReview}:{}),
+      ...(previous?.proposalHistory?{proposalHistory:previous.proposalHistory}:{})};
     }
     records.figures[id]={...prior,productionDecision:decision};
     tmp=recordsPath+'.'+randomUUID()+'.tmp';
@@ -167,7 +177,7 @@ export function createDecisionStore({recordsPath,pilotPath}){
       fail(409,'资料有并发更新，本次未保存，请重试');
     fs.renameSync(tmp,recordsPath);tmp=null;
     return decision;
-   }finally{
+   }catch(error){for(const file of created)if(fs.existsSync(file))fs.unlinkSync(file);throw error;}finally{
     if(tmp&&fs.existsSync(tmp))fs.unlinkSync(tmp);
     fs.closeSync(handle);fs.unlinkSync(lock);
    }
