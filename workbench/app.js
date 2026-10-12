@@ -9,21 +9,25 @@ function render(){
  if(focusFigure)opened.add('note-'+focusFigure);
  const filtered=articles.filter(a=>($('status').value==='全部'||a.state===$('status').value)&&($('editor').value==='全部编辑'||a.editor===$('editor').value)&&(!$('search').value||a.label.includes($('search').value))&&($('figure-type').value==='全部图型'||a.figures.some(f=>f.type===$('figure-type').value)));
  $('toolbar').hidden=view!=='production';$('author-status-label').hidden=view!=='production';
- $('board').hidden=view!=='production';$('workspace-view').hidden=view==='production';
+ $('board').hidden=view!=='production';$('workspace-view').hidden=view!=='capabilities'&&view!=='queue'&&view!=='runtime';
+ $('classification-view').hidden=view!=='classification';
+ $('decision-pilot-bar').hidden=view!=='production';
+ if(view==='classification'&&!$('classification-frame').src)$('classification-frame').src=$('classification-frame').dataset.src;
  const total=articles.length,completed=articles.filter(a=>a.state==='全部通过').length,percent=total?Math.round(completed/total*100):0;
  $('counts').innerHTML=`<span class="progress-ring" style="--progress:${percent}%" aria-hidden="true"></span><span>已通过 <strong>${completed}/${total}</strong> 篇 · ${percent}%</span>`;
  if(view==='production'){
   const states=['未完成','制作中','待终检','待修订','全部通过'];
   $('board').innerHTML=`<div class="state-legend">${states.map(s=>`<span><i class="state-dot" data-state="${s}"></i>${s}</span>`).join('')}</div>`+[...new Set(filtered.map(a=>a.editor))].map(editor=>`<section class="editor-group"><h2>${e(editor)}</h2><div class="author-grid">${filtered.filter(a=>a.editor===editor).map(a=>`<button class="author-tile" data-author="${e(a.id)}" data-state="${e(a.state)}" title="${e(a.label)} · ${e(a.state)}" aria-label="${e(a.label)}，${e(a.state)}">${e(a.label)}</button>`).join('')}</div></section>`).join('')+(filtered.length?'':'<p class="empty">当前筛选没有文章。</p>');
- }else renderWorkspace(opened);
+ }else if(view!=='classification')renderWorkspace(opened);
  const chosen=articles.filter(a=>a.id===selectedId).map(a=>({...a,figures:view==='production'&&$('figure-type').value!=='全部图型'?a.figures.filter(f=>f.type===$('figure-type').value):a.figures}));
  $('author-panel').hidden=!chosen.length;
  if(chosen.length)$('panel-title').textContent=chosen[0].label;
  $('list').innerHTML=chosen.map(a=>`<article class="card mb-3"><div class="card-body author-header"><div class="article-heading"><h2 class="card-title mb-0">${e(a.label)}</h2><span class="meta">${e(a.editor)}</span></div><div class="actions">${button(a.summary,'作者汇总PDF','open',true)}${button(a.word,'原始Word')}${button(a.ai,'核对AI')}${button(a.folder,'文件夹','locate')}</div></div>${a.notices?.length?`<div class="card-body" role="note"><strong>审校提醒</strong>${a.notices.map(n=>`<p class="text-secondary mb-0">${e(n.text)}</p>`).join('')}</div>`:''}${a.figures.some(f=>f.status==='待终检')&&a.figures.some(f=>['待制作','生产中','暂缓','异常'].includes(f.status))?'<p class="card-body text-secondary mb-0">部分图已交付，整篇完成后再终检。</p>':''}${a.figures.length&&a.figures.every(f=>['待终检','终检通过'].includes(f.status))&&a.figures.some(f=>f.status==='待终检')?'<p class="card-body text-secondary mb-0">整篇图件已齐备，可以终检。</p>':''}${a.figures.map(f=>{
  const d=draft(f),delivered=f.outputs.some(o=>o.file);
- return `<div class="figure-todo" data-figure="${e(f.id)}"><div class="todo-line"><label class="accept-label"><input type="checkbox" class="form-check-input" data-accept="${e(f.id)}" aria-label="${e(a.label)}图${e(f.number)}验收通过" ${d.accepted?'checked':''} ${delivered?'':'disabled'}><strong>${e(a.label)} 图${e(f.number)}</strong></label><span class="badge review-status" data-status="${e(f.status)}">${e(f.status)}</span></div><div class="feedback-box"><textarea class="form-control" data-text="${e(f.id)}" aria-label="${e(a.label)}图${e(f.number)}备注" placeholder="有问题在这里写，Ctrl+V 直接粘贴截图（可多张）">${e(d.text)}</textarea><div class="thumbnails" data-thumbs="${e(f.id)}"></div><div class="feedback-actions"><span role="status" data-save-status="${e(f.id)}">${e(d.error||(d.dirty?'尚未保存':''))}</span></div>${f.reason?`<p class="reason">${e(f.reason)}</p>`:''}</div></div>`;
+ return `<div class="figure-todo" data-figure="${e(f.id)}"><div class="todo-line"><label class="accept-label"><input type="checkbox" class="form-check-input" data-accept="${e(f.id)}" aria-label="${e(a.label)}图${e(f.number)}验收通过" ${d.accepted?'checked':''} ${delivered?'':'disabled'}><strong>${e(a.label)} 图${e(f.number)}</strong></label><span class="badge review-status" data-status="${e(f.status)}">${e(({'待制作':'未完成','生产中':'制作中','终检通过':'全部通过','异常':'待修订','暂缓':'未完成'})[f.status]||f.status)}</span></div><div data-decision-slot="${e(f.id)}"></div><div class="feedback-box"><textarea class="form-control" data-text="${e(f.id)}" aria-label="${e(a.label)}图${e(f.number)}备注" placeholder="有问题在这里写，Ctrl+V 直接粘贴截图（可多张）">${e(d.text)}</textarea><div class="thumbnails" data-thumbs="${e(f.id)}"></div><div class="feedback-actions"><span role="status" data-save-status="${e(f.id)}">${e(d.error||(d.dirty?'尚未保存':''))}</span></div>${f.reason?`<p class="reason">${e(f.reason)}</p>`:''}</div></div>`;
  }).join('')}</article>`).join('')||'<p class="empty">此分类暂无文章。</p>';
  for(const a of chosen)for(const f of a.figures)thumbs(f.id);
+ window.DecisionReview?.mount();
  if(focusFigure){document.querySelector(`[data-figure="${focusFigure}"]`)?.scrollIntoView({block:'nearest'});focusFigure=null;}
 }
 const evidence=d=>d.text?`<details class="evidence" data-key="evidence-${e(d.file?.token||d.name||'document')}"><summary>${e(d.name||'阅读接手说明')}</summary><pre>${e(d.text)}</pre></details>`:'<p class="text-secondary">记录文件尚不可用</p>';
@@ -56,7 +60,7 @@ document.addEventListener('input',event=>{const id=event.target.dataset.text;if(
 document.addEventListener('change',event=>{const id=event.target.dataset.accept;if(id){drafts.get(id).accepted=event.target.checked;drafts.get(id).dirty=true;save(id);}const upload=event.target.dataset.upload;if(upload){addImages(upload,[...event.target.files]);event.target.value='';}});
 document.addEventListener('paste',event=>{const row=event.target.closest('[data-figure]');if(!row)return;const files=[...event.clipboardData.items].filter(i=>i.kind==='file').map(i=>i.getAsFile()).filter(Boolean);if(files.length){event.preventDefault();addImages(row.dataset.figure,files);}});
 document.addEventListener('click',async event=>{
- const tab=event.target.closest('[data-view]');if(tab){view=tab.dataset.view;document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b===tab);if(b===tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});selectedId=null;render();return;}
+ const tab=event.target.closest('[data-view]');if(tab){view=tab.dataset.view;history.replaceState(null,'','#'+view);document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b===tab);if(b===tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});selectedId=null;render();return;}
  const author=event.target.closest('[data-author]');if(author){returnFocus={articleId:author.dataset.author,figureId:author.dataset.case};selectedId=author.dataset.author;focusFigure=author.dataset.case||null;render();$('close-author').focus();return;}
  const remove=event.target.closest('[data-remove]');if(remove){if(drafts.get(remove.dataset.remove).saving){$('notice').textContent='正在保存，请完成后再删除截图';return;}drafts.get(remove.dataset.remove).images.splice(Number(remove.dataset.index),1);dirty(remove.dataset.remove);thumbs(remove.dataset.remove);return;}
  const preview=event.target.closest('[data-preview]');if(preview){$('preview-image').src=drafts.get(preview.dataset.preview).images[Number(preview.dataset.index)].src;$('preview-dialog').showModal();return;}
@@ -69,6 +73,7 @@ function shouldSaveFeedback(event){return event.key==='Enter'&&!event.shiftKey&&
 document.addEventListener('keydown',event=>{const id=event.target.dataset.text;if(id&&shouldSaveFeedback(event)){event.preventDefault();if(drafts.get(id)?.dirty)save(id);return;}if(event.key==='Escape'&&!$('preview-dialog').open&&!$('author-panel').hidden)$('close-author').click();});
 document.addEventListener('change',event=>{if(event.target.id==='queue-state')renderWorkspace();});
 $('close-preview').addEventListener('click',()=>$('preview-dialog').close());
-refresh();setInterval(refresh,5000);
+const initialView=document.querySelector('[data-view="'+location.hash.slice(1)+'"]');if(initialView)initialView.click();
+ refresh();setInterval(refresh,5000);
 
 

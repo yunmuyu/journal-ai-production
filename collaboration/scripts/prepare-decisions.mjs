@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {refreshIndex,retrieveCases,applyCaseEvidence,writeIndex} from '../../knowledge/decision-retrieval.mjs';
+const args=Object.fromEntries(process.argv.slice(2).reduce((a,x,i,v)=>{if(x.startsWith('--'))a.push([x.slice(2),v[i+1]]);return a;},[]));
+for(const key of ['record-root','evidence','input','index','output'])if(!args[key])throw Error('缺少 --'+key);
+const read=file=>JSON.parse(fs.readFileSync(file,'utf8').replace(/^\uFEFF/,''));
+const inventory=read(path.join(args['record-root'],'inventory.json')),production=read(path.join(args['record-root'],'production-results.json'));
+const index=refreshIndex({inventory,production,evidence:read(args.evidence)});
+fs.mkdirSync(path.dirname(args.index),{recursive:true});writeIndex(args.index,index);
+const input=read(args.input);
+const output={...input,figures:input.figures.map(figure=>applyCaseEvidence(figure,retrieveCases(index,figure.retrievalQuery||{}))),knowledgeSourceFingerprint:index.sourceFingerprint};
+fs.writeFileSync(args.output,JSON.stringify(output,null,2)+'\n',{flag:'wx'});
+console.log(JSON.stringify({acceptedCases:index.cases.length,figures:output.figures.map(f=>({id:f.id,matches:f.aiProposal.caseRetrieval.matches.map(m=>m.id),reason:f.aiProposal.caseRetrieval.reason}))}));

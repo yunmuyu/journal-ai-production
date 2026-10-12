@@ -23,3 +23,5 @@ $('refresh').onclick=load;$('close').onclick=()=>$('modal').close();for(const id
 $('export').onclick=()=>{if(!data)return;const blob=new Blob([JSON.stringify({...data,cards:data.cards.map(current),unsavedDraft:edits.size>0},null,2)],{type:'application/json'});const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download='图件分类-工作台副本.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 window.addEventListener('beforeunload',e=>{if(edits.size){e.preventDefault();e.returnValue=''}});load();
 
+
+if(new URLSearchParams(location.search).get('embedded')==='1'){document.querySelector('.work-nav')?.remove();document.querySelector('.page-header>div')?.remove();}

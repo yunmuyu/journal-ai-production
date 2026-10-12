@@ -43,7 +43,8 @@ export function loadModel(){
  const rows=[];
  for(const f of figures.values()){
   const a=inventory.articles.find(a=>a.id===f.articleId);if(!a)continue;
-  const p=production.figures[f.id],defer=deferred.get(f.id);
+  const stored=production.figures[f.id];
+  const p=stored&&Object.keys(stored).some(key=>key!=='productionDecision')?stored:undefined,defer=deferred.get(f.id);
   const child=p?.subfigures?.length?p.subfigures:[p].filter(Boolean);
   const outputs=child.map(c=>({number:c.number||path.basename(c.output||'').match(/图(\d+(?:\.\d+)*)/)?.[1]||f.number,file:link(c.output)}));
   const ai=link(production.articles[f.articleId]?.ai)||link(p?.ai)||link(templates[f.articleId]?.path);
