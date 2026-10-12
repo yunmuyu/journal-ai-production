@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {createDecisionStore} from './decision-store.mjs';
+import {ATTRIBUTE_OPTIONS,normalizeAttribute} from './decision-attributes.mjs';
 
 const names=['sourceMatch','method','columns','split','contentTypes','preflight'];
 function fixture(t,unknown=[]){
@@ -137,4 +138,98 @@ test('新增图件仅写入制作决策',t=>{
  fs.writeFileSync(f.pilotPath,JSON.stringify(pilot));
  f.store.save('f2',f.input);
  assert.deepEqual(Object.keys(records(f.recordsPath).figures.f2),['productionDecision']);
+});
+
+test('属性归一化只接受能确定的枚举，含歧义返回待判断',()=>{
+ assert.deepEqual(ATTRIBUTE_OPTIONS.columns,['小单栏','单栏','双栏','待判断']);
+ assert.equal(normalizeAttribute('columns','图件按小单栏排版'),'小单栏');
+ assert.equal(normalizeAttribute('columns','单栏或双栏均可'),'待判断');
+ assert.equal(normalizeAttribute('method','建议矢量换字'),'矢量换字');
+ assert.equal(normalizeAttribute('split','不拆分，整体交付'),'整体1张');
+ assert.equal(normalizeAttribute('split','拆分3张及以上'),'拆3张及以上');
+ assert.equal(normalizeAttribute('split','80/160 mm，输出数量待定'),'待判断');
+ assert.equal(normalizeAttribute('split','拆分3张，规格80/160 mm'),'拆3张及以上');
+});
+
+test('三个属性独立保存且共享revision，六项字段与生产状态保持',t=>{
+ const f=fixture(t),before=records(f.recordsPath);
+ const first=f.store.save('f1',{revision:0,proposalVersion:'v1',action:'attribute-draft',attribute:'columns',value:'待判断'});
+ assert.equal(first.attributes.columns.state,'draft');
+ assert.equal(first.attributes.columns.originalAIValue,'待判断');
+ const second=f.store.save('f1',{revision:1,proposalVersion:'v1',action:'attribute-confirm',attribute:'method',value:'矢量换字'});
+ assert.equal(second.attributes.method.state,'confirmed');
+ assert.deepEqual(second.attributes.columns,first.attributes.columns);
+ assert.deepEqual(second.fields,f.input.fields);
+ assert.deepEqual({...records(f.recordsPath).figures.f1,productionDecision:undefined},{...before.figures.f1,productionDecision:undefined});
+ assert.throws(()=>f.store.save('f1',{revision:1,proposalVersion:'v1',action:'attribute-confirm',attribute:'split',value:'整体1张'}),{status:409});
+});
+
+test('只拦截当前属性未决，其他AI未知不影响明确分类确认',t=>{
+ const f=fixture(t,['columns','method','split']);
+ const base={revision:0,proposalVersion:'v1',action:'attribute-confirm',attribute:'method'};
+ assert.throws(()=>f.store.save('f1',{...base,value:'待判断'}),{status:422,fields:['method']});
+ assert.equal(f.store.save('f1',{...base,value:'PS直出'}).attributes.method.state,'confirmed');
+ assert.equal(records(f.recordsPath).figures.f1.productionDecision.aiProposal.fields.columns.certainty,'unknown');
+ assert.throws(()=>f.store.save('f1',{...base,revision:1,value:'随便写'}),{status:400});
+});
+
+test('加工方式变化无明确容量冲突时不推翻栏宽，只记录待Agent检查',t=>{
+ const f=fixture(t);
+ const columns=f.store.save('f1',{revision:0,proposalVersion:'v1',action:'attribute-confirm',attribute:'columns',value:'双栏'});
+ const next=f.store.save('f1',{revision:1,proposalVersion:'v1',action:'attribute-confirm',attribute:'method',value:'完整重绘'});
+ assert.deepEqual(next.attributes.columns,columns.attributes.columns);
+ assert.equal(next.attributes.method.capacityCheck,'pending-agent');
+});
+
+test('明确capacityEvidence冲突时只将已保存栏宽置为需复核',t=>{
+ const f=fixture(t),pilot=records(f.pilotPath);
+ pilot.figures[0].capacityEvidence={method:'完整重绘',allowedColumns:['小单栏','单栏'],basis:'已核对的版面容量',
+  calculation:{columns:'双栏',requiredWidthMm:180,availableWidthMm:160}};
+ fs.writeFileSync(f.pilotPath,JSON.stringify(pilot));
+ f.store.save('f1',{revision:0,proposalVersion:'v1',action:'attribute-confirm',attribute:'columns',value:'双栏'});
+ const result=f.store.save('f1',{revision:1,proposalVersion:'v1',action:'attribute-confirm',attribute:'method',value:'完整重绘'});
+ assert.equal(result.attributes.columns.value,'双栏');
+ assert.equal(result.attributes.columns.state,'needs-review');
+ assert.equal(result.attributes.method.capacityCheck,'conflict');
+ assert.equal(result.attributes.columns.history.at(-1).action,'capacity-conflict');
+});
+
+test('容量证据缺少计算或用户已明确指定栏宽时仅待Agent检查',t=>{
+ const f=fixture(t),pilot=records(f.pilotPath);
+ pilot.figures[0].capacityEvidence={method:'半重绘',allowedColumns:['单栏'],basis:'粗略判断'};
+ fs.writeFileSync(f.pilotPath,JSON.stringify(pilot));
+ f.store.save('f1',{revision:0,proposalVersion:'v1',action:'attribute-confirm',attribute:'columns',value:'双栏'});
+ const noCalculation=f.store.save('f1',{revision:1,proposalVersion:'v1',action:'attribute-confirm',attribute:'method',value:'半重绘'});
+ assert.equal(noCalculation.attributes.columns.state,'confirmed');
+ assert.equal(noCalculation.attributes.method.capacityCheck,'pending-agent');
+ pilot.figures[0].capacityEvidence={...pilot.figures[0].capacityEvidence,method:'完整重绘',userSpecifiedColumns:true,
+  calculation:{columns:'双栏',requiredWidthMm:180,availableWidthMm:160}};
+ fs.writeFileSync(f.pilotPath,JSON.stringify(pilot));
+ const explicit=f.store.save('f1',{revision:2,proposalVersion:'v1',action:'attribute-confirm',attribute:'method',value:'完整重绘'});
+ assert.equal(explicit.attributes.columns.state,'confirmed');
+ assert.equal(explicit.attributes.method.capacityCheck,'pending-agent');
+});
+
+test('草稿撤销可回待判断，按operationId保留操作链',t=>{
+ const f=fixture(t),base={proposalVersion:'v1',action:'attribute-draft',attribute:'split'};
+ const first=f.store.save('f1',{...base,revision:0,value:'拆2张',operationId:'drag-1'});
+ const undone=f.store.save('f1',{...base,revision:1,value:'待判断',operationId:'undo:drag-1'});
+ const history=undone.attributes.split.history;
+ assert.equal(history[0].before,'整体1张');
+ assert.equal(history[0].value,'拆2张');
+ assert.equal(history[0].operationId,'drag-1');
+ assert.equal(history[1].op,'undo:drag-1');
+ assert.equal(history[1].before,'拆2张');
+ assert.equal(undone.attributes.split.state,'draft');
+ assert.deepEqual(first.fields,undone.fields);
+ assert.throws(()=>f.store.save('f1',{...base,action:'attribute-confirm',revision:2,value:'待判断'}),{status:422});
+ assert.throws(()=>f.store.save('f1',{...base,revision:2,value:'整体1张',operationId:'x'.repeat(101)}),{status:400});
+});
+
+test('旧六项操作继续保留已审核属性',t=>{
+ const f=fixture(t);
+ const first=f.store.save('f1',{revision:0,proposalVersion:'v1',action:'attribute-confirm',attribute:'split',value:'整体1张'});
+ const next=f.store.save('f1',{...f.input,revision:1});
+ assert.deepEqual(next.attributes,first.attributes);
+ assert.equal(next.state,'confirmed');
 });

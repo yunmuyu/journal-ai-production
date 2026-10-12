@@ -1,10 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
+import {ATTRIBUTE_OPTIONS,normalizeAttribute} from './decision-attributes.mjs';
 
 const names=['sourceMatch','method','columns','split','contentTypes','preflight'];
 const labels={sourceMatch:'图源匹配',method:'制作方法',columns:'栏宽',split:'拆分规格',contentTypes:'内容类型',preflight:'制作前检查'};
 const actions=new Set(['draft','confirm','recheck','defer']);
+const attributeActions=new Set(['attribute-draft','attribute-confirm']);
 const fail=(status,message,fields)=>{throw Object.assign(Error(message),{status,...(fields?{fields}:{})});};
 const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 const keysFit=(value,allowed)=>object(value)&&Object.keys(value).every(key=>allowed.includes(key));
@@ -19,13 +21,60 @@ function loadPilot(pilotPath){
 }
 
 function parseInput(input){
- if(!keysFit(input,['revision','proposalVersion','action','fields','resolutions'])||
-   !Number.isSafeInteger(input.revision)||input.revision<0||
-   !textOk(input.proposalVersion,200)||!input.proposalVersion||!actions.has(input.action)||
+ if(!object(input)||!Number.isSafeInteger(input.revision)||input.revision<0||
+   !textOk(input.proposalVersion,200)||!input.proposalVersion)
+  fail(400,'制作决策格式不正确');
+ if(attributeActions.has(input.action)){
+  if(!keysFit(input,['revision','proposalVersion','action','attribute','value','operationId'])||
+    !Object.hasOwn(ATTRIBUTE_OPTIONS,input.attribute)||
+    !ATTRIBUTE_OPTIONS[input.attribute].includes(input.value)||
+    (input.operationId!==undefined&&(!textOk(input.operationId,100)||!input.operationId)))
+   fail(400,'属性决策格式不正确');
+  return input;
+ }
+ if(!keysFit(input,['revision','proposalVersion','action','fields','resolutions'])||!actions.has(input.action)||
    !keysFit(input.fields,names)||names.some(name=>!textOk(input.fields[name]))||
    !keysFit(input.resolutions||{},names)||Object.values(input.resolutions||{}).some(value=>!textOk(value)))
   fail(400,'制作决策格式不正确');
  return {...input,resolutions:input.resolutions||{}};
+}
+
+function saveAttribute(previous,proposal,figure,input){
+ if(previous&&(previous.proposalVersion!==proposal.version||
+   previous.aiProposal?.sourceFingerprint!==proposal.sourceFingerprint))
+  fail(409,'原审核对应旧建议，请刷新后核对');
+ const key=input.attribute,originalAIValue=normalizeAttribute(key,proposal.fields[key].value);
+ if(input.action==='attribute-confirm'&&(input.value==='待判断'||
+   (proposal.fields[key].certainty==='unknown'&&input.value===originalAIValue)))
+  fail(422,`请先明确${labels[key]}`, [key]);
+ const base=previous||{revision:0,proposalVersion:proposal.version,aiProposal:snapshot(proposal),
+  fields:Object.fromEntries(names.map(name=>[name,proposal.fields[name].value])),changes:[],resolutions:{},
+  state:'draft',userConfirmed:false,semanticReview:'not-required',history:[]};
+ const at=new Date().toISOString(),before=previous?.attributes?.[key]?.value??originalAIValue;
+ const entry={action:input.action,op:input.operationId?.startsWith('undo:')?input.operationId:input.action,
+  operationId:input.operationId??null,before,value:input.value,originalAIValue,at,
+  sourceFingerprint:proposal.sourceFingerprint};
+ const current=previous?.attributes?.[key];
+ const updated={...current,value:input.value,originalAIValue,
+  state:input.action==='attribute-confirm'?'confirmed':'draft',history:[...(current?.history||[]),entry]};
+ const attributes={...previous?.attributes,[key]:updated};
+ if(key==='method'){
+  updated.capacityCheck=input.value===before?'not-required':'pending-agent';
+  const column=attributes.columns,evidence=figure.capacityEvidence,calc=evidence?.calculation;
+  if(input.value!==before&&column&&evidence?.method===input.value&&
+    typeof evidence.basis==='string'&&evidence.basis.trim()&&
+    Array.isArray(evidence.allowedColumns)&&!evidence.allowedColumns.includes(column.value)&&
+    !evidence.userSpecifiedColumns&&calc?.columns===column.value&&
+    Number.isFinite(calc.requiredWidthMm)&&Number.isFinite(calc.availableWidthMm)&&
+    calc.requiredWidthMm>calc.availableWidthMm){
+   updated.capacityCheck='conflict';
+   attributes.columns={...column,state:'needs-review',history:[...column.history,
+    {action:'capacity-conflict',op:'capacity-conflict',operationId:input.operationId??null,
+      before:column.value,value:column.value,originalAIValue:column.originalAIValue,at,
+      sourceFingerprint:proposal.sourceFingerprint}]};
+  }
+ }
+ return {...base,revision:input.revision+1,attributes};
 }
 
 function checkConfirm(proposal,input,changes){
@@ -92,6 +141,9 @@ export function createDecisionStore({recordsPath,pilotPath}){
     const prior=records.figures[id]||{};
     const previous=prior.productionDecision;
     if((previous?.revision||0)!==input.revision)fail(409,'制作决策已更新，请刷新后核对');
+    let decision;
+    if(attributeActions.has(input.action))decision=saveAttribute(previous,proposal,figure,input);
+    else{
     const changes=names.filter(name=>input.fields[name]!==proposal.fields[name].value)
       .map(field=>({field,from:proposal.fields[field].value,to:input.fields[field]}));
     if(input.action==='confirm')checkConfirm(proposal,input,changes);
@@ -102,10 +154,12 @@ export function createDecisionStore({recordsPath,pilotPath}){
     const semanticReview=input.action==='recheck'||requiresReview?'pending':'not-required';
     const at=new Date().toISOString();
     const aiProposal=snapshot(proposal);
-    const decision={revision:input.revision+1,proposalVersion:proposal.version,aiProposal,
+    decision={revision:input.revision+1,proposalVersion:proposal.version,aiProposal,
       fields:{...input.fields},changes,resolutions:{...input.resolutions},state,userConfirmed,semanticReview,
       history:[...(previous?.history||[]),{action:input.action,at,aiProposal:snapshot(proposal),changes:snapshot(changes),
-        finalFields:{...input.fields},sourceFingerprint:proposal.sourceFingerprint}]};
+        finalFields:{...input.fields},sourceFingerprint:proposal.sourceFingerprint}],
+      ...(previous?.attributes?{attributes:previous.attributes}:{})};
+    }
     records.figures[id]={...prior,productionDecision:decision};
     tmp=recordsPath+'.'+randomUUID()+'.tmp';
     fs.writeFileSync(tmp,JSON.stringify(records,null,2),'utf8');
