@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import{readFileSync,readdirSync}from'node:fs';import vm from'node:vm';
+const root=new URL('../adobe/',import.meta.url);for(const name of readdirSync(root).filter(n=>n.endsWith('.jsx'))){test('Adobe script parses before COM execution: '+name,()=>{const code=readFileSync(new URL(name,root),'utf8').split(String.fromCharCode(10)).filter(line=>!line.startsWith('#target')).join(String.fromCharCode(10));assert.doesNotThrow(()=>new vm.Script(code,{filename:name}));});}

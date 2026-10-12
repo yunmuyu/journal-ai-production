@@ -1,0 +1,33 @@
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.*
+jobs/
+runs/
+
+# Production assets and transient tests stay in versioned shared storage
+*.ai
+*.pdf
+*.doc
+*.docx
+*.png
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+*.zip
+*.rar
+*.7z
+tests/preflight-fixture-*/
+workbench/classification-assets/
+workbench/*runtime.log
+workbench/local-config.json
+
+# Local author regression evidence
+tests/fixtures/
+.local/
+
+# Original author plans remain local; do not publish manuscripts
+examples/
+workbench/project-analysis-readable.md

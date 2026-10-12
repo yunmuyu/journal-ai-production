@@ -1,0 +1,55 @@
+{
+  "purpose": "真实作者回归样例保留在本地资料面，不上传仓库；运行涉及这些文件的测试前按哈希取得本地副本。",
+  "files": [
+    {
+      "path": "tests/fixtures/path-containment/corrected-figure5-snapshot.json",
+      "sha256": "57a3260ece82d75253c0060e938c80ca6200a4ed4ecd8393be641784bc419d6f",
+      "bytes": 45024
+    },
+    {
+      "path": "tests/fixtures/path-containment/corrected-figure6-snapshot.json",
+      "sha256": "1fec3c1369934241147ca40c1866b8e86636b274f2f5daff4c5efd8787ca7a7d",
+      "bytes": 20735
+    },
+    {
+      "path": "tests/fixtures/path-containment/rejected-figure5-snapshot.json",
+      "sha256": "4bdb396400a1f1717262b0cb6e856efd6294ffc09d5122487d514cd6d450ba18",
+      "bytes": 45076
+    },
+    {
+      "path": "tests/fixtures/path-containment/rejected-figure6-snapshot.json",
+      "sha256": "b8daafd87429246e9ac56b8d561284597bbbd7f4d0907b38c8ab44a145d7afa7",
+      "bytes": 20780
+    },
+    {
+      "path": "tests/fixtures/text-first-boxes.json",
+      "sha256": "bf35548eff6658cefd3cb8bddac32d208be40c8f3a52e31e7df73546ef1da5ec",
+      "bytes": 3774
+    },
+    {
+      "path": "examples/S02.plan.json",
+      "sha256": "8b12dcfc8b98f80f3e4dc031ba2d22bb2c70cacdd528e9982f6faede692a311c",
+      "bytes": 3496
+    },
+    {
+      "path": "examples/S03.plan.json",
+      "sha256": "920baf5e7344b36b7f96c1e69e02bb59464cc033562ccd5017b4027b88be9450",
+      "bytes": 1988
+    },
+    {
+      "path": "examples/S07.plan.json",
+      "sha256": "a99055f0cfc918fd8291baed136ae55faf167d68d4d54b5ab02c895f74926634",
+      "bytes": 442
+    },
+    {
+      "path": "examples/S08.plan.json",
+      "sha256": "41fa08593755780847b0a8dc09002f08826a2a1c4bae77b0f5756c2b691b7b24",
+      "bytes": 5194
+    },
+    {
+      "path": "examples/SVG.plan.json",
+      "sha256": "90145b4bd4d9724b402b9df25aba04216b9f6a7d63a4046ed3a64c538e3045d4",
+      "bytes": 515
+    }
+  ]
+}

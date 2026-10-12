@@ -1,0 +1,32 @@
+import test from'node:test';import assert from'node:assert/strict';import vm from'node:vm';import{readFileSync}from'node:fs';
+const calls={texts:[],rectangles:[],lines:[]};
+function textFrame(){const frame={bounds:[10,8,30,0],textRange:{characterAttributes:{},paragraphAttributes:{}},get visibleBounds(){return this.bounds.slice();},duplicate(){const bounds=this.visibleBounds;return{createOutline(){return{visibleBounds:bounds,remove(){}};}};},translate(x,y){this.bounds=[this.bounds[0]+x,this.bounds[1]+y,this.bounds[2]+x,this.bounds[3]+y];this.inkLeft=this.bounds[0];this.inkRight=this.bounds[2];},rotate(){}};Object.defineProperty(frame,'contents',{get(){return this._contents;},set(value){this._contents=value;calls.texts.push(this);}});return frame;}
+const doc={textFrames:{add:textFrame},pathItems:{add(){return{setEntirePath(points){calls.lines.push(points);}};},rectangle(top,left,width,height){const shape={top,left,width,height};calls.rectangles.push(shape);return shape;}},groupItems:{add(){return{pathItems:{rectangle(){return{};}},};}}};
+const context={JFW:{editorialFont(){return{family:'复合宋体',name:'Composite Song'};}},RGBColor:function(){},Justification:{CENTER:0},ElementPlacement:{PLACEATBEGINNING:0},app:{redraw(){}}};
+context.RGBColor.prototype={};vm.createContext(context);vm.runInContext(readFileSync(new URL('../adobe/editorial-bars.jsx',import.meta.url),'utf8'),context);
+const chart={orientation:'horizontal',categories:['股骨长径','胎儿腹围','双顶径','胎儿腹围增长率','双顶径增长率'],series:[{name:'SHAP',values:[.073162,.047877,.044296,.035911,.027529]}],max:.08,step:.01,valueLabels:true,valueDecimals:6,tickDecimals:2,xLabel:'平均|SHAP|值',title:'SHAP特征重要性排名（前5）'};
+test('horizontal editorial bars preserve ranking, precision, and measured composite typography',()=>{
+ context.JFW.drawEditorialBars(doc,{chart,widthMm:68.1,fontSize:8});
+ const labels=calls.texts.map(item=>item.contents);
+ assert.deepEqual(labels.filter(value=>chart.categories.includes(value)),chart.categories);
+ assert.deepEqual(labels.filter(value=>/^0\.\d{2}$/.test(value)),['0.00','0.01','0.02','0.03','0.04','0.05','0.06','0.07','0.08']);
+ const values=['0.073 162','0.047 877','0.044 296','0.035 911','0.027 529'];
+ assert.deepEqual(labels.filter(value=>/^0\.\d{3} \d{3}$/.test(value)),values);
+ assert.equal(labels.includes(chart.title),true);
+ assert.ok(calls.texts.every(item=>item.textRange.characterAttributes.size===8&&item.textRange.characterAttributes.textFont.family==='复合宋体'));
+ assert.equal(calls.rectangles.length,chart.categories.length);
+ assert.ok(calls.rectangles.every(rect=>rect.width>0));
+ const categoryFrames=calls.texts.filter(item=>chart.categories.includes(item.contents));
+ categoryFrames.forEach((item,index)=>assert.ok(item.inkRight<calls.rectangles[index].left, 'right-aligned category ink must end before its bar starts'));
+ values.forEach((value,index)=>assert.equal(calls.texts.find(item=>item.contents===value).inkLeft,calls.rectangles[index].left+calls.rectangles[index].width+3));
+ const frameWidth=68.1*72/25.4;
+ assert.ok(calls.texts.every(item=>item.inkLeft>=0&&item.inkRight<=frameWidth), 'title and tick labels fit within the 68.1 mm frame');
+ values.forEach(value=>assert.ok(calls.texts.find(item=>item.contents===value).inkRight<=frameWidth,'six-digit value label stays within the frame'));
+ const beforeCount=calls.texts.length,edgeChart={orientation:'horizontal',categories:['positive','negative'],series:[{name:'range',values:[1234.56789,-1234.56789]}],max:2000,step:1000,valueLabels:true,valueDecimals:5,tickDecimals:2};
+ context.JFW.drawEditorialBars(doc,{chart:edgeChart,widthMm:80,fontSize:8});
+ const edgeLabels=calls.texts.slice(beforeCount).map(item=>item.contents);
+ assert.ok(edgeLabels.includes('1 234.567 89'));
+ assert.ok(edgeLabels.includes('-1 234.567 89'));
+ assert.ok(edgeLabels.includes('1 000.00')&&edgeLabels.includes('2 000.00'));
+ assert.equal(edgeLabels.includes('1000.00'),false);
+});

@@ -1,0 +1,16 @@
+{
+  "codeRoot": "../repo",
+  "productionRoot": "../work/october-production",
+  "workRoot": "../work",
+  "releaseRoot": "../releases",
+  "handoffRoot": "../handoff",
+  "legacyWorkspaceRoot": "../../legacy-workspace",
+  "runtimePath": "../releases/2026.10.12-r1/runtime",
+  "workspaceRoot": "../../legacy-workspace",
+  "recordRoot": "../../authoritative-records",
+  "pathMapFile": "../private/jfw-path-map.json",
+  "python": "../tools/python.exe",
+  "flowchartRoot": "../tools/illustrator-flowchart",
+  "skillsRoot": "../skills",
+  "reviewPort": 18741
+}
