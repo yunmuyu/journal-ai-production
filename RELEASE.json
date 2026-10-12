@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.12-r2",
-  "createdAt": "2026-10-12T01:13:39.752Z",
+  "id": "2026.10.12-r5-pdf-grid",
+  "createdAt": "2026-10-12T13:54:11.497Z",
   "status": "production-pinned",
   "constraints": {
     "fontSizePt": {
@@ -12,13 +12,18 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "staticTests": 82,
-    "nativeCase": "李琪琪图1的6.5pt隔离副本",
-    "nativeSourceHash": "456be4bdead844aafb27598b7b0ce990f8bcdbd2d1f2a21cea5df0e8b5137a02",
-    "nativePdfHash": "92864f0e4c8d4cf6dd9b4a1a70f0966384987f29723a7fccecbef6683f64d698",
-    "nativeAiHash": "51ee702115d7150ef60bdc3bd2d131025bbd7a56913182fcd45e6d9b9ea12ff6",
-    "proof": "接收包 native-smoke/result-summary.json 与 tool-deployment-receipt.json",
-    "limits": "仅此本机矢量换字路线实测；其他已部署家庭能力依原实测证据接收，不宣称全路线本机重跑"
+    "nativeCase": "同一矢量单栏图PDF与原生PNG的3像素边缘差",
+    "nativeSourceHash": "1d5a8a97b4978f3e6debc55fdb21e9abb6266b212cf949fd07ee21e584a84db6",
+    "nativePdfHash": "483174cda3b1667a183acb2accc33ebd3628a0c047c2bdaedbb9cb42e8e7df13",
+    "nativeAiHash": "2f8ac298ad8756bd1e3cbc50b01b9c86071b4b48b5076332fb94ff0f3ab27b0e",
+    "nativeInkRecall": 1,
+    "actualPdfPixelsUnchanged": true,
+    "missingInkNegativeControls": true,
+    "recallThresholdUnchanged": 0.94,
+    "colorAudit": true,
+    "diagramAudit": true,
+    "previousRgbAndDiamondFixesPreserved": true,
+    "affectedTests": true
   },
   "files": [
     {
@@ -58,8 +63,8 @@
     },
     {
       "path": "adobe/editorial-generator.jsx",
-      "sha256": "62b0fe2bad3c63ff9b9b9a6956669d42054194a4f7e91addb473aa1611fd4f66",
-      "bytes": 4330
+      "sha256": "e9be890895b23a997fb1511f0e10cf4e41ebf55bde264704f8d342e2ca3a6787",
+      "bytes": 4344
     },
     {
       "path": "adobe/editorial-parallel.jsx",
@@ -88,8 +93,8 @@
     },
     {
       "path": "adobe/illustrator.jsx",
-      "sha256": "255666984748e58c7fb359c4fa68cbfd1fad470ba8c5b57180704f3953b4d1b1",
-      "bytes": 18210
+      "sha256": "325013e156c0d09c8e8b920de23c3b85fad4a67c6fbba4f2064c6fcc45e78718",
+      "bytes": 18420
     },
     {
       "path": "adobe/invoke.js",
@@ -268,8 +273,8 @@
     },
     {
       "path": "scripts/audit_pdf.py",
-      "sha256": "378f5de606c529e08b7a6faa9ffeb33a6345ce52aabab95946fd79c9b23419d3",
-      "bytes": 2111
+      "sha256": "8418c31c9c51416e542e30645a093912f73aa5c42f63bcbcd6a788d0fb9b2d95",
+      "bytes": 2113
     },
     {
       "path": "scripts/convert-office.js",

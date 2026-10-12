@@ -1,0 +1,15 @@
+{
+  "source": "期刊图件提取器_v1.5.8_ChatGPT校对包回传_完整可用版.zip / JournalFigureExtractor_v1.5.8/app.py",
+  "sourceDecodedUtf8Sha256": "3e1114c26afa66c1318e1a3b809b35b1cd3439c492242a1b9b93b2cc2947e446",
+  "functions": [
+    "_caption_parts_multi",
+    "_caption_segments_multi",
+    "_is_subcaption_line",
+    "_paragraph_media_targets",
+    "_paragraph_text_xml",
+    "clean_line",
+    "find_docx_caption_media",
+    "normalize_digits"
+  ],
+  "scope": "Pure local caption/media association only. No Flask, network provider or embedded document instructions executed."
+}

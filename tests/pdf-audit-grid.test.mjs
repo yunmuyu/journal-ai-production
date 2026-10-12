@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {pythonRuntime} from '../lib/ingest.mjs';
 const packageRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const python='C:/Users/xdxxk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe';
+const python=pythonRuntime();
 test('one-pixel export rounding preserves dense source pixels without stretching',()=>{
  const output=execFileSync(python,['-c',[
   'from PIL import Image',

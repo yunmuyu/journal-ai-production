@@ -1,0 +1,343 @@
+{
+  "schemaVersion": 1,
+  "id": "2026.10.12-r5-pdf-grid",
+  "createdAt": "2026-10-12T13:54:11.497Z",
+  "status": "production-pinned",
+  "constraints": {
+    "fontSizePt": {
+      "min": 6,
+      "max": 8,
+      "fractional": true
+    },
+    "keepIllustratorDocuments": true
+  },
+  "validation": {
+    "nativeCase": "同一矢量单栏图PDF与原生PNG的3像素边缘差",
+    "nativeSourceHash": "1d5a8a97b4978f3e6debc55fdb21e9abb6266b212cf949fd07ee21e584a84db6",
+    "nativePdfHash": "483174cda3b1667a183acb2accc33ebd3628a0c047c2bdaedbb9cb42e8e7df13",
+    "nativeAiHash": "2f8ac298ad8756bd1e3cbc50b01b9c86071b4b48b5076332fb94ff0f3ab27b0e",
+    "nativeInkRecall": 1,
+    "actualPdfPixelsUnchanged": true,
+    "missingInkNegativeControls": true,
+    "recallThresholdUnchanged": 0.94,
+    "colorAudit": true,
+    "diagramAudit": true,
+    "previousRgbAndDiamondFixesPreserved": true,
+    "affectedTests": true
+  },
+  "files": [
+    {
+      "path": "adobe/common.jsx",
+      "sha256": "b5e334bc58cf222601a4920ef29e5bf06524378b8c5aaafa74763c19754449a9",
+      "bytes": 1443
+    },
+    {
+      "path": "adobe/desktop-notice.ps1",
+      "sha256": "c05371b39c3ae958ad40928882c283538d471ac80080de33c72d32083942472b",
+      "bytes": 2069
+    },
+    {
+      "path": "adobe/editorial-aggregate.jsx",
+      "sha256": "0e2084256657aefb1188fe2a606acb6d77beaa09cd920390417da816fbca3680",
+      "bytes": 5635
+    },
+    {
+      "path": "adobe/editorial-bars.jsx",
+      "sha256": "454899dd10a17316d587fba08d8b1516918274a245b5dc0b459260dc72819419",
+      "bytes": 4284
+    },
+    {
+      "path": "adobe/editorial-box-layout.jsx",
+      "sha256": "87254e6269df648434b71bbd8e3cae20e82df45cd24217ca1de63714dcf75ee0",
+      "bytes": 6903
+    },
+    {
+      "path": "adobe/editorial-connectors.jsx",
+      "sha256": "15367ed686cd65fe8a713b79e29dbd05103a1c03cdc8f9518f6e429ac6ea7ef6",
+      "bytes": 1214
+    },
+    {
+      "path": "adobe/editorial-copy.jsx",
+      "sha256": "6cb3181c047d216e9a451ed700f9256c5111c4249cdf15a5826fad78cdc7e021",
+      "bytes": 637
+    },
+    {
+      "path": "adobe/editorial-generator.jsx",
+      "sha256": "e9be890895b23a997fb1511f0e10cf4e41ebf55bde264704f8d342e2ca3a6787",
+      "bytes": 4344
+    },
+    {
+      "path": "adobe/editorial-parallel.jsx",
+      "sha256": "0b84ee12b2480c7ab88f17fc61f7ea3a4ce8fa4f7b9ca0f0eff6221816acbf79",
+      "bytes": 2408
+    },
+    {
+      "path": "adobe/editorial-review-pages.jsx",
+      "sha256": "59cd810e6b3a05d26db51f1d8d3ceed11b2f5a6f535b9d307975000f82f09869",
+      "bytes": 5746
+    },
+    {
+      "path": "adobe/editorial-update.jsx",
+      "sha256": "7af52425a7d2753edff4b874825584345d5b0bf29201a79130fe400e2e3fdbb9",
+      "bytes": 4884
+    },
+    {
+      "path": "adobe/existing-export.jsx",
+      "sha256": "b39481209656db2d4df8501f689c3cf8ce0f177fc128908c825dfb6b2cf1b535",
+      "bytes": 4749
+    },
+    {
+      "path": "adobe/health.ps1",
+      "sha256": "f81195541624c431b8e8babed873f71e9921821d462b76c2b9a9a2bf9ecc6d10",
+      "bytes": 3985
+    },
+    {
+      "path": "adobe/illustrator.jsx",
+      "sha256": "325013e156c0d09c8e8b920de23c3b85fad4a67c6fbba4f2064c6fcc45e78718",
+      "bytes": 18420
+    },
+    {
+      "path": "adobe/invoke.js",
+      "sha256": "14d3cec55407341f626da5f376d30b6775316bc51dea560554a7def86df722ce",
+      "bytes": 2833
+    },
+    {
+      "path": "adobe/photoshop.jsx",
+      "sha256": "9db9d41de8b4a35136729b00fb49d1f95a3d91e88810efd65d6edc233f1502fa",
+      "bytes": 2841
+    },
+    {
+      "path": "adobe/vector-labels.jsx",
+      "sha256": "163a30488c142767f68bc81f16c195abe9c36c46337b5e4489eba5c68cc86d1b",
+      "bytes": 5035
+    },
+    {
+      "path": "adobe/window-state.ps1",
+      "sha256": "cf91294d1e24334428df23cd6badea9f514a14e40cf855bb15bee33144c8d46e",
+      "bytes": 1901
+    },
+    {
+      "path": "lib/adobe-health.mjs",
+      "sha256": "8e3c402780e7e88f9c31b9f850a50f8ad81a5d2d2a2fefbb98697e49b78a5f5a",
+      "bytes": 2392
+    },
+    {
+      "path": "lib/adobe-state.mjs",
+      "sha256": "6bd76a84b8271d8de62adc2652c3f5fc921f34b0f2bd893a5f4add866f307b85",
+      "bytes": 192
+    },
+    {
+      "path": "lib/adobe.mjs",
+      "sha256": "a2379a3e5120ea315b6765a3706406dc8d450c720d96a0139c15a69a6579645a",
+      "bytes": 2466
+    },
+    {
+      "path": "lib/aggregate-cache.mjs",
+      "sha256": "05deb21d3f784523b0ed63072374b025f12aab3dc45b1551caac7a3ba5a42f5d",
+      "bytes": 3812
+    },
+    {
+      "path": "lib/aggregate-update.mjs",
+      "sha256": "3c4828b9accd08f6534c385cb01622aa32f83be9b5661fa8191d21aff8825f07",
+      "bytes": 3499
+    },
+    {
+      "path": "lib/color-policy.mjs",
+      "sha256": "f3e86a4864f4280bcd20e0a66864982ee800222a3d54d9894f6b78bfc0ed7b3e",
+      "bytes": 5628
+    },
+    {
+      "path": "lib/convert.mjs",
+      "sha256": "3140414abde4170e32743b87d3602eebbefa27285797f705108ef221d7bf4a2e",
+      "bytes": 2003
+    },
+    {
+      "path": "lib/core.mjs",
+      "sha256": "26e504fe7363131f602d372d85dfe888d1626b3bb9e831096efc915b3d27032b",
+      "bytes": 6588
+    },
+    {
+      "path": "lib/data-audit.mjs",
+      "sha256": "8f577f513b13a94d7ddd125d5ae281e431813d371f3ab5b0ffea993b7ef561af",
+      "bytes": 2305
+    },
+    {
+      "path": "lib/desktop-notice.mjs",
+      "sha256": "6a88b3f40c99f4857d365285638c04cb6a35b3488a178d560ebda23e73dc9085",
+      "bytes": 1214
+    },
+    {
+      "path": "lib/diagram-audit.mjs",
+      "sha256": "025fbfd09ddd2015097b24af64baf10cfa7b6e9f6a3e1b2293404ab540ca11c4",
+      "bytes": 3608
+    },
+    {
+      "path": "lib/fit.mjs",
+      "sha256": "23a4a15a5471aa238bb3f6cdc48eda5d1c261abeef9746d167087908afe3626e",
+      "bytes": 2021
+    },
+    {
+      "path": "lib/ingest.mjs",
+      "sha256": "bbb104dbd5e4ffc9ad20f533b37fbed0010bab1724e6ad1598c4d491c5f7ba95",
+      "bytes": 2997
+    },
+    {
+      "path": "lib/jobs.mjs",
+      "sha256": "6d8894a30d39870c2dceea8fea3380f328fc3d039b9885747811dc258284e572",
+      "bytes": 3444
+    },
+    {
+      "path": "lib/local-paths.mjs",
+      "sha256": "21f2e48288548552ba18978c0f23f81b29fd14ae953fe25323acbc6ee1afacca",
+      "bytes": 1729
+    },
+    {
+      "path": "lib/outlined-chart.mjs",
+      "sha256": "01d60a79db980ba0ab4bf25aaf744787bc0c04ae5e7d19957bd4070ac226b2f8",
+      "bytes": 7437
+    },
+    {
+      "path": "lib/path-containment.mjs",
+      "sha256": "d6346f69b136b8a91c2c39684e72c7a97f5669746fe7b19f9988b30c2dd53e58",
+      "bytes": 2302
+    },
+    {
+      "path": "lib/pdf-output.mjs",
+      "sha256": "28719b196040bfee84ed5254a1f14aa2981b92f0d6e90c349be141dba31ca04b",
+      "bytes": 617
+    },
+    {
+      "path": "lib/recovery.mjs",
+      "sha256": "e5366a2c69168929e6078c8d6fd825460652732ceaedc4ad580c379575971ae1",
+      "bytes": 1684
+    },
+    {
+      "path": "lib/render.mjs",
+      "sha256": "ef89a536240f4292cad3ef372a1fa2bb10a9b17a3ef3d921e11c696c84b7c3c9",
+      "bytes": 10711
+    },
+    {
+      "path": "lib/review.mjs",
+      "sha256": "d70e300d9ade5c97fd86ae1aab1175d5365f7afd75256041ebfed59602f89f1c",
+      "bytes": 17663
+    },
+    {
+      "path": "lib/svg.mjs",
+      "sha256": "6265e5308c5624d79af0469752858da6f1c675e078f7d485d4efec570442a4b5",
+      "bytes": 2264
+    },
+    {
+      "path": "lib/typesafe.mjs",
+      "sha256": "5a2a3c9b159f2dd7bce0d358f1cd4e18b41b5755b1eb76c20ca21d541f37006f",
+      "bytes": 2977
+    },
+    {
+      "path": "package.json",
+      "sha256": "504853607a98a925ba2b860e7b3cfa8d884aa130eba4d1697805a5e33d6c4486",
+      "bytes": 164
+    },
+    {
+      "path": "references/2026-09-21-runtime-evidence.md",
+      "sha256": "12fc0976baa6a37c85c4c18ba1c8189c3e0dfbf757d219c84331cb58b427a866",
+      "bytes": 2399
+    },
+    {
+      "path": "references/adobe-recovery.md",
+      "sha256": "ac88ab8caf252435faa3180dba1811d83306f5f46fc64b7edf864041b771d90a",
+      "bytes": 6392
+    },
+    {
+      "path": "references/editorial-profile.md",
+      "sha256": "db65c63f94f5a9ac8e65fe878fb6239039b7ad3545d4d04e81cc48fd3b2e9166",
+      "bytes": 16602
+    },
+    {
+      "path": "references/legacy-provenance.json",
+      "sha256": "e0e385aaf2c836bfab1ec7221312626ee6453e7abff247729a202ccde71d4236",
+      "bytes": 606
+    },
+    {
+      "path": "scripts/audit_color.py",
+      "sha256": "f84f643d7d1d87ce0b8e64a7d203139701f95ced9455869922ebca748cc6971e",
+      "bytes": 7179
+    },
+    {
+      "path": "scripts/audit_delivery.py",
+      "sha256": "96e77c81684e630b86f422700ed58875a5dfffca505f02ceed24ca4116d8b2a5",
+      "bytes": 16284
+    },
+    {
+      "path": "scripts/audit_image_identity.py",
+      "sha256": "8d1d9abeaaefa1207e18c69c44082e2ea44d47c1fb94e4b8e28ded8966217f97",
+      "bytes": 3727
+    },
+    {
+      "path": "scripts/audit_pdf.py",
+      "sha256": "8418c31c9c51416e542e30645a093912f73aa5c42f63bcbcd6a788d0fb9b2d95",
+      "bytes": 2113
+    },
+    {
+      "path": "scripts/convert-office.js",
+      "sha256": "bf3e6138bf681834ad996c4d7cf3e1b71a6eb507d14d2ba04b28b958dada7d1a",
+      "bytes": 4946
+    },
+    {
+      "path": "scripts/extract_docx.py",
+      "sha256": "2dd6f8b06491393c5c39946888088b337debebbab0eef245d549f5565c8854b0",
+      "bytes": 4128
+    },
+    {
+      "path": "scripts/ink_bounds.py",
+      "sha256": "87ac6f00d8cc9b69507ad6c0af454f992f3bc419349e89645c82f9bcc8ce3d6c",
+      "bytes": 424
+    },
+    {
+      "path": "scripts/invoke-typesafe.ps1",
+      "sha256": "4ce0053c3df2a8d4a316f4bea4191ca58511d100fa1ee406643b72e5fdd317d6",
+      "bytes": 878
+    },
+    {
+      "path": "scripts/jfw.mjs",
+      "sha256": "42c8f0a2b88d5da9b9c12801309b75277e20849b9bb8bf647ba727d415a5577e",
+      "bytes": 2859
+    },
+    {
+      "path": "scripts/label_geometry.mjs",
+      "sha256": "abbeb83f4057e0c6e0fbcada5bcffa98cd6ebf815a6b3ed2ffee756f5458d639",
+      "bytes": 1305
+    },
+    {
+      "path": "scripts/legacy_caption.py",
+      "sha256": "d23b8d063f3aeeef435c31b8f6307d0090937e7c68b53f98b20fdcd1de1a7372",
+      "bytes": 9681
+    },
+    {
+      "path": "scripts/normalize_svg_color.py",
+      "sha256": "ab4fe37475168ac38901753f136c356d6d9ceffabf493fefa4d55eacb729ecf8",
+      "bytes": 15104
+    },
+    {
+      "path": "scripts/prepare_matplotlib_svg.py",
+      "sha256": "a5105f118483ed264be3edbe16942fa8676535fb08850a9ef8f5f455cc9ba163",
+      "bytes": 8780
+    },
+    {
+      "path": "scripts/svg_page.py",
+      "sha256": "9cddcd3eca236e48eaa8e0915cf65d0677c48024ca73be7ccd6d206ac327670d",
+      "bytes": 1717
+    },
+    {
+      "path": "scripts/typesafe_call.py",
+      "sha256": "87eadea5858ab36fd7167b821bb8ecda9959d14df7c0daceeea0733e6a857db4",
+      "bytes": 1232
+    },
+    {
+      "path": "运行说明.md",
+      "sha256": "19ecb8af08406c084de5a3a675c03f488a2bab0ea05f7dac470e5b4b06e05501",
+      "bytes": 12209
+    }
+  ],
+  "skillSha256": "cf805505b2797600493d45a84b5a48024341358af6be627134ba48d36b95e476",
+  "supersedes": "2026.10.12-r1",
+  "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged."
+}
