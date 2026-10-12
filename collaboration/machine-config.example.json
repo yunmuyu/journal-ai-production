@@ -5,7 +5,7 @@
   "releaseRoot": "../releases",
   "handoffRoot": "../handoff",
   "legacyWorkspaceRoot": "../../legacy-workspace",
-  "runtimePath": "../releases/2026.10.12-r1/runtime",
+  "runtimePath": "../releases/2026.10.12-r2/runtime",
   "workspaceRoot": "../../legacy-workspace",
   "recordRoot": "../../authoritative-records",
   "pathMapFile": "../private/jfw-path-map.json",
