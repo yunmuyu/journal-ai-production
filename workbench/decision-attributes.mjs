@@ -12,6 +12,10 @@ export function normalizeAttribute(key,raw){
  if(ATTRIBUTE_OPTIONS[key].includes(value))return value;
  if(/(?:待判断|待确认|待核对|未核实|未知|证据不足|证据不够)/.test(value))return '待判断';
  if(key==='kind'){if(value==='待辨认')return '待判断';const found=ATTRIBUTE_OPTIONS.kind.filter(v=>v!=='待判断'&&value.includes(v));return found.length===1?found[0]:'待判断';}
+ // Specific composite routes are partial redraws, not two conflicting choices.
+ if(key==='method'&&/^(?:建议)?矢量换字[＋+]局部(?:重排|调整)(?:候选)?$/.test(value))return '半重绘';
+ if(key==='method'&&/^PS(?:按操作步骤分图|两步骤分图(?:[＋+]EXIF正规化)?)(?:候选)?$/i.test(value))return 'PS直出';
+ if(key==='split'){const count=value.match(/^(?:分别)?([2-9])张(?:：|[0-9]|（待拆分审核）|$)/);if(count)return count[1]==='2'?'拆2张':'拆3张及以上';}
  let matches;
  if(key==='columns'){
   matches=[['小单栏',/小单栏/],['单栏',/(?<!小)单栏/],['双栏',/双栏/]];

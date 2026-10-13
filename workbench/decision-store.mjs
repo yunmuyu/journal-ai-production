@@ -119,7 +119,8 @@ export function createDecisionStore({recordsPath,pilotPath}){
     const stale=!!saved&&(saved.proposalVersion!==figure.aiProposal?.version||
       saved.aiProposal?.sourceFingerprint!==figure.aiProposal?.sourceFingerprint);
     const production=records.figures?.[figure.id]||{};
-    const productionComplete=production.userAcceptance?.accepted===true||production.deliveryComplete===true||(production.normalRenderCompleted===true&&production.internalReviewDecision==='pass'&&!!production.outputHash)||(/本图内部复核完成|已制作|制作完成|内部复核通过|最终验收通过/.test(production.stage||production.status||'')&&!!production.output&&!!production.outputHash);
+    const reviewedDelivery=!!production.output&&!!production.outputHash&&!!production.reviewedAt&&!!production.review;
+    const productionComplete=reviewedDelivery||production.userAcceptance?.accepted===true||production.deliveryComplete===true||(production.normalRenderCompleted===true&&production.internalReviewDecision==='pass'&&!!production.outputHash)||(/本图内部复核完成|已制作|制作完成|内部复核通过|最终验收通过/.test(production.stage||production.status||'')&&!!production.output&&!!production.outputHash);
     return {...figure,productionComplete,decision:saved?{...saved,...(stale?{state:'stale',stale:true}:{stale:false})}:null};
    })};
   },

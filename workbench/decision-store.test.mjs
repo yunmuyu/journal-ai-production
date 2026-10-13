@@ -257,3 +257,18 @@ test('拆分备注沿用权威记录且不改栏宽终检，旧六项保存继�
 test('刷新后以新建议保存备注保留旧人工栏宽和原建议历史',t=>{const f=fixture(t);f.store.save('f1',{revision:0,proposalVersion:'v1',action:'attribute-confirm',attribute:'columns',value:'双栏'});const p=records(f.pilotPath);p.figures[0].aiProposal.version='v2';p.figures[0].aiProposal.sourceFingerprint='new-word';fs.writeFileSync(f.pilotPath,JSON.stringify(p));const r=f.store.save('f1',{revision:1,proposalVersion:'v2',action:'delivery-note',text:'新原稿请保留这段'});assert.equal(r.attributes.columns.value,'双栏');assert.equal(r.attributes.columns.state,'confirmed');assert.equal(r.proposalHistory[0].aiProposal.version,'v1');assert.equal(r.proposalVersion,'v2');assert.equal(f.store.read().figures[0].decision.stale,false);});
 
 test('待终检的正常制作产物退出前置队列，不改验收',t=>{const f=fixture(t),r=records(f.recordsPath);r.figures.f1={status:'待终检',normalRenderCompleted:true,internalReviewDecision:'pass',output:'figure.pdf',outputHash:'a'.repeat(64)};fs.writeFileSync(f.recordsPath,JSON.stringify(r));assert.equal(f.store.read().figures[0].productionComplete,true);assert.equal(records(f.recordsPath).figures.f1.userAcceptance,undefined);});
+
+test('route descriptions keep concrete PS and partial-layout suggestions',()=>{
+ assert.equal(normalizeAttribute('method','PS按操作步骤分图候选'),'PS直出');
+ assert.equal(normalizeAttribute('method','PS两步骤分图＋EXIF正规化候选'),'PS直出');
+ assert.equal(normalizeAttribute('method','矢量换字＋局部重排候选'),'半重绘');
+ assert.equal(normalizeAttribute('method','PS直出或完整重绘'),'待判断');
+ assert.equal(normalizeAttribute('split','分别3张：子图一/子图二/子图三'),'拆3张及以上');
+ assert.equal(normalizeAttribute('split','分别2张：输入码/正确返回'),'拆2张');
+ assert.equal(normalizeAttribute('split','3张6.1/6.2/6.3（待拆分审核）'),'拆3张及以上');
+});
+test('completed delivery awaiting revision is not preproduction again',t=>{
+ const f=fixture(t),p=records(f.recordsPath);p.figures.f1={status:'待修订',output:'existing.pdf',outputHash:'abc',reviewedAt:'2026-10-12',review:'内部复核通过',userAcceptance:{accepted:false}};fs.writeFileSync(f.recordsPath,JSON.stringify(p));
+ assert.equal(f.store.read().figures[0].productionComplete,true);
+ p.figures.f1={status:'待修订',output:'candidate.pdf',outputHash:'abc'};fs.writeFileSync(f.recordsPath,JSON.stringify(p));assert.equal(f.store.read().figures[0].productionComplete,false);
+});
