@@ -1,30 +1,28 @@
 # 期刊 AI 生产工作台
 
-## 当前基线
+## 当前整理版本
 
-2026.10.12-r2。此仓库统一工具、工作台、测试与规范。production-runtime 是逐文件核验的正式运行源码；根目录 lib/adobe/scripts 是研发源码，两者既有差异尚未全面归一，不可互相全量覆盖。RELEASE.json 锁定正式运行文件，部署与任务版本日志保留哈希。工作台使用当前已验收 Git 提交下 workbench/。
+2026.10.13-r6-consolidated。RELEASE.json锁定正式production-runtime与Skill字节；根目录lib/adobe/scripts为研发树，candidates为未发布试验，不能全量互覆。旧r5固定快照保留回滚。
 
-## 本机入口
+先读 [当前交付与审核契约](collaboration/20261013-consolidation.md) 和 [版本验证](release-notes/2026.10.13-r6.md)。旧交接是历史证据，不作为当前界面要求。
 
-复制 collaboration/machine-config.example.json 到仓库外，按机器实际目录填写。
+## 机器入口
 
-- 工具：node collaboration/scripts/run.mjs --config <外部配置> status <任务目录>
-- 工作台：node collaboration/scripts/start-workbench.mjs --config <外部配置>
-- 安装预检：node collaboration/scripts/install.mjs --config <外部配置>
-- 明确部署：同上添加 --apply；保留旧文件备份，Adobe 占用时拒绝。
+配置位于仓库外，参照collaboration/machine-config.example.json：
 
-正式资料、权威记录、截图与真实作者回归样例不入 Git；本地样例引用见 references/local-fixtures.json。工作台 classification-assets/images 从接收资料包取得，不入库。配置 workspaceRoot 暂指历史工作区，workRoot 指新的中间产物目录。
+- 固定工具：`node collaboration/scripts/run.mjs --config <machine.json> status <JOB>`
+- 工作台：`node collaboration/scripts/start-workbench.mjs --config <machine.json>`
+- 当前交付：`node collaboration/scripts/sync-delivery.mjs --config <machine.json>`
+- Skill部署预检：`node collaboration/scripts/install.mjs --config <machine.json>`；明确部署追加`--apply`，保留备份和失败回滚。
 
-## 协作约束
+排版只取`<deliveryRoot>/当前/排版定稿`；未配置deliveryRoot则位于recordRoot/交付。每次按正式验收、完整子图集合和hash生成，不按“最终版”文件名猜测。旧版撤出当前入口并可恢复归档；不自动删除原稿、审计证据及未知排版链接。
 
-一个问题一个短期分支/worktree；同台 Adobe 串行；探索者不得写正式验收状态、覆盖成品或安装 Skill。正式记录由交接后的唯一生产者按 ID/字段合并。交出方先暂停，接收方校验并写回执后接手。GitHub 私有仓库只管代码与规范，G 盘封包目录的坚果云同步尚须确认。
+## 生产与协作边界
 
-## 本次验证边界
+本轮停止新图生产，只整理工具和交付。Adobe串行，保留应用和文档；已验收成果不得重制。正式记录由接手回执指定唯一写入者按ID和字段合并，反馈和验收冲突不按时间取胜。
 
-接收时 82 项针对性静态检查通过；一个真实网络结构图副本在 Illustrator 以 6.5 pt 输出可编辑 AI/PDF并目检。不是所有图型的新原生回归，不宣称生产速度收益。固定目录入口、版本漂移拒绝、安装备份、工作台读取及状态保护做了针对性测试；历史全量测试依赖本机资料和 Adobe，不作为云端自动测试。旧已验收成品未重制。
+真实原稿、图件、AI/PDF、截图、密钥及机器配置不上传GitHub。当前交付目录是台账的派生副本，不是第二份生产状态权威。交接先暂停、封包、校验并写接收回执，不双机共写运行中的Git、台账和AI。
 
-GitHub 的首次基线只包含经筛选的代码树；较早本地历史含真实作者计划，保留在办公室旧仓库，不上传该历史。examples/ 与 tests/fixtures/ 按引用与哈希本地取用。正式 runtime 保持经 Adobe 验证的原始字节，Git 禁用行尾自动转换以保证跨机 SHA 一致。
+## 验证边界
 
-## 2026-10-12 工具与审核更新
-
-接收本日任务分支时先读 [工具改动与接收入口](collaboration/20261012-tool-handoff.md)，区分当前业务契约、候选边界与固定运行版本。真实图件和权威状态仍通过交接包按字段核并。
+发布回归覆盖固定入口、安装故障回滚、完整交付和当前目录撤回、状态保护、分类审核、原生样式与括号。另有两项真实Adobe副本回归与实际PDF检查；不是所有图种的全量原生回归，也不宣称新速度收益。历史本机样例从外部资料包取得，不进云端CI。

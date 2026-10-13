@@ -125,3 +125,15 @@ test('render completion records one invocation identity, plan hash and elapsed w
  assert.match(events[0].planFileHash,/^[a-f0-9]{64}$/);assert.equal(events[0].planFileHash,events[1].planFileHash);
  assert.ok(Number.isFinite(events[1].durationMs)&&events[1].durationMs>=0);
 });
+
+test('installer restores a partially-written existing file when copy throws',()=>{
+ const f=fixture(),target=path.join(f.skillsRoot,'journal-figure-workflow/runtime',readRelease().release.files[0].path);mkdirSync(path.dirname(target),{recursive:true});writeFileSync(target,'previous');
+ assert.throws(()=>install(['--config',f.configFile,'--apply'],{copy:(_from,to)=>{writeFileSync(to,'partial');throw Error('disk full');}}),/previous files restored/);
+ assert.equal(readFileSync(target,'utf8'),'previous');
+});
+test('installer removes new partial files and restores on final hash validation failure',()=>{
+ const f=fixture(),target=path.join(f.skillsRoot,'journal-figure-workflow/runtime',readRelease().release.files[0].path);
+ assert.throws(()=>install(['--config',f.configFile,'--apply'],{copy:(from,to)=>{copyFileSync(from,to);if(to===target)writeFileSync(to,'corrupt');}}),/previous files restored/);
+ assert.equal(existsSync(target),false);
+ assert.equal(existsSync(path.join(f.skillsRoot,'journal-figure-workflow/SKILL.md')),false);
+});

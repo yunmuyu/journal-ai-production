@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.12-r5-pdf-grid",
-  "createdAt": "2026-10-12T13:54:11.497Z",
+  "id": "2026.10.13-r6-consolidated",
+  "createdAt": "2026-10-13T05:02:04.587Z",
   "status": "production-pinned",
   "constraints": {
     "fontSizePt": {
@@ -12,20 +12,41 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "nativeCase": "同一矢量单栏图PDF与原生PNG的3像素边缘差",
-    "nativeSourceHash": "1d5a8a97b4978f3e6debc55fdb21e9abb6266b212cf949fd07ee21e584a84db6",
-    "nativePdfHash": "483174cda3b1667a183acb2accc33ebd3628a0c047c2bdaedbb9cb42e8e7df13",
-    "nativeAiHash": "2f8ac298ad8756bd1e3cbc50b01b9c86071b4b48b5076332fb94ff0f3ab27b0e",
-    "nativeInkRecall": 1,
-    "actualPdfPixelsUnchanged": true,
-    "missingInkNegativeControls": true,
-    "recallThresholdUnchanged": 0.94,
-    "colorAudit": true,
-    "diagramAudit": true,
-    "previousRgbAndDiamondFixesPreserved": true,
-    "affectedTests": true
+    "scope": "r5 plus isolated native character subscript and editorial brace fixes; workbench and delivery consolidation",
+    "priorNativeSubscript": "Li1/Li2 actual Illustrator AI/PDF and 8-item deliver verified 2026-10-13; private evidence kept locally",
+    "priorNativeBrace": "Wei2 actual Illustrator AI/PDF verified 2026-10-13; private evidence kept locally",
+    "combinedNativeRegression": {
+      "passed": 2,
+      "mechanicalIssues": 0,
+      "pdfAudit": true,
+      "colorAudit": true,
+      "actualPdfViewed": true,
+      "pdfHashes": [
+        "8a3902f3ebdbae26660c07c4a24918ff3169d797fe2b0584f8bdf2b226b3347a",
+        "90ab60de247c502c84f2b425d426ceec1704967ac41732b6f33bc05dd728fc0c"
+      ]
+    },
+    "unreleasedScalingExcluded": true,
+    "authorityRecordsNotRewritten": true,
+    "tests": {
+      "releasePass": 78,
+      "releaseSkipped": 1,
+      "workbenchPass": 70,
+      "sealReleasePass": 1
+    },
+    "browserDeliveryRegression": {
+      "acceptedPublished": true,
+      "withdrawnRemoved": true,
+      "officialRecordsUnchanged": true,
+      "actualScreenshotViewed": true
+    }
   },
   "files": [
+    {
+      "path": "运行说明.md",
+      "sha256": "19ecb8af08406c084de5a3a675c03f488a2bab0ea05f7dac470e5b4b06e05501",
+      "bytes": 12209
+    },
     {
       "path": "adobe/common.jsx",
       "sha256": "b5e334bc58cf222601a4920ef29e5bf06524378b8c5aaafa74763c19754449a9",
@@ -63,8 +84,8 @@
     },
     {
       "path": "adobe/editorial-generator.jsx",
-      "sha256": "e9be890895b23a997fb1511f0e10cf4e41ebf55bde264704f8d342e2ca3a6787",
-      "bytes": 4344
+      "sha256": "72378893af442c7fd0bae504b3c7980b2686ca3253e9c023a7af66a80a4fe8ab",
+      "bytes": 5822
     },
     {
       "path": "adobe/editorial-parallel.jsx",
@@ -108,8 +129,8 @@
     },
     {
       "path": "adobe/vector-labels.jsx",
-      "sha256": "163a30488c142767f68bc81f16c195abe9c36c46337b5e4489eba5c68cc86d1b",
-      "bytes": 5035
+      "sha256": "91858ec54a8f2d684dcd8df3bb4486befc42763506df8332bb013f19a98e3a81",
+      "bytes": 5362
     },
     {
       "path": "adobe/window-state.ps1",
@@ -153,8 +174,8 @@
     },
     {
       "path": "lib/core.mjs",
-      "sha256": "26e504fe7363131f602d372d85dfe888d1626b3bb9e831096efc915b3d27032b",
-      "bytes": 6588
+      "sha256": "a290332e3859817fa3780764f880ba533b504e9699018afb6c91b4e2907a3e94",
+      "bytes": 6709
     },
     {
       "path": "lib/data-audit.mjs",
@@ -248,8 +269,8 @@
     },
     {
       "path": "references/editorial-profile.md",
-      "sha256": "db65c63f94f5a9ac8e65fe878fb6239039b7ad3545d4d04e81cc48fd3b2e9166",
-      "bytes": 16602
+      "sha256": "9db8741cbf22d5774d58d53dafd426c5fa4ec6a3012c686f5ad1a2223fa4ce98",
+      "bytes": 17023
     },
     {
       "path": "references/legacy-provenance.json",
@@ -330,14 +351,9 @@
       "path": "scripts/typesafe_call.py",
       "sha256": "87eadea5858ab36fd7167b821bb8ecda9959d14df7c0daceeea0733e6a857db4",
       "bytes": 1232
-    },
-    {
-      "path": "运行说明.md",
-      "sha256": "19ecb8af08406c084de5a3a675c03f488a2bab0ea05f7dac470e5b4b06e05501",
-      "bytes": 12209
     }
   ],
-  "skillSha256": "cf805505b2797600493d45a84b5a48024341358af6be627134ba48d36b95e476",
-  "supersedes": "2026.10.12-r1",
+  "skillSha256": "728fbb4a53f40adbed42c05c64b20404db2eeb213192df140fa6d6aa5f9b2eb8",
+  "supersedes": "2026.10.12-r5-pdf-grid",
   "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged."
 }

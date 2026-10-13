@@ -1,3 +1,13 @@
+// Curve anchors and handles follow the existing editorial brace script (7.6 x 36.5).
+JFW.drawEditorialBrace=function(n,layer,stroke,all,strokeWidth){
+ var anchors=[[7.6,.3],[4.9,3.4],[4.9,15.2],[0,18.3],[4.9,21.4],[4.9,33.2],[7.6,36.3]];
+ var left=[[5.8,.3],[4.9,1.3],[4.9,15.2],[3.3,18.3],[4.9,19.3],[4.9,33.2],[5.8,36.3]];
+ var right=[[7.6,.3],[4.9,3.4],[4.9,17.3],[3.3,18.3],[4.9,21.4],[5.8,36.3],[7.6,36.3]];
+ function map(q){var x=q[0]/7.6,y=q[1]/36.5,side=n.braceSide||'left';if(side==='right')x=1-x;else if(side==='top'){var oldX=x;x=y;y=oldX;}else if(side==='bottom'){var oldX=x;x=y;y=1-oldX;}return [n.left+x*(n.right-n.left),n.top-y*(n.top-n.bottom)];}
+ var p=layer.pathItems.add(),points=[],i;for(i=0;i<anchors.length;i++)points.push(map(anchors[i]));p.setEntirePath(points);
+ for(i=0;i<anchors.length;i++){p.pathPoints[i].anchor=map(anchors[i]);p.pathPoints[i].leftDirection=map(left[i]);p.pathPoints[i].rightDirection=map(right[i]);p.pathPoints[i].pointType=PointType.CORNER;}
+ p.closed=false;p.filled=false;p.stroked=true;p.strokeColor=stroke;p.strokeWidth=strokeWidth;p.strokeDashes=[];p.name='AI_FLOW_NODE_'+n.id;all.push(p);
+};
 JFW.positionDiagramSideLabel=function(tf,side,doc,fontSize){
  var extreme=null,half=0;for(var i=0;i<doc.pathItems.length;i++){var p=doc.pathItems[i];if(!p.name||p.name.indexOf('AI_FLOW_')!==0||p.guides||p.hidden)continue;var b=p.geometricBounds,value=side==='left'?b[0]:b[2];if(extreme===null||(side==='left'?value<extreme:value>extreme)){extreme=value;half=p.stroked?p.strokeWidth/2:0;}}
  if(extreme===null)throw Error('No diagram boundary for side label');var o=tf.duplicate().createOutline(),ink=o.visibleBounds;o.remove();var gap=3*fontSize/8;tf.translate(side==='left'?extreme-half-gap-ink[2]:extreme+half+gap-ink[0],0);tf.note='JFW_DIAGRAM_SIDE_'+side.toUpperCase();
@@ -45,5 +55,8 @@ JFW.adaptEditorialGenerator=function(code){
 
  replaceOnce('centerText(tf, cx, ay); return tf;','centerText(tf, cx, ay); if(item.vertical && ((item.xr === 0 && item.align === "right") || (item.xr === 1 && item.align === "left"))) JFW.positionDiagramSideLabel(tf,item.xr === 0 ? "left" : "right",doc,size); return tf;');
  replaceOnce('requiredGap = CFG.GAP * 2;','requiredGap = Math.max(requiredGap, CFG.GAP * 2);');
+ start=code.indexOf('function drawBraceSymbol(');end=code.indexOf('function drawSignalOperator(',start);
+ if(start<0||end<0)throw Error('Generator brace boundary changed');
+ code=code.slice(0,start)+'function drawBraceSymbol(n,targetLayer,stroke,all){JFW.drawEditorialBrace(n,targetLayer,stroke,all,CFG.STROKE);} '+code.slice(end);
  return code;
 };
