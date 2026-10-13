@@ -7,8 +7,8 @@ from pypdf import PdfReader
 import pypdfium2 as pdfium
 
 def native_grid(rendered: Image.Image, expected_size: tuple[int, int]) -> Image.Image:
-    """Keep 300-dpi pixels intact when page-edge rounding differs by at most two pixels."""
-    if all(abs(actual - expected) <= 2 for actual, expected in zip(rendered.size, expected_size, strict=True)):
+    """Keep 300-dpi pixels intact when page-edge rounding differs by at most three pixels."""
+    if all(abs(actual - expected) <= 3 for actual, expected in zip(rendered.size, expected_size, strict=True)):
         aligned = Image.new('L', expected_size, 255)
         aligned.paste(rendered, (0, 0))
         return aligned

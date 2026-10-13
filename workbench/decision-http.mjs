@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {createDecisionStore} from './decision-store.mjs';
+import {resolveLocal} from './paths.mjs';
+import {candidateDeliveryPreview} from './candidate-preview.mjs';
 export function createDecisionHandler({recordRoot,origin}) {
  const pilotPath=path.join(recordRoot,'decision-pilot.json');
  const store=createDecisionStore({recordsPath:path.join(recordRoot,'production-results.json'),pilotPath});
@@ -9,14 +11,31 @@ export function createDecisionHandler({recordRoot,origin}) {
  function publicData(){
   if(!fs.existsSync(pilotPath))return {schemaVersion:1,figures:[],cases:[],assets:{}};
   const data=store.read();files.clear();
+  const classificationPath=path.join(recordRoot,'figure-classification.json');
+  const classification=fs.existsSync(classificationPath)?JSON.parse(fs.readFileSync(classificationPath,'utf8')):{cards:[]};
+  const classifications=new Map(classification.cards.map(card=>[card.id,card]));
+  const digestCache=new Map(),digest=file=>{if(!digestCache.has(file))digestCache.set(file,createHash('sha256').update(fs.readFileSync(file)).digest('hex'));return digestCache.get(file);};
   const assets={};
   for(const [id,asset] of Object.entries(data.assets||{})) {
-   if(!asset.path||!fs.existsSync(asset.path))continue;
-   const file=path.resolve(asset.path),token=createHash('sha256').update(file).digest('hex').slice(0,24);
+   if(!asset.path||!fs.existsSync(resolveLocal(asset.path)))continue;
+   const file=path.resolve(resolveLocal(asset.path)),token=createHash('sha256').update(file).digest('hex').slice(0,24);
    files.set(token,file);assets[id]={token,name:path.basename(file),label:asset.label||path.basename(file)};
   }
-  for(const figure of data.figures){for(const a of figure.decision?.sourceReview?.attachments||[]){if(!fs.existsSync(a.path))continue;const file=path.resolve(a.path),token=createHash('sha256').update(file).digest('hex').slice(0,24);files.set(token,file);a.token=token;}}
-  const figures=data.figures.map(figure=>{const copy=structuredClone(figure);delete copy.retrievalQuery;delete copy.similarCaseIds;delete copy.sourceFiles;delete copy.aiProposal.caseRetrieval;return copy;});
+  for(const figure of data.figures){for(const a of figure.decision?.sourceReview?.attachments||[]){if(!fs.existsSync(resolveLocal(a.path)))continue;const file=path.resolve(resolveLocal(a.path)),token=createHash('sha256').update(file).digest('hex').slice(0,24);files.set(token,file);a.token=token;}}
+  const figures=data.figures.map(figure=>{
+   const {retrievalQuery,similarCaseIds,sourceFiles,proposalHistory,...publicFigure}=figure;
+   const {caseRetrieval,...proposal}=figure.aiProposal;
+   const copy=structuredClone({...publicFigure,aiProposal:proposal});
+   const card=classifications.get(figure.id);copy.basicClassification={value:card?.type??figure.aiProposal.fields.contentTypes.value,confirmed:card?.review==='分类已确认',review:card?.review||'待复核'};
+   const candidate=candidateDeliveryPreview(copy,(id,region)=>{
+    const source=resolveLocal(region.source),file=resolveLocal(region.path);
+    if(!fs.existsSync(source)||!fs.existsSync(file)||digest(source)!==region.sourceHash)return null;
+    if(region.previewHash&&createHash('sha256').update(fs.readFileSync(file)).digest('hex')!==region.previewHash)return null;
+    const token=createHash('sha256').update(path.resolve(file)).digest('hex').slice(0,24);files.set(token,path.resolve(file));assets[id]={token,name:path.basename(file),label:'候选原像素范围，未制作'};return id;
+   });
+   if(candidate)copy.candidateDeliveryPreview=candidate;
+   delete copy.retrievalQuery;delete copy.similarCaseIds;delete copy.sourceFiles;delete copy.aiProposal.caseRetrieval;return copy;
+  });
   return {schemaVersion:data.schemaVersion,figures,assets};
  }
  function json(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'}).end(JSON.stringify(data));}

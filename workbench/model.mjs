@@ -49,7 +49,7 @@ export function loadModel(){
   const outputs=child.map(c=>({number:c.number||path.basename(c.output||'').match(/图(\d+(?:\.\d+)*)/)?.[1]||f.number,file:link(c.output)}));
   const ai=link(production.articles[f.articleId]?.ai)||link(p?.ai)||link(templates[f.articleId]?.path);
   const folder=link(ai?path.dirname(ai.path):path.dirname(a.localWord));
-  const outputDir=outputs.find(c=>c.file)?.file.path;
+  const outputDir=child.find(c=>c.output&&exists(resolveLocal(c.output)))?.output;
   const summary=link(production.articles[f.articleId]?.summary)||(outputDir?link(path.join(path.dirname(outputDir),a.author+'-核对汇总.pdf')):null);
   let status=classify(p?.status||'');
   let reason=defer?.reason||'';

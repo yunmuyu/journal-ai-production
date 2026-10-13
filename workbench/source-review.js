@@ -27,3 +27,5 @@ document.addEventListener('click',async e=>{const f=figureFor(e),b=e.target.clos
  if(b.dataset.sourceOpen){const a=asset(b.dataset.sourceOpen),r=await fetch('/'+(/\.(docx?|pdf|ai)$/i.test(a.name)?'open':'locate')+'/'+a.token,{method:'POST'});status.textContent=r.ok?'已请求本机打开':'打开失败';}});
 document.getElementById('close-zoom').addEventListener('click',()=>document.getElementById('zoom').close());
 window.addEventListener('beforeunload',e=>{if([...drafts.values()].some(d=>d.dirty)){e.preventDefault();e.returnValue='';}});
+
+export const hasUnsavedSources=()=>busy||[...drafts.values()].some(d=>d.dirty);

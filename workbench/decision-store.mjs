@@ -3,9 +3,10 @@ import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {validateSourceInput,saveSourceReview} from './source-review-store.mjs';
 import {ATTRIBUTE_OPTIONS,normalizeAttribute} from './decision-attributes.mjs';
+import {resolveLocal} from './paths.mjs';
 
 const names=['sourceMatch','method','columns','split','contentTypes','preflight'];
-const labels={sourceMatch:'图源匹配',method:'制作方法',columns:'栏宽',split:'拆分规格',contentTypes:'内容类型',preflight:'制作前检查'};
+const labels={kind:'基础分类',sourceMatch:'图源匹配',method:'制作方法',columns:'栏宽',split:'拆分规格',contentTypes:'内容类型',preflight:'制作前检查'};
 const actions=new Set(['draft','confirm','recheck','defer']);
 const attributeActions=new Set(['attribute-draft','attribute-confirm']);
 const fail=(status,message,fields)=>{throw Object.assign(Error(message),{status,...(fields?{fields}:{})});};
@@ -46,9 +47,9 @@ function saveAttribute(previous,proposal,figure,input){
  if(previous&&(previous.proposalVersion!==proposal.version||
    previous.aiProposal?.sourceFingerprint!==proposal.sourceFingerprint))
   fail(409,'原审核对应旧建议，请刷新后核对');
- const key=input.attribute,originalAIValue=normalizeAttribute(key,proposal.fields[key].value);
+ const key=input.attribute,originalAIValue=normalizeAttribute(key,key==='kind'?figure.basicClassification?.value??proposal.fields.contentTypes.value:proposal.fields[key].value);
  if(input.action==='attribute-confirm'&&(input.value==='待判断'||
-   (proposal.fields[key].certainty==='unknown'&&input.value===originalAIValue)))
+   ((key==='kind'?proposal.fields.contentTypes:proposal.fields[key]).certainty==='unknown'&&input.value===originalAIValue)))
   fail(422,`请先明确${labels[key]}`, [key]);
  const base=previous||{revision:0,proposalVersion:proposal.version,aiProposal:snapshot(proposal),
   fields:Object.fromEntries(names.map(name=>[name,proposal.fields[name].value])),changes:[],resolutions:{},
@@ -102,7 +103,7 @@ function checkSources(figure,pilotPath){
     typeof source.sha256!=='string'||!/^[a-f\d]{64}$/i.test(source.sha256))
    fail(409,'源文件清单不可读取，请刷新后核对');
   let actual;
-  try{actual=createHash('sha256').update(fs.readFileSync(path.resolve(path.dirname(pilotPath),source.path))).digest('hex');}
+  try{actual=createHash('sha256').update(fs.readFileSync(path.resolve(path.dirname(pilotPath),resolveLocal(source.path)))).digest('hex');}
   catch{fail(409,'源文件不可读取，请刷新后核对');}
   if(actual.toLowerCase()!==source.sha256.toLowerCase())fail(409,'源文件已变化，请刷新后核对');
  }
@@ -117,7 +118,9 @@ export function createDecisionStore({recordsPath,pilotPath}){
     const saved=records.figures?.[figure.id]?.productionDecision;
     const stale=!!saved&&(saved.proposalVersion!==figure.aiProposal?.version||
       saved.aiProposal?.sourceFingerprint!==figure.aiProposal?.sourceFingerprint);
-    return {...figure,decision:saved?{...saved,...(stale?{state:'stale',stale:true}:{stale:false})}:null};
+    const production=records.figures?.[figure.id]||{};
+    const productionComplete=production.userAcceptance?.accepted===true||production.deliveryComplete===true||(/本图内部复核完成|已制作|制作完成|内部复核通过|最终验收通过/.test(production.stage||production.status||'')&&!!production.output&&!!production.outputHash);
+    return {...figure,productionComplete,decision:saved?{...saved,...(stale?{state:'stale',stale:true}:{stale:false})}:null};
    })};
   },
   save(id,rawInput){

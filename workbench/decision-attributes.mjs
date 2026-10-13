@@ -1,4 +1,5 @@
 export const ATTRIBUTE_OPTIONS=Object.freeze({
+ kind:Object.freeze(['流程/算法图','系统/模块框图','网络/拓扑图','电路/接线图','统计图表','曲线/波形/频谱','界面/代码截图','实物/设备照片','地图/空间图','结构/原理示意','表格','混合多子图','待判断']),
  columns:Object.freeze(['小单栏','单栏','双栏','待判断']),
  method:Object.freeze(['PS直出','矢量换字','半重绘','完整重绘','待判断']),
  split:Object.freeze(['整体1张','拆2张','拆3张及以上','待判断'])
@@ -10,6 +11,7 @@ export function normalizeAttribute(key,raw){
  const value=raw.trim();
  if(ATTRIBUTE_OPTIONS[key].includes(value))return value;
  if(/(?:待判断|待确认|待核对|未核实|未知|证据不足|证据不够)/.test(value))return '待判断';
+ if(key==='kind'){if(value==='待辨认')return '待判断';const found=ATTRIBUTE_OPTIONS.kind.filter(v=>v!=='待判断'&&value.includes(v));return found.length===1?found[0]:'待判断';}
  let matches;
  if(key==='columns'){
   matches=[['小单栏',/小单栏/],['单栏',/(?<!小)单栏/],['双栏',/双栏/]];

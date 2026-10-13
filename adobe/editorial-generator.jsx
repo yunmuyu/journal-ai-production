@@ -20,7 +20,7 @@ JFW.adaptEditorialGenerator=function(code){
  var start=code.indexOf('var h = Math.max(',code.indexOf('var w = measure.w + 9 * scale;')),end=code.indexOf('if (node.shape === "functionBlock")',start);
  if(start<0||end<0)throw Error('Generator rectangle boundary changed');code=code.slice(0,start)+'var h = measure.h + 5.4 * scale;\n        '+code.slice(end);
  start=code.indexOf('} else if (node.shape === "decision" && lines.length >= 4)');end=code.indexOf('} else if (node.shape === "ellipse")',start);
- if(start<0||end<0)throw Error('Generator diamond boundary changed');code=code.slice(0,start)+'} else if (node.shape === "decision") { w = 1.7 * measure.w + 4 * scale; h = 1.6 * measure.h + 4 * scale;\n        '+code.slice(end);
+ if(start<0||end<0)throw Error('Generator diamond boundary changed');code=code.slice(0,start)+'} else if (node.shape === "decision") { w = 2 * (measure.w + 9 * scale + 0.5); h = 2 * (measure.h + 5.4 * scale + 0.5);\n        '+code.slice(end);
  start=code.indexOf('function resolveFont() {');end=code.indexOf('function findFont(names)',start);
  if(start<0||end<0)throw Error('Generator font boundary changed');code=code.slice(0,start)+'function resolveFont() { return {font:JFW.editorialFont(),composite:true}; }\n    '+code.slice(end);
  replaceOnce('GAP_MINIMAL: 1 * PT_PER_MM,','GAP_MINIMAL: 3,');
