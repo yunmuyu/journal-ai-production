@@ -12,7 +12,7 @@ JFW.reletterGroups=function(doc,groups,fontSize){
   if(lines.length>1&&(!g.align||g.align==='center')&&!g.rotation){
    var lineTargets=[];
    for(var li=0;li<lines.length;li++){
-    t=doc.textFrames.add();t.contents=lines[li];t.textRange.paragraphAttributes.justification=Justification.CENTER;
+    t=doc.textFrames.add();if(g.recreate===true){t.opacity=100;t.blendingMode=BlendModes.NORMAL;}t.contents=lines[li];t.textRange.paragraphAttributes.justification=Justification.CENTER;
     var lineAttrs=t.textRange.characterAttributes;lineAttrs.textFont=g.font?app.textFonts.getByName(g.font):JFW.editorialFont();lineAttrs.size=fontSize;lineAttrs.autoLeading=false;lineAttrs.leading=leading;
     var lineBlack=new RGBColor();lineBlack.red=lineBlack.green=lineBlack.blue=0;lineAttrs.fillColor=lineBlack;
     var lineOutline=t.duplicate().createOutline(),lineInk=lineOutline.visibleBounds;
@@ -22,7 +22,7 @@ JFW.reletterGroups=function(doc,groups,fontSize){
    if(g.frameAnchorPt){var whole=null;for(var ti=0;ti<lineTargets.length;ti++){var outlined=lineTargets[ti].duplicate().createOutline(),bi=outlined.visibleBounds;if(!whole)whole=[bi[0],bi[1],bi[2],bi[3]];else{whole[0]=Math.min(whole[0],bi[0]);whole[1]=Math.max(whole[1],bi[1]);whole[2]=Math.max(whole[2],bi[2]);whole[3]=Math.min(whole[3],bi[3]);}outlined.remove();}var wx=(box[0]+box[2]-whole[0]-whole[2])/2,wy=(box[1]+box[3]-whole[1]-whole[3])/2;for(var ti=0;ti<lineTargets.length;ti++)lineTargets[ti].translate(wx,wy);}
    continue;
   }
-  t=g.indices.length===1&&g.rotation===undefined?refs[g.indices[0]].duplicate():doc.textFrames.add();t.contents=g.text;t.textRange.paragraphAttributes.justification=Justification.CENTER;
+  t=g.indices.length===1&&g.rotation===undefined&&g.recreate!==true?refs[g.indices[0]].duplicate():doc.textFrames.add();if(g.recreate===true){t.opacity=100;t.blendingMode=BlendModes.NORMAL;}t.contents=g.text;t.textRange.paragraphAttributes.justification=Justification.CENTER;
   var ca=t.textRange.characterAttributes;ca.textFont=g.font?app.textFonts.getByName(g.font):JFW.editorialFont();ca.size=fontSize;ca.autoLeading=false;ca.leading=leading;var black=new RGBColor();black.red=black.green=black.blue=0;ca.fillColor=black;if(g.rotation)t.rotate(g.rotation);
   var outline=t.duplicate().createOutline(),ink=outline.visibleBounds;var dx;if(g.align==="left"){dx=box[0]-ink[0];}else if(g.align==="right"){dx=box[2]-ink[2];}else{dx=(box[0]+box[2]-ink[0]-ink[2])/2;}t.translate(dx,(box[1]+box[3]-ink[1]-ink[3])/2);outline.remove();if(g.offsetPt)t.translate(g.offsetPt[0],g.offsetPt[1]);
  }
