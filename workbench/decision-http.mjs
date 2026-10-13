@@ -26,7 +26,7 @@ export function createDecisionHandler({recordRoot,origin}) {
    const {retrievalQuery,similarCaseIds,sourceFiles,proposalHistory,...publicFigure}=figure;
    const {caseRetrieval,...proposal}=figure.aiProposal;
    const copy=structuredClone({...publicFigure,aiProposal:proposal});
-   const card=classifications.get(figure.id);copy.basicClassification={value:card?.type??figure.aiProposal.fields.contentTypes.value,confirmed:card?.review==='分类已确认',review:card?.review||'待复核'};
+   const card=classifications.get(figure.id);copy.basicClassification={value:card?.type??figure.aiProposal.fields?.contentTypes?.value??'待判断',confirmed:card?.review==='分类已确认',review:card?.review||'待复核'};
    const candidate=candidateDeliveryPreview(copy,(id,region)=>{
     const source=resolveLocal(region.source),file=resolveLocal(region.path);
     if(!fs.existsSync(source)||!fs.existsSync(file)||digest(source)!==region.sourceHash)return null;
@@ -51,7 +51,7 @@ export function createDecisionHandler({recordRoot,origin}) {
   req.on('end',()=>{try{
    if(size>40*1024*1024)throw Object.assign(Error('方案内容过长'),{status:413});
    let input;try{input=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{throw Object.assign(Error('方案格式错误'),{status:400});}
-   const decision=store.save(id,input);publicData();json(res,200,{ok:true,decision});
+   const decision=store.save(id,input);json(res,200,{ok:true,decision});
   }catch(error){json(res,error.status||500,{error:error.message,fields:error.fields,issues:error.issues});}});
   return true;
  }
