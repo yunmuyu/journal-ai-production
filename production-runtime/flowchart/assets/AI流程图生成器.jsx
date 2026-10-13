@@ -28,8 +28,8 @@
         MATH_FONTS: ["TimesNewRomanPS-ItalicMT", "Times New Roman Italic", "TimesNewRomanPS-Italic", "TimesNewRoman"],
         MATH_SUB_FONTS: ["TimesNewRomanPSMT", "Times New Roman", "TimesNewRoman"],
         LEADING_6: 7,
-        PAD_X: 4.545,
-        PAD_Y: 1.551,
+        PAD_X: 4.5,
+        PAD_Y: 2.7,
         HORIZONTAL_BOX_HEIGHT: 15.2,
         HORIZONTAL_CHAR_WIDTH: 8,
         HORIZONTAL_PADDING_TOTAL: 9,
@@ -69,8 +69,21 @@
     if (input === null) return;
 
     var data;
-    try { data = parseInputData(input); validate(data); }
+    try { data = parseInputData(input); if(data.kind !== "technical") validate(data); }
     catch (e) { alert("JSON 校验失败：\n" + e); return; }
+
+    if (data.kind === "technical") {
+        var technicalFont = resolveFont().font, technicalBlack = gray(100), technicalWhite = gray(0), technicalAll = [];
+        var technicalBoard = doc.artboards[doc.artboards.getActiveArtboardIndex()].artboardRect;
+        JFW.drawTechnicalLayout(data, {
+            measure:function(t){return measureContainerTitle(t,data.fontSize,technicalFont);},
+            text:function(id,t,x,y){var tf=createText(t,x,y,data.fontSize,technicalFont,technicalBlack);tf.name="AI_TECH_TEXT_"+id;},
+            node:function(id,t,shape,x,y,w,h){drawNodes([{id:id,text:t,shape:shape,cx:x,cy:y,w:w,h:h,left:x-w/2,right:x+w/2,top:y+h/2,bottom:y-h/2}],layer,technicalBlack,technicalWhite,technicalAll,data.fontSize,technicalFont);},
+            line:function(id,points,arrow,style){addRoutedLine(layer,points,arrow,technicalBlack,technicalAll,style);},
+            image:function(id,file,cx,y,w,h){var p=layer.placedItems.add();p.file=new File(file);var factor=Math.min(w/p.width,h/p.height);p.width*=factor;p.height*=factor;p.left=cx-p.width/2;p.top=-y-(h-p.height)/2;p.name="AI_TECH_IMAGE_"+id;p.embed();}
+        },technicalBoard[2]-technicalBoard[0]-0.5);
+        return;
+    }
 
     if (data.kind === "statChart") {
         drawStatChart(data);
@@ -89,6 +102,7 @@
     }
 
     positionLayout(layout, ab);
+    assertNodeSeparation(layout.nodes);
 
     try { validateRoutedEdges(data.edges, layout.edgeById, layout); }
     catch (routeError) { alert("连接路径校验失败：\n" + routeError); return; }
@@ -147,7 +161,7 @@
         var arrows = { none: 1, start: 1, end: 1, both: 1 };
         var labelSides = { above: 1, below: 1, left: 1, right: 1 };
         var lineStyles = { solid: 1, dashed: 1, dotted: 1 };
-        var routeStyles = { straight: 1, orthogonal: 1 };
+        var routeStyles = { straight: 1, orthogonal: 1, curve: 1 };
         var portPositions = { center: 1, upper: 1, lower: 1, left: 1, right: 1 };
         var directed = {}, checked = {}, edgeIds = {}, i, n, e, lines, longest, j, key, reverse, separated, hasFrom, hasFromEdge, hasTo, hasToEdge;
         for (i = 0; i < root.nodes.length; i++) {
@@ -391,9 +405,9 @@
             if (item.label !== undefined && (typeof item.label !== "string" || item.label === "")) throw "容器 " + item.id + " 的 label 无效。";
             if (item.labelPosition !== undefined && item.labelPosition !== "topCenter" && item.labelPosition !== "bottomRight") throw "容器 " + item.id + " 的 labelPosition 无效。";
             if (item.frameGroup !== undefined && !/^[A-Za-z][A-Za-z0-9_-]*$/.test(item.frameGroup)) throw "容器 " + item.id + " 的 frameGroup 无效。";
-            if (item.memberDistribution !== undefined && item.memberDistribution !== "spaceBetween") throw "容器 " + item.id + " 的 memberDistribution 无效。";
+            if (item.memberDistribution !== undefined && item.memberDistribution !== "spaceBetween" && item.memberDistribution !== "compact") throw "容器 " + item.id + " 的 memberDistribution 无效。";
             for (j = 0; j < item.members.length; j++) if (!ids[item.members[j]]) throw "容器 " + item.id + " 引用了不存在的节点。";
-            if (item.memberDistribution === "spaceBetween") {
+            if (item.memberDistribution === "spaceBetween" || item.memberDistribution === "compact") {
                 rows = {};
                 for (j = 0; j < item.members.length; j++) rows[rowById[item.members[j]]] = true;
                 rowCount = 0;
@@ -552,6 +566,13 @@
         }
     }
 
+    function assertNodeSeparation(nodes){
+        for(var i=0;i<nodes.length;i++)for(var j=i+1;j<nodes.length;j++){
+            var a=nodes[i],b=nodes[j];if(a.shape==='port'||b.shape==='port'||a.shape==='label'||b.shape==='label')continue;
+            if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>.25&&Math.min(a.top,b.top)-Math.max(a.bottom,b.bottom)>.25)throw Error('LAYOUT_REFLOW_REQUIRED: overlapping nodes '+a.id+' / '+b.id);
+        }
+    }
+
     function chooseLayout(data, maxW, maxH, font) {
         var i, layout, fallback;
         if (data.nodes.length === 0) return freeformLayout(data, maxW, maxH);
@@ -613,6 +634,11 @@
     function measureLayout(data, fontSize, font) {
         if (data.treeLayout === "module") return measureLayout(moduleTreeLayoutData(data), fontSize, font);
         var sourceNodes = data.nodes, edges = data.edges, containers = data.containers || [], stacks = data.stacks || [], horizontalStacks = data.horizontalStacks || [];
+        for (var ci = 0; ci < containers.length; ci++) {
+            if (!containers[ci].label || data.swimlaneLayout || containers[ci].sizeClass) continue;
+            var titleMeasure = measureContainerTitle(displayText(containers[ci].label, false), fontSize, font);
+            containers[ci].titleWidth = titleMeasure.w; containers[ci].titleHeight = titleMeasure.h; containers[ci].titleGap = 3 * fontSize / 8;
+        }
         var columnGap = data.layoutMode === "compact" ? CFG.COLUMN_GAP_COMPACT : CFG.COLUMN_GAP_STANDARD;
         var nodes = [], byId = {}, maxRow = 0, maxCol = 0, i, n, text, measure, size, rowSpan, columnSpan;
         for (i = 0; i < sourceNodes.length; i++) {
@@ -624,7 +650,8 @@
             var item = {
                 source: n, id: n.id, text: text, row: n.row, column: n.column, shape: n.shape,
                 w: size.w, h: size.h, rowSpan: rowSpan, columnSpan: columnSpan,
-                heightGroup: n.heightGroup, widthGroup: n.widthGroup
+                heightGroup: n.heightGroup, widthGroup: n.widthGroup,
+                arrowDirection: n.arrowDirection, arrowHeads: n.arrowHeads, arrowLabelSide: n.arrowLabelSide, braceSide: n.braceSide
             };
             nodes.push(item); byId[n.id] = item;
             if (n.row + rowSpan - 1 > maxRow) maxRow = n.row + rowSpan - 1;
@@ -647,7 +674,7 @@
                 colW[c] = Math.max(colW[c], share);
                 if (c + 1 < colCount) colW[c + 1] = Math.max(colW[c + 1], share);
             }
-            if (n.rowSpan === 1) rowH[n.row] = Math.max(rowH[n.row], n.h);
+            if (n.rowSpan === 1) rowH[n.row] = Math.max(rowH[n.row], n.h + (n.shape === "arrow" && n.text ? 2 * (measureText(n.text, fontSize, font).h + 3 * fontSize / 8) : 0));
         }
         for (c = 0; c < colCount; c++) if (colW[c] === 0) colW[c] = 1;
         for (r = 0; r <= maxRow; r++) if (rowH[r] === 0) rowH[r] = CFG.HORIZONTAL_BOX_HEIGHT * fontSize / 8;
@@ -655,6 +682,7 @@
         var rowGaps = containerAwareRowGaps(nodes, data.swimlaneLayout ? [] : containers, edges, branchAwareRowGaps(nodes, edges, maxRow));
         var columnGaps = columnTrackGaps(nodes, byId, edges, colCount, columnGap);
         distributeSpanDeficits(nodes, colW, rowH, columnGaps, rowGaps);
+        reserveSameRowSpacing(nodes, colW, columnGaps);
 
         var gridWidth = 0, width, height = 0, colCenters = [], rowCenters = [], colStarts = [], rowStarts = [];
         for (c = 0; c < colCount; c++) gridWidth += colW[c];
@@ -683,6 +711,26 @@
         };
         if (stacks.length) layout.height = estimateStackedHeight(layout) + containerMargin * 2;
         return layout;
+    }
+
+    function reserveSameRowSpacing(nodes, widths, gaps) {
+        function center(column) {
+            var c = Math.floor(column), x = 0;
+            for (var k = 0; k < c; k++) x += widths[k] + gaps[k];
+            x += widths[c] / 2;
+            if (column !== c) x += widths[c] / 4 + gaps[c] / 2 + widths[c + 1] / 4;
+            return x;
+        }
+        for (var i = 0; i < nodes.length; i++) for (var j = i + 1; j < nodes.length; j++) {
+            var a = nodes[i], b = nodes[j];
+            if (a.row !== b.row || a.column === b.column || a.columnSpan !== 1 || b.columnSpan !== 1) continue;
+            if (a.column > b.column) { var swap = a; a = b; b = swap; }
+            var deficit = (a.w + b.w) / 2 + 3 - (center(b.column) - center(a.column));
+            if (deficit > 0) {
+                var track = Math.floor(a.column), coefficient = Math.min(b.column, track + 1) - a.column;
+                if (coefficient > 0) gaps[track] += deficit / coefficient;
+            }
+        }
     }
 
     function estimateStackedHeight(layout) {
@@ -815,12 +863,12 @@
     function containerPaddingTop(container) {
         if (container.sizeClass === "wideNested") return CFG.WIDE_NESTED_PAD_TOP;
         if (container.labelPosition === "bottomRight") return CFG.BOTTOM_LABEL_PAD_TOP;
-        return containerPaddingY(container);
+        return Math.max(containerPaddingY(container), container.titleHeight ? container.titleHeight + 2 * container.titleGap : 0);
     }
 
     function containerPaddingBottom(container, memberHeight) {
         if (container.sizeClass === "wideNested") return CFG.WIDE_NESTED_HEIGHT - memberHeight - CFG.WIDE_NESTED_PAD_TOP;
-        return containerPaddingY(container);
+        return Math.max(containerPaddingY(container), container.labelPosition === "bottomRight" && container.titleHeight ? container.titleHeight + 2 * container.titleGap : 0);
     }
 
     function shaftRouteGap(edge) {
@@ -860,7 +908,7 @@
         }
         for (i = 0; i < containers.length; i++) {
             spec = containers[i]; firstRow = containerRanges[i].first; lastRow = containerRanges[i].last;
-            padTop = containerPaddingTop(spec); padBottom = containerPaddingY(spec);
+            padTop = containerPaddingTop(spec); padBottom = containerPaddingBottom(spec, 0);
             if (spec.sizeClass === "wideNested") padBottom = containerPaddingBottom(spec, byId[spec.members[0]].h);
             if (firstRow > 0 && !hasSharedBoundary(spec, i, firstRow, true, byId, containerRanges, memberOwners)) starts[firstRow - 1] = Math.max(starts[firstRow - 1] || 0, padTop);
             if (lastRow < gaps.length && !hasSharedBoundary(spec, i, lastRow, false, byId, containerRanges, memberOwners)) ends[lastRow] = Math.max(ends[lastRow] || 0, padBottom);
@@ -914,11 +962,11 @@
         if (node.shape === "port") return { w: 0, h: 0 };
         if (node.shape === "arrow") {
             if (node.arrowHeads === "both") {
-                if (node.arrowDirection === "up" || node.arrowDirection === "down") return { w: 8.7 * fontSize / 8, h: 15.2 * fontSize / 8 };
-                return { w: 15.2 * fontSize / 8, h: 8.7 * fontSize / 8 };
+                if (node.arrowDirection === "up" || node.arrowDirection === "down") return { w: Math.max(8.7 * fontSize / 8, measure.w + 6 * fontSize / 8), h: 24 * fontSize / 8 };
+                return { w: Math.max(24 * fontSize / 8, measure.w + 6 * fontSize / 8), h: 8.7 * fontSize / 8 };
             }
             if (node.arrowDirection === "up" || node.arrowDirection === "down") return { w: CFG.ARROW_SYMBOL_HEIGHT * fontSize / 8, h: CFG.ARROW_SYMBOL_WIDTH * fontSize / 8 };
-            return { w: CFG.ARROW_SYMBOL_WIDTH * fontSize / 8, h: CFG.ARROW_SYMBOL_HEIGHT * fontSize / 8 };
+            return { w: Math.max(CFG.ARROW_SYMBOL_WIDTH * fontSize / 8, measure.w + 6 * fontSize / 8), h: CFG.ARROW_SYMBOL_HEIGHT * fontSize / 8 };
         }
         if (node.shape === "brace") {
             if (node.braceSide === "top" || node.braceSide === "bottom") return { w: CFG.BRACE_SYMBOL_HEIGHT * fontSize / 8, h: CFG.BRACE_SYMBOL_WIDTH * fontSize / 8 };
@@ -1037,10 +1085,10 @@
         if (layout.swimlaneLayout === "vertical") layout.containers = measureVerticalSwimlanes(layout.containerSpecs, layout.byId);
         else if (layout.swimlaneLayout === "horizontal") layout.containers = measureHorizontalSwimlanes(layout.containerSpecs, layout.byId);
         else {
-            layout.containers = measureContainers(layout.containerSpecs, layout.byId);
+            layout.containers = measureContainers(layout.containerSpecs, layout.byId, layout.edges);
             equalizeContainerFrameGroups(layout.containers);
             distributeContainerMembers(layout.containerSpecs, layout.containers, layout.byId);
-            layout.containers = measureContainers(layout.containerSpecs, layout.byId);
+            layout.containers = measureContainers(layout.containerSpecs, layout.byId, layout.edges);
             equalizeContainerFrameGroups(layout.containers);
         }
         if (layout.swimlaneLayout || layout.stackSpecs.length || layout.horizontalStackSpecs.length || layout.sideLabelWidth || hasContainerLayoutConstraints(layout.containerSpecs)) fitPositionedLayout(layout, artboard);
@@ -1198,6 +1246,7 @@
 
     function translateBounds(item, dx, dy) {
         if (item.cx !== undefined) { item.cx += dx; item.cy += dy; }
+        if (item.titleX !== undefined) item.titleX += dx;
         if (item.headerBottom !== undefined) item.headerBottom += dy;
         if (item.labelDivider !== undefined) item.labelDivider += dx;
         item.left += dx; item.right += dx; item.top += dy; item.bottom += dy;
@@ -1209,7 +1258,7 @@
         return (centers[lo] + centers[hi]) / 2;
     }
 
-    function measureContainers(specs, byId) {
+    function measureContainers(specs, byId, edges) {
         var result = [], i, j, members, frame, spec, padX, padY, cx;
         for (i = 0; i < specs.length; i++) {
             spec = specs[i]; members = [];
@@ -1220,8 +1269,27 @@
                 frame.left = cx - CFG.WIDE_NESTED_WIDTH / 2; frame.right = cx + CFG.WIDE_NESTED_WIDTH / 2;
                 frame.top = members[0].top + CFG.WIDE_NESTED_PAD_TOP;
                 frame.bottom = frame.top - CFG.WIDE_NESTED_HEIGHT;
-            } else if (spec.labelPosition === "bottomRight") frame.top = frame.top - padY + containerPaddingTop(spec);
-            frame.id = spec.id; frame.lineStyle = spec.lineStyle || "solid";
+            } else {
+                frame.top = frame.top - padY + containerPaddingTop(spec);
+                frame.bottom = frame.bottom + padY - containerPaddingBottom(spec, 0);
+                if (spec.titleWidth && frame.right - frame.left < spec.titleWidth + 2 * padX) { cx = (frame.left + frame.right) / 2; frame.left = cx - spec.titleWidth / 2 - padX; frame.right = cx + spec.titleWidth / 2 + padX; }
+            }
+            frame.titleHeight = spec.titleHeight; frame.titleGap = spec.titleGap;
+            if (spec.titleWidth && spec.labelPosition !== "bottomRight") {
+                var entry = null, entryCount = 0, membership = {}, candidate, sourceNode, targetNode;
+                for (j = 0; j < spec.members.length; j++) membership[spec.members[j]] = true;
+                for (j = 0; j < (edges || []).length; j++) {
+                    candidate = edges[j]; sourceNode = byId[candidate.from]; targetNode = byId[candidate.to];
+                    if (sourceNode && targetNode && !membership[candidate.from] && membership[candidate.to] && sourceNode.row < targetNode.row && sourceNode.column === targetNode.column && !candidate.via && (!candidate.fromPort || candidate.fromPort === "bottom") && (!candidate.toPort || candidate.toPort === "top")) { entry = candidate; entryCount++; }
+                }
+                if (entryCount === 1) {
+                    var entryPoints = opposingVerticalPortPoints(byId[entry.from], byId[entry.to], "bottom", "top", entry.fromPortPosition, entry.toPortPosition);
+                    frame.titleX = entryPoints[1][0] + CFG.STROKE / 2 + 3 + spec.titleWidth / 2;
+                    frame.right = Math.max(frame.right, frame.titleX + spec.titleWidth / 2 + padX);
+                }
+            }
+            if(spec.shape === "inputOutput"){frame.left-=4;frame.right+=4;}
+            frame.shape=spec.shape;frame.id = spec.id; frame.lineStyle = spec.lineStyle || "solid";
             frame.cornerStyle = spec.cornerStyle || "square";
             frame.label = spec.label; frame.labelPosition = spec.labelPosition || "topCenter";
             frame.frameGroup = spec.frameGroup;
@@ -1328,7 +1396,7 @@
         for (i = 0; i < containers.length; i++) frames[containers[i].id] = containers[i];
         for (i = 0; i < specs.length; i++) {
             spec = specs[i];
-            if (spec.memberDistribution !== "spaceBetween" || spec.members.length < 2) continue;
+            if ((spec.memberDistribution !== "spaceBetween" && spec.memberDistribution !== "compact") || spec.members.length < 2) continue;
             frame = frames[spec.id]; members = []; total = 0;
             for (j = 0; j < spec.members.length; j++) {
                 member = byId[spec.members[j]]; members.push(member); total += member.w;
@@ -1337,6 +1405,7 @@
             gap = (available - total) / (members.length - 1);
             if (gap < 0) continue;
             x = frame.left + containerPaddingX(spec);
+            if(spec.memberDistribution === "compact"){gap=CFG.GAP_MINIMAL;x=frame.cx-(total+gap*(members.length-1))/2;}
             for (j = 0; j < members.length; j++) {
                 member = members[j]; dx = x + member.w / 2 - member.cx;
                 translateBounds(member, dx, 0); x = member.right + gap;
@@ -1383,8 +1452,11 @@
             if (n.shape === "arrow") {
                 drawArrowSymbol(n, targetLayer, stroke, all);
                 if (n.text !== "") {
-                    tf = createText(n.text, n.cx, n.top + fontSize * 0.7, fontSize, font, stroke);
-                    tf.name = "AI_FLOW_TEXT_" + n.id;
+                    var labelInk=measureContainerTitle(n.text,fontSize,font),labelX=n.cx;
+                    if(n.arrowLabelSide==="right")labelX=n.cx+labelInk.w/2+3;
+                    if(n.arrowLabelSide==="left")labelX=n.cx-labelInk.w/2-3;
+                    tf = createText(n.text, labelX, n.top + labelInk.h / 2 + 3 * fontSize / 8, fontSize, font, stroke);
+                    tf.name = "AI_FLOW_ARROW_LABEL_" + n.id;
                     all.push(tf);
                 }
                 continue;
@@ -1393,8 +1465,8 @@
                 drawBraceSymbol(n, targetLayer, stroke, all);
                 continue;
             }
-            shapeW = n.w - CFG.STROKE; shapeH = n.h - CFG.STROKE;
-            shapeLeft = n.left + CFG.STROKE / 2; shapeTop = n.top - CFG.STROKE / 2;
+            shapeW = n.w; shapeH = n.h;
+            shapeLeft = n.left; shapeTop = n.top;
             if (n.shape === "inputOutput") {
                 box = drawInputOutput(n, targetLayer);
             } else if (n.shape === "predefinedProcess") {
@@ -1430,7 +1502,7 @@
     function inputOutputInset(height) { return Math.min(height * 0.25, 4); }
 
     function drawInputOutput(n, targetLayer) {
-        var halfStroke = CFG.STROKE / 2, left = n.left + halfStroke, right = n.right - halfStroke;
+        var halfStroke = 0, left = n.left, right = n.right;
         var top = n.top - halfStroke, bottom = n.bottom + halfStroke, inset = inputOutputInset(top - bottom);
         var box = targetLayer.pathItems.add();
         box.setEntirePath([[left + inset, top], [right, top], [right - inset, bottom], [left, bottom]]);
@@ -1439,7 +1511,7 @@
     }
 
     function drawPredefinedProcess(n, targetLayer, stroke, fontSize, all) {
-        var halfStroke = CFG.STROKE / 2, left = n.left + halfStroke, right = n.right - halfStroke;
+        var halfStroke = 0, left = n.left, right = n.right;
         var top = n.top - halfStroke, bottom = n.bottom + halfStroke, inset = 4 * fontSize / 8;
         var box = targetLayer.pathItems.rectangle(top, left, right - left, top - bottom), line, i;
         for (i = 0; i < 2; i++) {
@@ -1454,6 +1526,11 @@
     }
 
     function shapeBoundaryPoint(node, port, coordinate) {
+        if(node.shape==="ellipse"||node.shape==="decision"){
+            var horizontal=port==="left"||port==="right",r=horizontal?node.h/2:node.w/2,delta=Math.max(-r,Math.min(r,coordinate-(horizontal?node.cy:node.cx))),fraction=Math.abs(delta)/r;
+            var other=(horizontal?node.w/2:node.h/2)*(node.shape==="ellipse"?Math.sqrt(Math.max(0,1-fraction*fraction)):1-fraction);
+            return horizontal?[node.cx+(port==="left"?-other:other),node.cy+delta]:[node.cx+delta,node.cy+(port==="top"?other:-other)];
+        }
         var inset = node.shape === "inputOutput" ? inputOutputInset(node.h - CFG.STROKE) : 0;
         if (port === "left" || port === "right") {
             var fraction = Math.max(0, Math.min(1, (coordinate - node.bottom) / node.h));
@@ -1622,7 +1699,7 @@
         }
         for (i = 0; i < containers.length; i++) {
             frame = containers[i];
-            if (frame.cornerStyle === "rounded") {
+            if(frame.shape === "inputOutput") { path=drawInputOutput(frame,targetLayer); } else if (frame.cornerStyle === "rounded") {
                 var radius = Math.min(CFG.CONTAINER_ROUND_RADIUS, (frame.right - frame.left) / 2, (frame.top - frame.bottom) / 2);
                 path = targetLayer.pathItems.roundedRectangle(frame.top, frame.left, frame.right - frame.left, frame.top - frame.bottom, radius, radius);
             } else path = targetLayer.pathItems.rectangle(frame.top, frame.left, frame.right - frame.left, frame.top - frame.bottom);
@@ -1712,10 +1789,10 @@
     }
 
     function containerLabelPoint(frame) {
-        if (frame.labelPosition === "bottomRight") return [frame.right - 20, frame.bottom + 7];
+        if (frame.labelPosition === "bottomRight") return [frame.right - 20, frame.bottom + (frame.titleHeight ? frame.titleGap + frame.titleHeight / 2 : 7)];
         if (frame.swimlaneOrientation === "horizontal") return [(frame.left + frame.labelDivider) / 2, (frame.top + frame.bottom) / 2];
         if (frame.swimlane) return [(frame.left + frame.right) / 2, (frame.top + frame.headerBottom) / 2 + 3];
-        return [(frame.left + frame.right) / 2, frame.top - 7];
+        return [frame.titleX !== undefined ? frame.titleX : (frame.left + frame.right) / 2, frame.top - (frame.titleHeight ? frame.titleGap + frame.titleHeight / 2 : 7)];
     }
 
     function edgeMidpoint(points) {
@@ -1838,13 +1915,25 @@
     function drawSingleEdge(source, target, edge, layout, targetLayer, stroke, all, fontSize, font) {
         var ports = automaticPorts(source, target);
         var fromPort = edge.fromPort || ports.fromPort, toPort = edge.toPort || ports.toPort;
+        if(edge.routeStyle === "curve") return drawCurvedEdge(source,target,edge,fromPort,toPort,targetLayer,stroke,all,fontSize,font);
         var points = routedPoints(source, target, fromPort, toPort, edge.via, layout, edge.routeStyle, edge.fromPortPosition, edge.toPortPosition, edge.routeLane);
         addRoutedLine(targetLayer, points, edge.arrow || "end", stroke, all, edge.lineStyle);
         if (edge.label) {
-            var labelPoint = edgeLabelPoint(edge, points, source, fromPort, toPort);
+            var labelPoint = edgeLabelPoint(edge, points, source, fromPort, toPort, fontSize, font);
             addEdgeLabel(edge.label, labelPoint[0], labelPoint[1], all, fontSize, font, stroke);
         }
         return points;
+    }
+
+    function drawCurvedEdge(source,target,edge,fromPort,toPort,targetLayer,stroke,all,fontSize,font){
+        if(fromPort!==toPort||(fromPort!=="top"&&fromPort!=="bottom"))throw "Curve requires matching top/bottom ports";
+        var a=portPoint(source,fromPort,edge.fromPortPosition),b=portPoint(target,toPort,edge.toPortPosition),dx=b[0]-a[0],sign=fromPort==="top"?1:-1;
+        var rise=Math.max(CFG.GAP,Math.abs(dx)*0.22),c=[a[0]+dx/3,a[1]+sign*rise*4/3],d=[b[0]-dx/3,b[1]+sign*rise*4/3];
+        var curve=addLine(targetLayer,[a,b],stroke,all,edge.lineStyle);curve.pathPoints[0].rightDirection=c;curve.pathPoints[1].leftDirection=d;
+        if((edge.arrow||"end")!=="none")addArrow(targetLayer,b[0],b[1],b[0]-d[0],b[1]-d[1],stroke,all);
+        var mid=[(a[0]+b[0])/2,(a[1]+b[1])/2+sign*rise];
+        if(edge.label){var m=measureContainerTitle(edge.label,fontSize,font);addEdgeLabel(edge.label,mid[0],mid[1]+sign*(m.h/2+3),all,fontSize,font,stroke);}
+        return [a,mid,b];
     }
 
     function validateRoutedEdges(edges, byId, layout) {
@@ -2021,15 +2110,16 @@
         return result;
     }
 
-    function edgeLabelPoint(edge, points, source, fromPort, toPort) {
+    function edgeLabelPoint(edge, points, source, fromPort, toPort, fontSize, font) {
+        var ink=measureContainerTitle(edge.label,fontSize,font);
         if (edge.labelSegment !== undefined) {
             var segment = Math.min(edge.labelSegment, points.length - 2);
             var x = (points[segment][0] + points[segment + 1][0]) / 2;
             var y = (points[segment][1] + points[segment + 1][1]) / 2;
-            if (edge.labelSide === "below") y -= 5;
-            else if (edge.labelSide === "left") x -= 6;
-            else if (edge.labelSide === "right") x += 6;
-            else y += 5;
+            if (edge.labelSide === "below") y -= ink.h/2+3;
+            else if (edge.labelSide === "left") x -= ink.w/2+3;
+            else if (edge.labelSide === "right") x += ink.w/2+3;
+            else y += ink.h/2+3;
             return [x, y];
         }
         var position = edge.labelPosition || (source.shape === "decision" ? "source" : "middle");
@@ -2162,6 +2252,7 @@
         try { attr.textFont = italic ? findFont(CFG.MATH_FONTS) : resolveFont().font; } catch (ignore) {}
         try { attr.italics = italic; } catch (ignore2) {}
         applyRichStyles(tf, rich, italic, item.subItalic === true || item.subStyle === "italic");
+        tf.textRange.paragraphAttributes.justification = item.align === "left" ? Justification.LEFT : (item.align === "right" ? Justification.RIGHT : Justification.CENTER);
         b = tf.visibleBounds; w = b[2] - b[0]; cx = item.align === "left" ? ax + w / 2 : (item.align === "right" ? ax - w / 2 : ax);
         centerText(tf, cx, ay); return tf;
     }
@@ -2240,16 +2331,13 @@
         tf.translate(cx - (b[0] + b[2]) / 2, cy - (b[1] + b[3]) / 2);
     }
 
-    function measureText(contents, size, font) {
-        var tf = doc.textFrames.add();
-        tf.contents = contents; tf.position = [-10000, 10000];
-        var attr = tf.textRange.characterAttributes;
-        attr.size = size; attr.autoLeading = size !== 6;
-        if (size === 6) attr.leading = CFG.LEADING_6;
-        if (font) try { attr.textFont = font; } catch (ignore) {}
-        var b = tf.visibleBounds, result = { w: b[2] - b[0], h: b[1] - b[3] };
-        tf.remove(); return result;
+    function measureContainerTitle(contents, size, font) {
+        var tf = createText(contents, 0, 0, size, font, gray(100)), outline = null, b;
+        try { outline = tf.duplicate().createOutline(); b = outline.visibleBounds; return {w:b[2]-b[0],h:b[1]-b[3]}; }
+        finally { if (outline) outline.remove(); tf.remove(); }
     }
+
+    function measureText(contents, size, font) { return measureContainerTitle(contents, size, font); }
 
     function displayText(value, vertical) {
         var text = String(value).replace(/\r\n/g, "\r").replace(/\n/g, "\r");

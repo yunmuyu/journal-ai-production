@@ -8,7 +8,7 @@ const LABEL_POSITIONS = { source: true, middle: true, target: true };
 const LABEL_SIDES = { above: true, below: true, left: true, right: true };
 const ARROWS = { none: true, start: true, end: true, both: true };
 const LINE_STYLES = { solid: true, dashed: true, dotted: true };
-const ROUTE_STYLES = { straight: true, orthogonal: true };
+const ROUTE_STYLES = { straight: true, orthogonal: true, curve: true };
 const SHAPES = { terminator: true, process: true, decision: true, ellipse: true, cylinder: true, arrow: true, brace: true, plusCircle: true, minusCircle: true, label: true, functionBlock: true, multiplier: true, summer: true, port: true, waveBlock: true, sideCurveBlock: true, inputOutput: true, predefinedProcess: true };
 
 function fail(message) {
@@ -144,6 +144,7 @@ function validateEdge(edge, index, ids, edgeIds, version, kind) {
   if (edge.shaftLength !== undefined && edge.shaftLength !== "2mm" && edge.shaftLength !== "3mm") fail(`连接 ${index + 1} 的 shaftLength 无效。`);
   if (edge.routeLane !== undefined && !positiveInteger(edge.routeLane)) fail(`连接 ${index + 1} 的 routeLane 必须是正整数。`);
   if (edge.routeLane !== undefined && (!hasFromPort || edge.fromPort !== edge.toPort || edge.via !== undefined)) fail(`连接 ${index + 1} 的 routeLane 只能用于无 via 的同侧端口回路。`);
+  if(edge.routeStyle==='curve' && (edge.fromPort!==edge.toPort || !['top','bottom'].includes(edge.fromPort) || edge.via || (edge.arrow && !['none','end'].includes(edge.arrow)))) fail('Curve requires matching top/bottom ports and end/none arrow');
   if (edge.routeStyle === "straight" && kind !== "blockDiagram" && kind !== "signalFlow") fail(`连接 ${index + 1} 只有 blockDiagram 或 signalFlow 可以使用 straight 路线。`);
   if (edge.routeStyle === "straight" && !hasFromPort) fail(`连接 ${index + 1} 使用 straight 时必须显式设置端口。`);
   if (edge.routeStyle === "straight" && edge.via !== undefined) fail(`连接 ${index + 1} 不能同时使用 straight 和 via。`);
@@ -170,8 +171,8 @@ function validateContainers(containers, ids, endpointIds, version, nodes) {
     if (container.label !== undefined && (typeof container.label !== "string" || container.label.length === 0)) fail(`容器 ${container.id} 的 label 无效。`);
     if (container.labelPosition !== undefined && container.labelPosition !== "topCenter" && container.labelPosition !== "bottomRight") fail(`容器 ${container.id} 的 labelPosition 无效。`);
     if (container.frameGroup !== undefined && !validId(container.frameGroup)) fail(`容器 ${container.id} 的 frameGroup 无效。`);
-    if (container.memberDistribution !== undefined && container.memberDistribution !== "spaceBetween") fail(`容器 ${container.id} 的 memberDistribution 无效。`);
-    if (container.memberDistribution === "spaceBetween") {
+    if (container.memberDistribution !== undefined && container.memberDistribution !== "spaceBetween" && container.memberDistribution !== "compact") fail(`容器 ${container.id} 的 memberDistribution 无效。`);
+    if (container.memberDistribution === "spaceBetween" || container.memberDistribution === "compact") {
       const rows = new Set(container.members.map((member) => rowById[member]));
       if (rows.size > 1) fail(`[member-distribution-row] 容器 ${container.id} 的 spaceBetween 只能用于同一 row 的单行成员；多行模块或设备+说明组合必须省略该字段。`);
     }
@@ -662,6 +663,7 @@ function looksLikeModuleTree(root) {
 }
 
 function validate(root) {
+  if(root.kind === "technical") return require("./technical-schema.cjs").validateTechnical(root);
   if (!root || typeof root !== "object" || Array.isArray(root)) fail("根对象无效。");
   if (root.schemaVersion !== 1 && root.schemaVersion !== 2 && root.schemaVersion !== 3) fail("仅支持 schemaVersion 1、2 或 3。");
   if (root.kind !== "flowchart" && root.kind !== "blockDiagram" && root.kind !== "signalFlow" && root.kind !== "freeform" && root.kind !== "statChart") fail("kind 只能是 flowchart、blockDiagram、signalFlow、freeform 或 statChart。");
@@ -721,7 +723,8 @@ function main(argv) {
   const text = fs.readFileSync(argv[0], "utf8").replace(/^\uFEFF/, "");
   const root = JSON.parse(text);
   validate(root);
-  if (root.kind === "statChart") process.stdout.write(`PASS: ${root.charts.length} charts, schemaVersion ${root.schemaVersion}.\n`);
+  if (root.kind === "technical") process.stdout.write("PASS: technical " + root.layout + String.fromCharCode(10));
+  else if (root.kind === "statChart") process.stdout.write(`PASS: ${root.charts.length} charts, schemaVersion ${root.schemaVersion}.\n`);
   else process.stdout.write(`PASS: ${root.nodes.length} nodes, ${root.edges.length} edges, schemaVersion ${root.schemaVersion}.\n`);
 }
 

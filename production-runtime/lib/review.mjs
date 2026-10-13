@@ -12,8 +12,8 @@ function confirmedColumn(root,figure,record){
  const plan=readJson(record.planFile),fitFile=path.join(root,'fit',figure.id,'decision.json'),fit=existsSync(fitFile)?readJson(fitFile):null;
  const declared=plan.column==='single'?'单栏':plan.column==='double'?'双栏':figure.columnLabel;
  const column=declared||((fit?.widthMm===plan.widthMm)?(fit.widthMm<=80?'单栏':fit.widthMm<=160?'双栏':null):null);
- if(column!=='单栏'&&column!=='双栏')throw Error('Confirmed column required: plan.column or current fit decision');
- const board=record.adobe.snapshot.artboard,widthPt=board[2]-board[0],limitPt=(column==='单栏'?80:160)*72/25.4;
+ if(column!=='小单栏'&&column!=='单栏'&&column!=='双栏')throw Error('Confirmed column required: plan.column or current fit decision');
+ const board=record.adobe.snapshot.artboard,widthPt=board[2]-board[0],limitPt=(column==='双栏'?160:80)*72/25.4;
  if(widthPt<=0||widthPt>limitPt+0.1)throw Error('Actual single PDF width exceeds confirmed column');
  return column;
 }

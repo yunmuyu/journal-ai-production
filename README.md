@@ -2,9 +2,9 @@
 
 ## 当前整理版本
 
-2026.10.13-r7-flowchart-shapes。RELEASE.json锁定正式production-runtime与Skill字节；根目录lib/adobe/scripts为研发树，candidates为未发布试验，不能全量互覆。旧r5固定快照保留回滚。
+2026.10.13-r18-label-clearance。RELEASE.json锁定正式production-runtime与Skill字节；根目录lib/adobe/scripts为研发树，candidates为未发布试验，不能全量互覆。旧r5固定快照保留回滚。
 
-先读 [当前交付与审核契约](collaboration/20261013-consolidation.md) 和 [版本验证](release-notes/2026.10.13-r7.md)。旧交接是历史证据，不作为当前界面要求。
+先读 [当前交付与审核契约](collaboration/20261013-consolidation.md) 和 [版本验证](release-notes/2026.10.13-r18.md)。旧交接是历史证据，不作为当前界面要求。
 
 ## 机器入口
 

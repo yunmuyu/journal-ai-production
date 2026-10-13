@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 3,
+  "kind": "flowchart",
+  "flowShapePolicy": "sourceVisible",
+  "widthClass": "double",
+  "fontSize": 8,
+  "layoutMode": "compact",
+  "nodes": [
+    {"id":"ellipse","shape":"ellipse","text":"椭圆节点","row":0,"column":0},
+    {"id":"input","shape":"inputOutput","text":"输入输出","row":0,"column":1},
+    {"id":"subroutine","shape":"predefinedProcess","text":"预定义处理","row":0,"column":2},
+    {"id":"decision","shape":"decision","text":"满足条件？","row":1,"column":0},
+    {"id":"left","shape":"arrow","arrowDirection":"left","text":"输入","row":1,"column":1},
+    {"id":"both","shape":"arrow","arrowHeads":"both","text":"双向通信","row":1,"column":2},
+    {"id":"step1","shape":"process","text":"短文字","widthGroup":"sameColumn","row":2,"column":0},
+    {"id":"step2","shape":"process","text":"较长的同列文字","widthGroup":"sameColumn","row":3,"column":0}
+  ],
+  "edges": [{"from":"step1","to":"step2"}]
+}

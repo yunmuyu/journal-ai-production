@@ -21,12 +21,14 @@ JFW.alignContainerLabel=function(tf,frame,fontSize){
 };
 JFW.editorialFont=function(){var f=app.textFonts.getByName('ATC-73b000205b8b4f530020*1');if(f.family!=='现 宋体 1')throw Error('Required composite font family differs');return f;};
 JFW.adaptEditorialGenerator=function(code){
+ var metrics=JFW.layoutMetrics||{padX:4.5,padY:2.7,compactGap:3};
  function replaceOnce(from,to){var i=code.indexOf(from);if(i<0||code.indexOf(from,i+from.length)>=0)throw Error('Generator adaptation boundary changed: '+from);code=code.slice(0,i)+to+code.slice(i+from.length);}
- replaceOnce('var w = (units * CFG.HORIZONTAL_CHAR_WIDTH + CFG.HORIZONTAL_PADDING_TOTAL) * scale;','var w = measure.w + 9 * scale;');
+ replaceOnce('PAD_X: 4.5,','PAD_X: '+metrics.padX+',');replaceOnce('PAD_Y: 2.7,','PAD_Y: '+metrics.padY+',');
+ replaceOnce('var w = (units * CFG.HORIZONTAL_CHAR_WIDTH + CFG.HORIZONTAL_PADDING_TOTAL) * scale;','var w = measure.w + 2 * CFG.PAD_X * scale;');
  var start=code.indexOf('var h = Math.max(',code.indexOf('var w = measure.w + 9 * scale;')),end=code.indexOf('if (node.shape === "functionBlock")',start);
- if(start<0||end<0)throw Error('Generator rectangle boundary changed');code=code.slice(0,start)+'var h = measure.h + 5.4 * scale;\n        '+code.slice(end);
+ if(start<0||end<0)throw Error('Generator rectangle boundary changed');code=code.slice(0,start)+'var h = measure.h + 2 * CFG.PAD_Y * scale;\n        '+code.slice(end);
  start=code.indexOf('} else if (node.shape === "decision" && lines.length >= 4)');end=code.indexOf('} else if (node.shape === "ellipse")',start);
- if(start<0||end<0)throw Error('Generator diamond boundary changed');code=code.slice(0,start)+'} else if (node.shape === "decision") { w = 2 * (measure.w + 9 * scale + 0.5); h = 2 * (measure.h + 5.4 * scale + 0.5);\n        '+code.slice(end);
+ if(start<0||end<0)throw Error('Generator diamond boundary changed');code=code.slice(0,start)+'} else if (node.shape === "decision") { var a = measure.w * 0.85 + 2 * scale, b = measure.h * 0.8 + 2 * scale; var clearance = Math.max(1, measure.w / (2 * (a - scale)) + measure.h / (2 * (b - scale))); w = 2 * a * clearance; h = 2 * b * clearance;\n        '+code.slice(end);
  start=code.indexOf('function resolveFont() {');end=code.indexOf('function findFont(names)',start);
  if(start<0||end<0)throw Error('Generator font boundary changed');code=code.slice(0,start)+'function resolveFont() { return {font:JFW.editorialFont(),composite:true}; }\n    '+code.slice(end);
  replaceOnce('GAP_MINIMAL: 1 * PT_PER_MM,','GAP_MINIMAL: 3,');

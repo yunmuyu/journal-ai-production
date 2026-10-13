@@ -99,7 +99,7 @@ for item in items:
  if summary_boxes.pages[page_index].rotation%180:media_size=media_size[::-1]
  page_size_ok=all(abs(a-b)<=0.1 for a,b in zip(media_size,(right-origin,top-bottom),strict=True)) and all(abs(a-b)<=0.1 for a,b in zip(page_sizes[page_index],(right-origin,top-bottom),strict=True))
  source_size_ok=all(abs(a-b)<=0.1 for a,b in zip(source_size,(x1-x0,y0-y1),strict=True));bounds_ok=page_size_ok and source_size_ok and x0-origin>=-0.1 and x1<=right+0.1 and y0<=top+0.1 and y1>=bottom-0.1
- identity_ok=bool(item.get('author')) and bool(re.fullmatch(r'(?:4-1|\d+(?:\.\d+)?)',str(item.get('number','')))) and placement.get('name')==item['author']+'-图'+str(item['number']) and item.get('columnLabel') in ('单栏','双栏')
+ identity_ok=bool(item.get('author')) and bool(re.fullmatch(r'(?:4-1|\d+(?:\.\d+)?)',str(item.get('number','')))) and placement.get('name')==item['author']+'-图'+str(item['number']) and item.get('columnLabel') in ('小单栏','单栏','双栏')
  label_bounds=placement.get('labelBounds');badge_bounds=placement.get('badgeBounds');label_ok=False;outside_ok=False;label_actual=''
  if identity_ok and label_bounds:
   lx0,ly0,lx1,ly1=label_bounds;label_box=(lx0-origin,top-ly0,lx1-origin,top-ly1);text_page=summary_text.pages[page_index];factor=page_sizes[page_index][0]/text_page.width;selected=[c for c in text_page.chars if label_box[0]-0.5<=(c['x0']+c['x1'])/2*factor<=label_box[2]+0.5 and label_box[1]-0.5<=(c['top']+c['bottom'])/2*factor<=label_box[3]+0.5];label_actual=''.join(c['text'] for c in selected);label_ok=compact(label_actual)==compact(item['author']+' 图'+str(item['number'])+' · '+item['columnLabel']);lb=badge_bounds or label_bounds;outside_ok=lb[3]>=y0-0.1 or lb[1]<=y1+0.1 or lb[2]<=x0+0.1 or lb[0]>=x1-0.1
