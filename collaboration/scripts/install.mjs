@@ -1,9 +1,9 @@
-import {copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
+import {copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {adobeLock, parseArgs, readMachine, readRelease, repoRoot, sha256, verifyFiles} from './common.mjs';
 
-export function install(argv) {
+export function install(argv, {copy = copyFileSync} = {}) {
   const {configFile, rest} = parseArgs(argv);
   const apply = rest.includes('--apply');
   const rootIndex = rest.indexOf('--skills-root');
@@ -31,12 +31,24 @@ export function install(argv) {
     mkdirSync(path.dirname(previous), {recursive: true});
     copyFileSync(file.target, previous);
   }
-  for (const file of copies) {
-    mkdirSync(path.dirname(file.target), {recursive: true});
-    copyFileSync(file.source, file.target);
+  const touched = [];
+  try {
+    for (const file of copies) {
+      mkdirSync(path.dirname(file.target), {recursive: true});
+      touched.push(file);
+      copy(file.source, file.target);
+    }
+    verifyFiles(path.join(target, 'runtime'), release.files);
+    if (sha256(readFileSync(path.join(target, 'SKILL.md'))) !== release.skillSha256) throw Error('Installed Skill hash mismatch');
+  } catch (error) {
+    const failures = [];
+    for (const file of touched.reverse()) {
+      const previous = path.join(backup, path.relative(target, file.target));
+      try { if (existsSync(previous)) copyFileSync(previous, file.target); else if (existsSync(file.target)) unlinkSync(file.target); }
+      catch (rollbackError) { failures.push(rollbackError.message); }
+    }
+    throw new Error('Install failed; ' + (failures.length ? 'rollback incomplete: ' + failures.join('; ') : 'previous files restored') + '. Backup: ' + backup + '. ' + error.message);
   }
-  verifyFiles(path.join(target, 'runtime'), release.files);
-  if (sha256(readFileSync(path.join(target, 'SKILL.md'))) !== release.skillSha256) throw Error('Installed Skill hash mismatch');
   const receipt = {...plan, backup, installedAt: new Date().toISOString(), files: copies.map(file => path.relative(target, file.target))};
   const receiptFile = path.join(target, 'install-receipt.json');
   writeFileSync(receiptFile, JSON.stringify(receipt, null, 2) + '\n');

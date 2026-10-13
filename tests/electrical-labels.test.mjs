@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {electricalLabel} from '../lib/electrical-labels.mjs';
+test('explicit electrical units get spacing without changing their value',()=>{for(const [a,b]of [['24V','24 V'],['8MHz','8 MHz'],['10kΩ','10 kΩ'],['1uf','1 μF'],['22uF','22 μF'],['2.4kHz','2.4 kHz'],['+12V','+12 V']])assert.equal(electricalLabel(a),b);});
+test('ambiguous shorthand needs an established component quantity',()=>{assert.equal(electricalLabel('32.768K'),'32.768K');assert.equal(electricalLabel('32.768K','frequency'),'32.768 kHz');assert.equal(electricalLabel('10K','resistance'),'10 kΩ');assert.equal(electricalLabel('1M','resistance'),'1 MΩ');assert.equal(electricalLabel('22p','capacitance'),'22 pF');});
+test('model identifiers and net names stay untouched; formatting is idempotent',()=>{for(const x of ['VCC3V3','STM32F103C8T6','PC13','PZ254V-11-04P','5V_EN','10 kΩ'])assert.equal(electricalLabel(x),x);});

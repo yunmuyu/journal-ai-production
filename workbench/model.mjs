@@ -40,15 +40,18 @@ export function loadModel(){
  for(const [id,f]of deferred)if(!figures.has(id))figures.set(id,{id,articleId:f.articleId,number:f.number,caption:'批次补登记图号'});
  const files=new Map();
  function link(p){const local=p&&resolveLocal(p);if(!exists(local))return null;const resolved=path.resolve(local);const token=createHash('sha256').update(resolved).digest('hex').slice(0,24);files.set(token,resolved);return {token,name:path.basename(resolved),path:resolved};}
+ const deliveryRoot=process.env.JFW_DELIVERY_ROOT||path.join(root,'交付'),deliveryManifest=path.join(deliveryRoot,'当前','manifest.json');
+ const delivery=exists(deliveryManifest)?read(deliveryManifest):{items:[]};
  const rows=[];
  for(const f of figures.values()){
   const a=inventory.articles.find(a=>a.id===f.articleId);if(!a)continue;
-  const p=production.figures[f.id],defer=deferred.get(f.id);
+  const stored=production.figures[f.id];
+  const p=stored&&Object.keys(stored).some(key=>key!=='productionDecision')?stored:undefined,defer=deferred.get(f.id);
   const child=p?.subfigures?.length?p.subfigures:[p].filter(Boolean);
   const outputs=child.map(c=>({number:c.number||path.basename(c.output||'').match(/图(\d+(?:\.\d+)*)/)?.[1]||f.number,file:link(c.output)}));
   const ai=link(production.articles[f.articleId]?.ai)||link(p?.ai)||link(templates[f.articleId]?.path);
   const folder=link(ai?path.dirname(ai.path):path.dirname(a.localWord));
-  const outputDir=outputs.find(c=>c.file)?.file.path;
+  const outputDir=child.find(c=>c.output&&exists(resolveLocal(c.output)))?.output;
   const summary=link(production.articles[f.articleId]?.summary)||(outputDir?link(path.join(path.dirname(outputDir),a.author+'-核对汇总.pdf')):null);
   let status=classify(p?.status||'');
   let reason=defer?.reason||'';
@@ -62,7 +65,9 @@ export function loadModel(){
   const modified=outputs.filter(c=>c.file).map(c=>fs.statSync(c.file.path).mtimeMs);
   const updated=p?.reviewedAt||p?.userAcceptance?.at|| (modified.length?new Date(Math.max(...modified)).toISOString():inventory.scannedAt);
   const feedback=p?.userFeedback?{...p.userFeedback,attachments:(p.userFeedback.attachments||[]).map(a=>({...a,file:link(a.path)}))}:null;
-  rows.push({type:figureType(f,p,preflight.get(a.author+'-F'+f.number)),feedback,id:f.id,articleId:f.articleId,editor:a.editor,author:a.author,number:f.number,caption:f.caption,status,reason,updated,source,word,outputs,ai,folder,summary,review:p?.review||'',sourceLabel:source?'已记录图源':'原稿Word（附件尚未配对）'});
+  const layoutItem=delivery.items.find(item=>item.articleId===f.articleId&&item.state==='approved');
+  const layoutFolder=layoutItem?link(path.dirname(path.join(deliveryRoot,'当前',layoutItem.relative))):null;
+  rows.push({layoutFolder,type:figureType(f,p,preflight.get(a.author+'-F'+f.number)),feedback,notices:p?.notices||[],id:f.id,articleId:f.articleId,editor:a.editor,author:a.author,number:f.number,caption:f.caption,status,reason,updated,source,word,outputs,ai,folder,summary,review:p?.review||'',sourceLabel:source?'已记录图源':'原稿Word（附件尚未配对）'});
  }
  rows.sort((a,b)=>(a.status==='待终检'?0:1)-(b.status==='待终检'?0:1)||a.editor.localeCompare(b.editor,'zh')||a.author.localeCompare(b.author,'zh')||a.number.localeCompare(b.number,undefined,{numeric:true}));
  const articles=groupArticles(rows,inventory.articles).map(a=>({...a,notices:production.articles[a.id]?.notices||[],state:authorState(a.figures)}));

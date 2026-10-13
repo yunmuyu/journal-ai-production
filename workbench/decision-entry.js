@@ -1,0 +1,5 @@
+(()=>{
+let ids=new Set();
+function mount(){for(const slot of document.querySelectorAll('[data-decision-slot]')){if(slot.childElementCount||!ids.has(slot.dataset.decisionSlot)||slot.closest('.figure-todo').querySelector('[data-status]')?.dataset.status==='终检通过')continue;const details=document.createElement('details');details.className='monthly-decision';const summary=document.createElement('summary');summary.textContent='制作前判断';details.append(summary);details.addEventListener('toggle',()=>{if(!details.open||details.querySelector('iframe'))return;const frame=document.createElement('iframe');frame.className='monthly-decision-frame';frame.title='本图制作前判断';frame.src='/classification?embedded=1&mode=single&figure='+encodeURIComponent(slot.dataset.decisionSlot);details.append(frame);});slot.append(details);}}
+fetch('/decisions').then(r=>r.json()).then(data=>{ids=new Set(data.figures.map(f=>f.id));mount();new MutationObserver(mount).observe(document.getElementById('list'),{childList:true,subtree:true});}).catch(()=>{});
+})();

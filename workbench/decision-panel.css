@@ -1,0 +1,33 @@
+
+.decision-pilot-bar{display:flex;flex-direction:row;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.author-panel.decision-wide{width:min(1120px,94vw)}
+.decision-review{padding:16px;background:var(--tblr-bg-surface-secondary);border-top:1px solid var(--tblr-border-color)}
+.decision-review>summary{font-weight:600;cursor:pointer;margin-bottom:12px}
+.decision-review>summary .badge{margin-left:8px}
+.decision-sources{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.decision-sources>section{min-width:0;background:var(--tblr-bg-surface);border:1px solid var(--tblr-border-color);border-radius:6px;padding:12px}
+.decision-sources h4{font-size:14px;margin-bottom:8px}
+.decision-sources details{margin-bottom:8px}
+.decision-image{display:block;width:100%;border:0;background:var(--tblr-bg-surface);padding:4px;cursor:zoom-in}
+.decision-image img{display:block;max-width:100%;width:100%;height:220px;object-fit:contain}
+.decision-warning{color:var(--tblr-warning)}
+.decision-fields{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.decision-field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.decision-field textarea{font-size:14px;line-height:1.5;min-height:72px;resize:vertical}
+.decision-field small{line-height:1.5}
+.decision-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-top:16px}
+.decision-actions [role=status]{flex-basis:100%;white-space:pre-wrap}
+.decision-cases{margin:12px 0 16px}
+.decision-cases>summary{cursor:pointer;color:var(--tblr-primary)}
+.decision-case{margin-top:8px}
+.decision-case .badge{margin-left:8px}
+.decision-case .decision-image img{height:180px}
+#decision-batch{width:min(1120px,94vw);max-height:90vh;overflow:auto;border:1px solid var(--tblr-border-color);border-radius:6px;padding:24px}
+.decision-batch-heading{display:flex;align-items:center;justify-content:space-between}
+[data-batch-list]{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.decision-batch-item{display:flex;align-items:start;gap:8px;border:1px solid var(--tblr-border-color);padding:12px;border-radius:6px}
+.decision-batch-item>span{min-width:0}
+.decision-batch-item small{display:block;line-height:1.6}
+[data-batch-result]{white-space:pre-wrap}
+
+#classification-frame{width:100%;height:calc(100vh - 170px);border:0}

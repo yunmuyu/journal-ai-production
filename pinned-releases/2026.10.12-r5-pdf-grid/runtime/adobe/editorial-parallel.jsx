@@ -1,0 +1,12 @@
+JFW.drawParallelChains=function(doc,graph,fontSize){
+ fontSize=fontSize===undefined?(graph&&graph.fontSize===undefined?8:graph.fontSize):fontSize;var leading=fontSize===6?7:fontSize*1.2;
+ var black=new RGBColor();black.red=black.green=black.blue=0;var white=new RGBColor();white.red=white.green=white.blue=255;
+ var columns=[[],[]],widths=[0,0],heights=[0,0],gap=3*72/25.4,i,j;
+ function path(points,closed,fill){var p=doc.pathItems.add();p.setEntirePath(points);p.closed=closed;p.stroked=true;p.strokeWidth=.5;p.strokeColor=black;p.filled=fill;if(fill)p.fillColor=black;return p;}
+ for(i=0;i<graph.nodes.length;i++){var n=graph.nodes[i];if(n.column!==0&&n.column!==1||n.shape!=='process')throw Error('Parallel layout requires two process columns');var t=doc.textFrames.add();t.contents=n.text;var a=t.textRange.characterAttributes;a.textFont=JFW.editorialFont();a.size=fontSize;a.autoLeading=false;a.leading=leading;a.fillColor=black;t.textRange.paragraphAttributes.justification=Justification.CENTER;var o=t.duplicate().createOutline(),b=JFW.bounds(o.visibleBounds);o.remove();var item={id:n.id,row:n.row,text:t,ink:b,h:b[1]-b[3]+5.4};columns[n.column].push(item);widths[n.column]=Math.max(widths[n.column],b[2]-b[0]+9);heights[n.column]+=item.h;}
+ var expected={};for(i=0;i<2;i++){columns[i].sort(function(a,b){return a.row-b.row;});heights[i]+=gap*(columns[i].length-1);for(j=1;j<columns[i].length;j++)expected[columns[i][j-1].id+'>'+columns[i][j].id]=true;}
+ for(i=0;i<graph.edges.length;i++){var key=graph.edges[i].from+'>'+graph.edges[i].to;if(!expected[key])throw Error('Parallel edge differs from source chains');delete expected[key];}for(var missing in expected)throw Error('Missing parallel chain edge');
+ var total=Math.max(heights[0],heights[1]),lane=24;
+ for(i=0;i<2;i++){var x=i?widths[0]+lane:0,y=-(total-heights[i])/2;for(j=0;j<columns[i].length;j++){var q=columns[i][j],cx=x+widths[i]/2,cy=y-q.h/2;var box=doc.pathItems.rectangle(y,x,widths[i],q.h);box.filled=false;box.stroked=true;box.strokeColor=black;box.strokeWidth=.5;q.text.translate(cx-(q.ink[0]+q.ink[2])/2,cy-(q.ink[1]+q.ink[3])/2);if(j){path([[cx,y+gap],[cx,y+2.5]],false,false);path([[cx,y],[cx-1.5,y+3],[cx+1.5,y+3]],true,true);}y-=q.h+gap;}}
+ var ax=widths[0]+6,ay=-total/2;var arrow=path([[ax,ay+2],[ax+7,ay+2],[ax+7,ay+5],[ax+13,ay],[ax+7,ay-5],[ax+7,ay-2],[ax,ay-2]],true,false);arrow.filled=true;arrow.fillColor=white;
+};

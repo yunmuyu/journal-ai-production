@@ -9,6 +9,10 @@ export function configureWorkbench(argv) {
     throw Error('Usage: start-workbench.mjs --config machine.json [--port PORT]');
   }
   const machine = readMachine(configFile);
+  if(machine.pdfjsRoot!==undefined){
+    if(typeof machine.pdfjsRoot!=='string'||!machine.pdfjsRoot.trim())throw Error('Invalid machine configuration: pdfjsRoot');
+    process.env.JFW_PDFJS_ROOT=path.resolve(path.dirname(path.resolve(configFile)),machine.pdfjsRoot);
+  }
   const port = portIndex >= 0 ? Number(rest[portIndex + 1]) : (machine.reviewPort === undefined ? 18741 : Number(machine.reviewPort));
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid review port');
   process.env.JFW_RECORD_ROOT = machine.recordRoot;
@@ -16,6 +20,8 @@ export function configureWorkbench(argv) {
   process.env.JFW_WORKSPACE_ROOT = machine.workspaceRoot;
   process.env.JFW_WORK_ROOT = machine.workRoot || machine.workspaceRoot;
   process.env.JFW_REVIEW_PORT = String(port);
+  process.env.JFW_RUNTIME_PATH = machine.runtimePath;
+  process.env.JFW_DELIVERY_ROOT = machine.deliveryRoot || path.join(machine.recordRoot, '交付');
   process.chdir(machine.workspaceRoot);
   return {port, recordRoot: machine.recordRoot, workspaceRoot: machine.workspaceRoot};
 }

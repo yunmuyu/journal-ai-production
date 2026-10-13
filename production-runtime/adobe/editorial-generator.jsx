@@ -1,3 +1,13 @@
+// Curve anchors and handles follow the existing editorial brace script (7.6 x 36.5).
+JFW.drawEditorialBrace=function(n,layer,stroke,all,strokeWidth){
+ var anchors=[[7.6,.3],[4.9,3.4],[4.9,15.2],[0,18.3],[4.9,21.4],[4.9,33.2],[7.6,36.3]];
+ var left=[[5.8,.3],[4.9,1.3],[4.9,15.2],[3.3,18.3],[4.9,19.3],[4.9,33.2],[5.8,36.3]];
+ var right=[[7.6,.3],[4.9,3.4],[4.9,17.3],[3.3,18.3],[4.9,21.4],[5.8,36.3],[7.6,36.3]];
+ function map(q){var x=q[0]/7.6,y=q[1]/36.5,side=n.braceSide||'left';if(side==='right')x=1-x;else if(side==='top'){var oldX=x;x=y;y=oldX;}else if(side==='bottom'){var oldX=x;x=y;y=1-oldX;}return [n.left+x*(n.right-n.left),n.top-y*(n.top-n.bottom)];}
+ var p=layer.pathItems.add(),points=[],i;for(i=0;i<anchors.length;i++)points.push(map(anchors[i]));p.setEntirePath(points);
+ for(i=0;i<anchors.length;i++){p.pathPoints[i].anchor=map(anchors[i]);p.pathPoints[i].leftDirection=map(left[i]);p.pathPoints[i].rightDirection=map(right[i]);p.pathPoints[i].pointType=PointType.CORNER;}
+ p.closed=false;p.filled=false;p.stroked=true;p.strokeColor=stroke;p.strokeWidth=strokeWidth;p.strokeDashes=[];p.name='AI_FLOW_NODE_'+n.id;all.push(p);
+};
 JFW.alignContainerLabel=function(tf,frame,fontSize){
  if(frame.labelPosition!=='bottomRight')return;
  var outline=tf.duplicate().createOutline(),b=outline.visibleBounds;
@@ -16,7 +26,7 @@ JFW.adaptEditorialGenerator=function(code){
  var start=code.indexOf('var h = Math.max(',code.indexOf('var w = measure.w + 9 * scale;')),end=code.indexOf('if (node.shape === "functionBlock")',start);
  if(start<0||end<0)throw Error('Generator rectangle boundary changed');code=code.slice(0,start)+'var h = measure.h + 5.4 * scale;\n        '+code.slice(end);
  start=code.indexOf('} else if (node.shape === "decision" && lines.length >= 4)');end=code.indexOf('} else if (node.shape === "ellipse")',start);
- if(start<0||end<0)throw Error('Generator diamond boundary changed');code=code.slice(0,start)+'} else if (node.shape === "decision") { w = 1.7 * measure.w + 4 * scale; h = 1.6 * measure.h + 4 * scale;\n        '+code.slice(end);
+ if(start<0||end<0)throw Error('Generator diamond boundary changed');code=code.slice(0,start)+'} else if (node.shape === "decision") { w = 2 * (measure.w + 9 * scale + 0.5); h = 2 * (measure.h + 5.4 * scale + 0.5);\n        '+code.slice(end);
  start=code.indexOf('function resolveFont() {');end=code.indexOf('function findFont(names)',start);
  if(start<0||end<0)throw Error('Generator font boundary changed');code=code.slice(0,start)+'function resolveFont() { return {font:JFW.editorialFont(),composite:true}; }\n    '+code.slice(end);
  replaceOnce('GAP_MINIMAL: 1 * PT_PER_MM,','GAP_MINIMAL: 3,');
@@ -27,5 +37,8 @@ JFW.adaptEditorialGenerator=function(code){
  replaceOnce('function opposingHorizontalPortPoints(source, target, fromPort, toPort, fromPortPosition, toPortPosition) {','function opposingHorizontalPortPoints(source, target, fromPort, toPort, fromPortPosition, toPortPosition) { if(source.shape==="decision"||target.shape==="decision")return [portPoint(source,fromPort,fromPortPosition),portPoint(target,toPort,toPortPosition)];');
  start=code.indexOf('function columnTrackGaps(');end=code.indexOf('return gaps;',start);if(start<0||end<0)throw Error('Column gaps boundary changed');code=code.slice(0,end)+'var fanouts={};for(var e=0;e<edges.length;e++){var edge=edges[e],source=byId[edge.from],target=byId[edge.to];if(source&&target&&target.column===source.column+1&&edge.fromPort==="right"&&edge.toPort==="left"){var key=source.id;fanouts[key]=(fanouts[key]||0)+1;if(fanouts[key]>=2)gaps[source.column]=Math.max(gaps[source.column],CFG.BUS_LEG*2);}} '+code.slice(end);
  replaceOnce("point = containerLabelPoint(frame);\n                addEdgeLabel(frame.label, point[0], point[1], all, fontSize, font, stroke);","point = containerLabelPoint(frame);\n                addEdgeLabel(frame.label, point[0], point[1], all, fontSize, font, stroke); JFW.alignContainerLabel(all[all.length-1],frame,fontSize);");
+ start=code.indexOf('function drawBraceSymbol(');end=code.indexOf('function drawSignalOperator(',start);
+ if(start<0||end<0)throw Error('Generator brace boundary changed');
+ code=code.slice(0,start)+'function drawBraceSymbol(n,targetLayer,stroke,all){JFW.drawEditorialBrace(n,targetLayer,stroke,all,CFG.STROKE);} '+code.slice(end);
  return code;
 };
