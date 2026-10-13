@@ -8,4 +8,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test collaboration/current-delivery.test.mjs collaboration/tests/seal-release.test.mjs collaboration/tests/entrypoints.test.mjs collaboration/tests/snapshot-baseline.test.mjs collaboration/state-transfer/merge.test.mjs tests/font-policy.test.mjs tests/local-paths.test.mjs workbench/classification-store.test.mjs
+      - run: node --test knowledge/production-policy.test.mjs knowledge/decision-corrections.test.mjs workbench/feedback-summary.test.mjs collaboration/current-delivery.test.mjs collaboration/tests/seal-release.test.mjs collaboration/tests/entrypoints.test.mjs collaboration/tests/snapshot-baseline.test.mjs collaboration/state-transfer/merge.test.mjs tests/font-policy.test.mjs tests/local-paths.test.mjs workbench/classification-store.test.mjs
