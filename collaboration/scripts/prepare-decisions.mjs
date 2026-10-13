@@ -1,3 +1,4 @@
+import {correctionContext} from '../../knowledge/decision-corrections.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {refreshIndex,retrieveCases,applyCaseEvidence,writeIndex} from '../../knowledge/decision-retrieval.mjs';
@@ -8,6 +9,6 @@ const inventory=read(path.join(args['record-root'],'inventory.json')),production
 const index=refreshIndex({inventory,production,evidence:read(args.evidence)});
 fs.mkdirSync(path.dirname(args.index),{recursive:true});writeIndex(args.index,index);
 const input=read(args.input);
-const output={...input,figures:input.figures.map(figure=>applyCaseEvidence(figure,retrieveCases(index,figure.retrievalQuery||{}))),knowledgeSourceFingerprint:index.sourceFingerprint};
+const output={...input,figures:input.figures.map(figure=>{const next=applyCaseEvidence(figure,retrieveCases(index,figure.retrievalQuery||{}));next.aiProposal.userCorrectionContext=correctionContext(production,figure);return next;}),knowledgeSourceFingerprint:index.sourceFingerprint};
 fs.writeFileSync(args.output,JSON.stringify(output,null,2)+'\n',{flag:'wx'});
 console.log(JSON.stringify({acceptedCases:index.cases.length,figures:output.figures.map(f=>({id:f.id,matches:f.aiProposal.caseRetrieval.matches.map(m=>m.id),reason:f.aiProposal.caseRetrieval.reason}))}));

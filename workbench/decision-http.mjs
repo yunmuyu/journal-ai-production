@@ -22,10 +22,14 @@ export function createDecisionHandler({recordRoot,origin}) {
    files.set(token,file);assets[id]={token,name:path.basename(file),label:asset.label||path.basename(file)};
   }
   for(const figure of data.figures){for(const a of figure.decision?.sourceReview?.attachments||[]){if(!fs.existsSync(resolveLocal(a.path)))continue;const file=path.resolve(resolveLocal(a.path)),token=createHash('sha256').update(file).digest('hex').slice(0,24);files.set(token,file);a.token=token;}}
+  const reusePath=path.join(recordRoot,'reuse-review.json');
+  const reuse=fs.existsSync(reusePath)?JSON.parse(fs.readFileSync(reusePath,'utf8')):[];
   const figures=data.figures.map(figure=>{
    const {retrievalQuery,similarCaseIds,sourceFiles,proposalHistory,...publicFigure}=figure;
    const {caseRetrieval,...proposal}=figure.aiProposal;
    const copy=structuredClone({...publicFigure,aiProposal:proposal});
+   const prior=reuse.find(r=>r.figureId===figure.id&&figure.sourceFiles?.some(f=>f.sha256===r.wordHash));
+   copy.existingFinal=!!(prior?.files?.length&&prior.files.every(f=>fs.existsSync(resolveLocal(f.path))&&digest(resolveLocal(f.path))===f.sha256)&&!figure.decision?.attributes?.method?.history?.length);
    const card=classifications.get(figure.id);copy.basicClassification={value:card?.type??figure.aiProposal.fields?.contentTypes?.value??'待判断',confirmed:card?.review==='分类已确认',review:card?.review||'待复核'};
    const candidate=candidateDeliveryPreview(copy,(id,region)=>{
     const source=resolveLocal(region.source),file=resolveLocal(region.path);
