@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.13-r6-consolidated",
-  "createdAt": "2026-10-13T05:02:04.587Z",
+  "id": "2026.10.13-r7-flowchart-shapes",
+  "createdAt": "2026-10-13T06:44:29.555Z",
   "status": "production-pinned",
   "constraints": {
     "fontSizePt": {
@@ -12,33 +12,24 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "scope": "r5 plus isolated native character subscript and editorial brace fixes; workbench and delivery consolidation",
-    "priorNativeSubscript": "Li1/Li2 actual Illustrator AI/PDF and 8-item deliver verified 2026-10-13; private evidence kept locally",
-    "priorNativeBrace": "Wei2 actual Illustrator AI/PDF verified 2026-10-13; private evidence kept locally",
-    "combinedNativeRegression": {
-      "passed": 2,
-      "mechanicalIssues": 0,
-      "pdfAudit": true,
-      "colorAudit": true,
-      "actualPdfViewed": true,
-      "pdfHashes": [
-        "8a3902f3ebdbae26660c07c4a24918ff3169d797fe2b0584f8bdf2b226b3347a",
-        "90ab60de247c502c84f2b425d426ceec1704967ac41732b6f33bc05dd728fc0c"
-      ]
+    "scope": "Bundled common flowchart generator: inputOutput/predefinedProcess and editable ink-centered text; routing policy",
+    "candidateShapeAssertions": 73,
+    "existingValidatorRegression": true,
+    "formalPreflight": true,
+    "nativeEvidence": {
+      "reused": true,
+      "nodes": 11,
+      "edges": 13,
+      "fontSizePt": 8,
+      "widthMm": 56.37692260949149,
+      "pdfHash": "c7601e56111868c49234fa69b6adf68e8ab89924187b9512bbe54df332fdea06",
+      "aiHash": "fbf38bbb7ecd10d9b7ebc2db1d2c29121671189b6dbbcdded564f8ba439d2f48",
+      "actualPdfViewed": true
     },
-    "unreleasedScalingExcluded": true,
-    "authorityRecordsNotRewritten": true,
-    "tests": {
-      "releasePass": 78,
-      "releaseSkipped": 1,
-      "workbenchPass": 70,
-      "sealReleasePass": 1
-    },
-    "browserDeliveryRegression": {
-      "acceptedPublished": true,
-      "withdrawnRemoved": true,
-      "officialRecordsUnchanged": true,
-      "actualScreenshotViewed": true
+    "limits": "6/7pt offline only; no claim of all diagram types; no accepted artwork remade",
+    "formalTests": {
+      "pass": 19,
+      "fail": 0
     }
   },
   "files": [
@@ -138,6 +129,26 @@
       "bytes": 1901
     },
     {
+      "path": "flowchart/assets/AI流程图生成器.jsx",
+      "sha256": "d9d7152db14b73db93fcd3d00ba4344d440ef994b0c16b01cddcdc3a45bb706d",
+      "bytes": 156392
+    },
+    {
+      "path": "flowchart/package.json",
+      "sha256": "a51bff776fdd53226e2e67d8f654d17dadfe3decc8bf8bf869cba3aff9813826",
+      "bytes": 44
+    },
+    {
+      "path": "flowchart/references/schema.md",
+      "sha256": "3d4fb2ff678384089ffb7bffa15f55cc2993430a59add7e06f47c559140711e9",
+      "bytes": 34121
+    },
+    {
+      "path": "flowchart/scripts/validate_flowchart.js",
+      "sha256": "8d9bd927e6597794dac90a1cfd625bf3beb2fa863ad541310b822057068a79c8",
+      "bytes": 48013
+    },
+    {
       "path": "lib/adobe-health.mjs",
       "sha256": "8e3c402780e7e88f9c31b9f850a50f8ad81a5d2d2a2fefbb98697e49b78a5f5a",
       "bytes": 2392
@@ -234,8 +245,8 @@
     },
     {
       "path": "lib/render.mjs",
-      "sha256": "ef89a536240f4292cad3ef372a1fa2bb10a9b17a3ef3d921e11c696c84b7c3c9",
-      "bytes": 10711
+      "sha256": "73989100c2a3e7f5ae7d35ddac466d48cfaf1aafd8e8472ce0758490fd8db567",
+      "bytes": 10597
     },
     {
       "path": "lib/review.mjs",
@@ -353,7 +364,7 @@
       "bytes": 1232
     }
   ],
-  "skillSha256": "728fbb4a53f40adbed42c05c64b20404db2eeb213192df140fa6d6aa5f9b2eb8",
-  "supersedes": "2026.10.12-r5-pdf-grid",
+  "skillSha256": "07cc3268c8e62058ead065d88e7c9c4f40f6b4aec851c43619b432928fc0e257",
+  "supersedes": "2026.10.13-r6-consolidated",
   "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged."
 }

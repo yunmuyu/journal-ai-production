@@ -15,7 +15,7 @@ function renderInternal(root,planFile){
  const source=resolveInside(root,figure.source);if(fileHash(source)!==p.sourceHash||figure.sourceHash!==p.sourceHash)throw Error('Plan source revision mismatch');
  const colorPolicy=resolveColorPolicy(p,p.sourceHash);p.colorPolicy=colorPolicy.mode;p.grayscale=colorPolicy.mode==='grayscale';p.colorRuleVersion=COLOR_RULE_VERSION;
  const effectiveCrop=p.crop||figure.crop||[0,0,0,0];p.crop=effectiveCrop;validatePlan(p);
- const generator=path.join(process.env.JFW_FLOWCHART_ROOT||path.join(process.env.USERPROFILE,'.codex/skills/illustrator-flowchart'),'assets/AI流程图生成器.jsx');
+ const generator=path.join(process.env.JFW_FLOWCHART_ROOT||path.join(packageRoot,'flowchart'),'assets/AI流程图生成器.jsx');
  const driverFiles=['illustrator.jsx','photoshop.jsx','common.jsx','invoke.js','editorial-generator.jsx','vector-labels.jsx','editorial-parallel.jsx','editorial-bars.jsx'].map(f=>path.join(packageRoot,'adobe',f));driverFiles.push(path.join(packageRoot,'lib/svg.mjs'),path.join(packageRoot,'scripts/svg_page.py'),path.join(packageRoot,'lib/render.mjs'),path.join(packageRoot,'scripts/audit_pdf.py'),path.join(packageRoot,'scripts/ink_bounds.py'));if(p.route==='rebuild')driverFiles.push(generator);
  driverFiles.push(path.join(packageRoot,'lib/data-audit.mjs'),path.join(packageRoot,'lib/core.mjs'),path.join(packageRoot,'lib/color-policy.mjs'),path.join(packageRoot,'scripts/normalize_svg_color.py'),path.join(packageRoot,'scripts/audit_color.py'));
  const toolHashes=driverFiles.map(file=>({file,sha256:fileHash(file)})),planHash=colorPlanHash(p,toolHashes,colorPolicy);
@@ -39,11 +39,11 @@ function renderInternal(root,planFile){
    const c=p.crop||figure.crop||[0,0,0,0];p.crop=c;heightMm=p.widthMm*(psResult.heightPx*(1-c[1]-c[3]))/(psResult.widthPx*(1-c[0]-c[2]));
   }else heightMm=p.heightMm||100;
   if(p.route==='rebuild'){
-   const skill=process.env.JFW_FLOWCHART_ROOT||path.join(process.env.USERPROFILE,'.codex/skills/illustrator-flowchart');const graph=path.join(directory,'graph.json');writeJson(graph,p.graph);
+   const skill=process.env.JFW_FLOWCHART_ROOT||path.join(packageRoot,'flowchart');const graph=path.join(directory,'graph.json');writeJson(graph,p.graph);
    execFileSync(process.execPath,[path.join(skill,'scripts/validate_flowchart.js'),graph],{encoding:'utf8',windowsHide:true});
   }
   const ai=path.join(directory,'figure.ai'),pdf=path.join(directory,'figure.pdf'),preview=path.join(directory,'preview.png');
-  let result=adobe('illustrator',{mode:'render',input:reqInput,plan:p,heightMm,ai,pdf,preview,generator:path.join(process.env.JFW_FLOWCHART_ROOT||path.join(process.env.USERPROFILE,'.codex/skills/illustrator-flowchart'),'assets/AI流程图生成器.jsx')},path.join(directory,'draw'));
+  let result=adobe('illustrator',{mode:'render',input:reqInput,plan:p,heightMm,ai,pdf,preview,generator:path.join(process.env.JFW_FLOWCHART_ROOT||path.join(packageRoot,'flowchart'),'assets/AI流程图生成器.jsx')},path.join(directory,'draw'));
   if(['raster-reletter','compose','vector-reletter','chart-redraw'].includes(p.route)&&p.tightExport!==false){
    const measured=JSON.parse(execFileSync(pythonRuntime(),[path.join(packageRoot,'scripts/ink_bounds.py'),preview],{encoding:'utf8',windowsHide:true,timeout:30000}));
    const [l,t,r,b]=result.snapshot.artboard,[x0,y0,x1,y1]=measured.pixels,[pw,ph]=measured.size,dx=(r-l)/pw,dy=(t-b)/ph,pad=exportPadding(p.exportPaddingPt);
