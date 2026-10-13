@@ -1,0 +1,3 @@
+import fs from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';
+import {syncDelivery} from '../collaboration/scripts/sync-delivery.mjs';
+export function createDeliveryRefresh(machine){let fingerprint=null;return ()=>{if(!machine.deliveryRoot)return;const records=path.join(machine.recordRoot,'production-results.json');if(fs.existsSync(records+'.feedback.lock'))return;const next=createHash('sha256').update(fs.readFileSync(records)).update(fs.readFileSync(path.join(machine.recordRoot,'inventory.json'))).digest('hex');if(next===fingerprint)return;const result=syncDelivery(machine);fingerprint=next;return result;};}

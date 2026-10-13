@@ -30,7 +30,7 @@ export function readMachine(file) {
     if (typeof config[key] !== 'string' || !config[key].trim()) throw Error('Missing machine configuration: ' + key);
     config[key] = path.resolve(path.dirname(configFile), config[key]);
   }
-  for (const key of ['skillsRoot','codeRoot','productionRoot','workRoot','releaseRoot','handoffRoot','legacyWorkspaceRoot']) { if (config[key] !== undefined) { if (typeof config[key] !== 'string' || !config[key].trim()) throw Error('Invalid machine configuration: ' + key); config[key] = path.resolve(path.dirname(configFile), config[key]); } }
+  for (const key of ['deliveryRoot','skillsRoot','codeRoot','productionRoot','workRoot','releaseRoot','handoffRoot','legacyWorkspaceRoot']) { if (config[key] !== undefined) { if (typeof config[key] !== 'string' || !config[key].trim()) throw Error('Invalid machine configuration: ' + key); config[key] = path.resolve(path.dirname(configFile), config[key]); } }
   return config;
 }
 export function verifyFiles(root, files) {

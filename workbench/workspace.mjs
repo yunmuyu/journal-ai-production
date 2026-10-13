@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 
 const project=path.resolve('.');
 const engine=path.join(project,'outputs/journal-figure-workflow');
-const runtime='C:/Users/xdxxk/.codex/skills/journal-figure-workflow/runtime';
+const runtime=process.env.JFW_RUNTIME_PATH||'C:/Users/xdxxk/.codex/skills/journal-figure-workflow/runtime';
 const digest=p=>fs.existsSync(p)?createHash('sha256').update(fs.readFileSync(p)).digest('hex'):null;
 const routeDefinitions=[
  {id:'export-existing',name:'接手已有AI并导出',family:'核对与交付',stage:'已有成品',scope:'核对Word图号、顺序和内容，复用已有作者AI，分别导出主图或子图。',boundary:'不把旧AI或文件夹已完成标记当作内容正确的证据。',tools:['lib/review.mjs','adobe/editorial-copy.jsx'],evidence:['work/october-production/gongxiaoqiang/export-report.json']},

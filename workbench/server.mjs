@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {loadModel} from './model.mjs';
+import {createDeliveryRefresh} from './current-delivery.mjs';
 import {persistFeedback} from './feedback.mjs';
 import {createClassificationStore,createClassificationHandler} from './classification-store.mjs';
 import {fileURLToPath} from 'node:url';
@@ -12,8 +13,11 @@ const port=Number(process.env.JFW_REVIEW_PORT||18741),origin='http://127.0.0.1:'
 const decisions=createDecisionHandler({recordRoot,origin});
 const classificationStore=createClassificationStore(path.join(recordRoot,'figure-classification.json'));
 const handleClassification=createClassificationHandler({store:classificationStore,origin,assetsDirectory:fileURLToPath(new URL('.',import.meta.url))});
+const refreshDelivery=createDeliveryRefresh({recordRoot,deliveryRoot:process.env.JFW_DELIVERY_ROOT,pathMapFile:process.env.JFW_PATH_MAP_FILE});
+function updateDelivery(){try{refreshDelivery();}catch(error){console.error('Current delivery not updated:',error.message);}}
+updateDelivery();
 let model=loadModel(),modelError=null;
-setInterval(()=>{try{model=loadModel();modelError=null;}catch(e){modelError=e.message;console.error(new Date().toISOString(),e.message);}},5000).unref();
+setInterval(()=>{try{updateDelivery();model=loadModel();modelError=null;}catch(e){modelError=e.message;console.error(new Date().toISOString(),e.message);}},5000).unref();
 const types={'.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.pdf':'application/pdf','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg'};
 function openRegistered(file,mode,res){
  execFile('powershell.exe',['-NoProfile','-NonInteractive','-Command',fs.readFileSync(new URL('open-file.ps1',import.meta.url),'utf8')],{windowsHide:true,timeout:18000,env:{...process.env,JFW_OPEN_FILE:file,JFW_OPEN_MODE:mode}},(error,stdout,stderr)=>{
@@ -37,7 +41,7 @@ http.createServer((req,res)=>{
   req.on('data',chunk=>{length+=chunk.length;if(length>64*1024*1024)tooLarge=true;else chunks.push(chunk);});
   req.on('end',()=>{
    res.setHeader('Content-Type','application/json; charset=utf-8');
-   try{if(tooLarge)throw Object.assign(Error('图片总量过大，本次未保存'),{status:413});const input=JSON.parse(Buffer.concat(chunks).toString('utf8'));persistFeedback(id,input,new Set(model.data.rows.map(r=>r.id)));model=loadModel();res.end(JSON.stringify({ok:true,figure:model.data.rows.find(r=>r.id===id)}));}
+   try{if(tooLarge)throw Object.assign(Error('图片总量过大，本次未保存'),{status:413});const input=JSON.parse(Buffer.concat(chunks).toString('utf8'));persistFeedback(id,input,new Set(model.data.rows.map(r=>r.id)));updateDelivery();model=loadModel();res.end(JSON.stringify({ok:true,figure:model.data.rows.find(r=>r.id===id)}));}
    catch(error){res.writeHead(error.status||500).end(JSON.stringify({ok:false,error:error.message}));}
   });return;
  }

@@ -14,6 +14,7 @@ export function groupArticles(rows,inventory){
   const suffix=names.get(author)>1?(a.secondAuthor||a.authors?.[1]||String(a.author).trim().split(/[\s、，,]+/)[1]||title.slice(0,18)||a.id.slice(-6)):'';
   const summary=figures.find(r=>r.summary)?.summary||null,word=figures.find(r=>r.word)?.word||null;
   const ai=figures.find(r=>r.ai)?.ai||null,folder=figures.find(r=>r.folder)?.folder||null;
-  return {id:a.id,editor:a.editor,author,label:author+(suffix?' · '+suffix:''),category:articleCategory(figures),summary,word,ai,folder,figures};
+  const layoutFolder=figures.find(r=>r.layoutFolder)?.layoutFolder||null;
+  return {layoutFolder,id:a.id,editor:a.editor,author,label:author+(suffix?' · '+suffix:''),category:articleCategory(figures),summary,word,ai,folder,figures};
  });
 }

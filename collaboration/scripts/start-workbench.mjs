@@ -20,6 +20,8 @@ export function configureWorkbench(argv) {
   process.env.JFW_WORKSPACE_ROOT = machine.workspaceRoot;
   process.env.JFW_WORK_ROOT = machine.workRoot || machine.workspaceRoot;
   process.env.JFW_REVIEW_PORT = String(port);
+  process.env.JFW_RUNTIME_PATH = machine.runtimePath;
+  process.env.JFW_DELIVERY_ROOT = machine.deliveryRoot || path.join(machine.recordRoot, '交付');
   process.chdir(machine.workspaceRoot);
   return {port, recordRoot: machine.recordRoot, workspaceRoot: machine.workspaceRoot};
 }
