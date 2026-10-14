@@ -20,6 +20,29 @@ JFW.alignContainerLabel=function(tf,frame,fontSize){
  tf.translate(dx,dy);
 };
 JFW.editorialFont=function(){var f=app.textFonts.getByName('ATC-73b000205b8b4f530020*1');if(f.family!=='现 宋体 1')throw Error('Required composite font family differs');return f;};
+// Layout reserves the label and the arrow as one block; drawing keeps the symbol narrow.
+JFW.editorialArrowSymbol=function(n){
+ if(!n.arrowSymbol)return n;
+ var symbol={},key;for(key in n)if(n.hasOwnProperty(key))symbol[key]=n[key];
+ symbol.w=n.arrowSymbol.w;symbol.h=n.arrowSymbol.h;
+ symbol.left=n.cx-symbol.w/2;symbol.right=n.cx+symbol.w/2;
+ symbol.top=n.bottom+symbol.h;symbol.cy=n.bottom+symbol.h/2;
+ return symbol;
+};
+JFW.reserveContainerColumns=function(containers,byId,gaps){
+ var ranges=[],i,j,k,n,s;
+ for(i=0;i<containers.length;i++){
+  s=containers[i];var r={left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity,pad:s.framePaddingX};
+  for(k=0;k<s.members.length;k++){n=byId[s.members[k]];r.left=Math.min(r.left,n.column);r.right=Math.max(r.right,n.column+n.columnSpan-1);r.top=Math.min(r.top,n.row);r.bottom=Math.max(r.bottom,n.row+n.rowSpan-1);}
+  ranges.push(r);
+ }
+ for(i=0;i<ranges.length;i++)for(j=0;j<ranges.length;j++){
+  var a=ranges[i],b=ranges[j];
+  if(a.right+1!==b.left||a.bottom<b.top||b.bottom<a.top)continue;
+  if(Math.floor(a.right)!==a.right)continue;
+  gaps[a.right]=Math.max(gaps[a.right],a.pad+b.pad+3);
+ }
+};
 JFW.adaptEditorialGenerator=function(code){
  var metrics=JFW.layoutMetrics||{padX:4.5,padY:2.7,compactGap:3};
  function replaceOnce(from,to){var i=code.indexOf(from);if(i<0||code.indexOf(from,i+from.length)>=0)throw Error('Generator adaptation boundary changed: '+from);code=code.slice(0,i)+to+code.slice(i+from.length);}
@@ -32,6 +55,14 @@ JFW.adaptEditorialGenerator=function(code){
  start=code.indexOf('function resolveFont() {');end=code.indexOf('function findFont(names)',start);
  if(start<0||end<0)throw Error('Generator font boundary changed');code=code.slice(0,start)+'function resolveFont() { return {font:JFW.editorialFont(),composite:true}; }\n    '+code.slice(end);
  replaceOnce('GAP_MINIMAL: 1 * PT_PER_MM,','GAP_MINIMAL: 3,');
+ replaceOnce('size = calibratedBoxSize(n, measure, fontSize);','size = calibratedBoxSize(n, measure, fontSize); if(n.shape==="arrow" && text && !n.arrowLabelSide){size.symbol={w:size.w,h:size.h};size.w=Math.max(size.w,measure.w);size.h+=measure.h+3*fontSize/8;}');
+ replaceOnce('w: size.w, h: size.h, rowSpan:', 'w: size.w, h: size.h, arrowSymbol: size.symbol, rowSpan:');
+ replaceOnce('n.shape === "arrow" && n.text ? 2 *', 'n.shape === "arrow" && n.text && !n.arrowSymbol ? 2 *');
+ replaceOnce('drawArrowSymbol(n, targetLayer, stroke, all);','drawArrowSymbol(JFW.editorialArrowSymbol(n), targetLayer, stroke, all);');
+ replaceOnce('n.top + labelInk.h / 2 + 3 * fontSize / 8','n.arrowSymbol ? n.top-labelInk.h/2 : n.top + labelInk.h / 2 + 3 * fontSize / 8');
+ replaceOnce('if (!containers[ci].label || data.swimlaneLayout || containers[ci].sizeClass) continue;', 'containers[ci].framePaddingX=containerPaddingX(containers[ci]); if (!containers[ci].label || data.swimlaneLayout || containers[ci].sizeClass) continue;');
+ replaceOnce('var columnGaps = columnTrackGaps(nodes, byId, edges, colCount, columnGap);','var columnGaps = columnTrackGaps(nodes, byId, edges, colCount, columnGap); JFW.reserveContainerColumns(containers,byId,columnGaps);');
+
 
  start=code.indexOf('function applyVerticalStacks(specs, byId) {');end=code.indexOf('function compactSiblingBusMembers(',start);
  if(start<0||end<0)throw Error('Generator stack boundary changed');

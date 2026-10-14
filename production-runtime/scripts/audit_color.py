@@ -73,9 +73,65 @@ def objects(pdf,gray):
     if len(values)>1 and max(values)-min(values)>TOLERANCE:counts['nonNeutralColorOperators']+=1
  for p in r.pages:walk(p['/Resources'],p.get_contents())
  counts['ok']=not gray or counts['nonNeutralColorOperators']==0;counts['unsupportedRejected']=True;return counts
+def editable_text_ink(pdf):
+ r=pypdf.PdfReader(pdf)
+ counts={'textShows':0,'nonBlackTextShows':0,'unknownTextShows':0}
+ def color(space,values):
+  if space=='/DeviceGray':return len(values)==1 and abs(values[0])<=0.005
+  if space=='/DeviceRGB':return len(values)==3 and all(abs(v)<=0.005 for v in values)
+  if space=='/DeviceCMYK':return len(values)==4 and all(abs(v)<=0.005 for v in values[:3]) and abs(values[3]-1)<=0.005
+  return None
+ def walk(stream,resources,initial,active):
+  identity=id(stream)
+  if identity in active:raise ValueError('Recursive PDF Form in text audit')
+  active=active|{identity};resources=resources.get_object()
+  state=initial.copy();stack=[]
+  for args,op in pypdf.generic.ContentStream(stream,r).operations:
+   if op==b'q':stack.append(state.copy())
+   elif op==b'Q':state=stack.pop() if stack else initial.copy()
+   elif op in (b'g',b'rg',b'k'):
+    state['fillSpace']={b'g':'/DeviceGray',b'rg':'/DeviceRGB',b'k':'/DeviceCMYK'}[op]
+    state['fill']=tuple(float(v) for v in args)
+   elif op in (b'G',b'RG',b'K'):
+    state['strokeSpace']={b'G':'/DeviceGray',b'RG':'/DeviceRGB',b'K':'/DeviceCMYK'}[op]
+    state['stroke']=tuple(float(v) for v in args)
+   elif op in (b'cs',b'CS'):
+    name=str(args[0]);value=resources.get('/ColorSpace',{}).get(args[0],name)
+    resolved=value.get_object() if hasattr(value,'get_object') else value
+    space=str(resolved[0]) if isinstance(resolved,list) else str(resolved)
+    state['fillSpace' if op==b'cs' else 'strokeSpace']=space
+    state['fill' if op==b'cs' else 'stroke']=None
+   elif op in (b'sc',b'scn',b'SC',b'SCN'):
+    key='fill' if op in (b'sc',b'scn') else 'stroke'
+    state[key]=tuple(float(v) for v in args) if all(isinstance(v,(int,float)) for v in args) else None
+   elif op==b'gs':
+    entry=resources.get('/ExtGState',{}).get(args[0])
+    gs=entry.get_object() if entry is not None else {}
+    state['fillAlpha']=float(gs.get('/ca',state['fillAlpha']))
+    state['strokeAlpha']=float(gs.get('/CA',state['strokeAlpha']))
+   elif op==b'Tr':state['renderMode']=int(args[0])
+   elif op in (b'Tj',b'TJ',b"'",b'"'):
+    mode=state['renderMode']
+    if mode in (3,7):continue
+    counts['textShows']+=1
+    checks=[]
+    if mode in (0,2,4,6):checks.append(None if state['fill'] is None else color(state['fillSpace'],state['fill']) and state['fillAlpha']==1)
+    if mode in (1,2,5,6):checks.append(None if state['stroke'] is None else color(state['strokeSpace'],state['stroke']) and state['strokeAlpha']==1)
+    if any(value is None for value in checks):counts['unknownTextShows']+=1
+    elif not all(checks):counts['nonBlackTextShows']+=1
+   elif op==b'Do':
+    entry=resources.get('/XObject',{}).get(args[0])
+    obj=entry.get_object() if entry is not None else {}
+    if obj.get('/Subtype')=='/Form':walk(obj,obj.get('/Resources',resources),state,active)
+ for page in r.pages:
+  initial={'fillSpace':'/DeviceGray','fill':(0,), 'strokeSpace':'/DeviceGray','stroke':(0,), 'fillAlpha':1,'strokeAlpha':1,'renderMode':0}
+  walk(page.get_contents(),page['/Resources'],initial,set())
+ counts['ok']=counts['nonBlackTextShows']==0 and counts['unknownTextShows']==0
+ return counts
 def main():
- parser=argparse.ArgumentParser();parser.add_argument('request');q=parser.parse_args();req=json.loads(Path(q.request).read_text('utf-8-sig'));policy=req['policy'];gray=policy=='grayscale'
+ parser=argparse.ArgumentParser();parser.add_argument('request');q=parser.parse_args();req=json.loads(Path(q.request).read_text('utf-8-sig'));policy=req['policy'];gray=policy=='grayscale';route=req.get('route')
  if req['ruleVersion']!=RULE or policy not in ['grayscale','source-color']:raise ValueError('Invalid color rule/policy')
+ if route not in ['raster-reletter','vector-reletter','rebuild','image','compose','chart-redraw']:raise ValueError('Invalid color audit route')
  for k in ['source','planFile','pdf','output','ai','preview']:
   h='planFileHash' if k=='planFile' else k+'Hash'
   if hash_file(req[k])!=req['bindings'][h]:raise ValueError('Color audit hash mismatch: '+k)
@@ -88,7 +144,7 @@ def main():
   if p.suffix.lower()=='.pdf':continue
   file_results.append({'kind':k,'path':str(p),'sha256':hash_file(p),**pixels(Image.open(p))})
  all_results=page_results+file_results;pixel={'method':'pdfium-rgb-300dpi-neutral-v1','tolerance':TOLERANCE,'toleranceReason':'At most2/255 channel spread for independent 8bit encoding/rendering rounding; no pixels beyond this threshold are allowed. RGB channels compared before any luminance conversion.','ok':all(x['ok'] for x in all_results),'coloredPixels':sum(x['coloredPixels'] for x in all_results),'totalPixels':sum(x['totalPixels'] for x in all_results),'maxChannelDelta':max(x['maxChannelDelta'] for x in all_results),'pages':len(doc),'pageAudits':page_results,'fileAudits':file_results}
- obj=objects(req['pdf'],gray);out={'ok':obj['ok'] and (pixel['ok'] or not gray),'ruleVersion':RULE,'policy':policy,'bindings':req['bindings'],'pixelAudit':pixel,'objectAudit':obj,'approval':req.get('approval')};Path(req['report']).write_text(json.dumps(out,ensure_ascii=False,indent=2),'utf-8');print(json.dumps(out,ensure_ascii=False));sys.exit(0 if out['ok'] else 1)
+ obj=objects(req['pdf'],gray);ink=editable_text_ink(req['pdf']) if route!='image' else {'ok':True,'skipped':'image route','textShows':0,'nonBlackTextShows':0,'unknownTextShows':0};out={'ok':obj['ok'] and ink['ok'] and (pixel['ok'] or not gray),'ruleVersion':RULE,'policy':policy,'route':route,'bindings':req['bindings'],'pixelAudit':pixel,'objectAudit':obj,'textInkAudit':ink,'approval':req.get('approval')};Path(req['report']).write_text(json.dumps(out,ensure_ascii=False,indent=2),'utf-8');print(json.dumps(out,ensure_ascii=False));sys.exit(0 if out['ok'] else 1)
 if __name__=='__main__':
  try:main()
  except Exception as e:print(json.dumps({'ok':False,'error':str(e)},ensure_ascii=False));sys.exit(1)
