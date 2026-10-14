@@ -1,0 +1,15 @@
+{
+ "version":1,
+ "font":"现 宋体 1",
+ "fontSizePt":8,
+ "widthMm":80,
+ "measurementNote":"Synthetic arithmetic fixture; replace measurements with actual outline ink measurements before production.",
+ "tree":{"kind":"column","children":[{"kind":"box","id":"start","text":"开始"},{"kind":"frame","id":"boot","title":"代码区","content":{"kind":"column","children":[{"kind":"box","id":"init","text":"初始化","widthGroup":"steps"},{"kind":"box","id":"work","text":"处理","widthGroup":"steps"}]}}]},
+ "measurements":{
+  "start":{"text":"开始","font":"现 宋体 1","fontSizePt":8,"widthPt":16,"heightPt":8},
+  "boot":{"text":"代码区","font":"现 宋体 1","fontSizePt":8,"widthPt":24,"heightPt":8},
+  "init":{"text":"初始化","font":"现 宋体 1","fontSizePt":8,"widthPt":24,"heightPt":8},
+  "work":{"text":"处理","font":"现 宋体 1","fontSizePt":8,"widthPt":16,"heightPt":8}
+ },
+ "edges":[{"id":"start-to-boot","from":"start","to":"boot","fromPort":"bottom","toPort":"top"}]
+}

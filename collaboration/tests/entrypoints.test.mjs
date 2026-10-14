@@ -137,3 +137,23 @@ test('installer removes new partial files and restores on final hash validation 
  assert.equal(existsSync(target),false);
  assert.equal(existsSync(path.join(f.skillsRoot,'journal-figure-workflow/SKILL.md')),false);
 });
+
+test('layout command records calculation without spawning Adobe or changing input',()=>{
+ const f=fixture(),input=path.join(f.workspaceRoot,'layout.json');
+ const value={version:1,font:'现 宋体 1',fontSizePt:8,widthMm:80,tree:{kind:'box',id:'a',text:'初始化'},measurements:{a:{text:'初始化',font:'现 宋体 1',fontSizePt:8,widthPt:32,heightPt:8}}};
+ writeFileSync(input,JSON.stringify(value));const original=readFileSync(input,'utf8');
+ assert.equal(run(['--config',f.configFile,'layout','math-only',input],()=>{throw Error('Adobe must not launch');}),0);
+ const report=JSON.parse(readFileSync(path.join(f.workspaceRoot,'math-only/layout-calculation.json'),'utf8'));
+ assert.equal(report.status,'ready');assert.equal(report.nodes[0].widthPt,41);assert.ok(report.inputFileHash);
+ assert.equal(readFileSync(input,'utf8'),original);
+ delete value.measurements.a;writeFileSync(input,JSON.stringify(value));
+ assert.equal(run(['--config',f.configFile,'layout','math-only',input],()=>{throw Error('Adobe must not launch');}),2);
+ assert.equal(JSON.parse(readFileSync(path.join(f.workspaceRoot,'math-only/layout-calculation.json'),'utf8')).status,'needs-measurement');
+});
+
+test('solve-batch computes multiple scenes without spawning native runtime',()=>{
+ const f=fixture(),input=path.join(f.workspaceRoot,'batch.json'),scene={version:1,units:'pt',canvas:{widthPt:100,heightPt:50},elements:[{id:'label',kind:'text',x:0,y:0,widthPt:20,heightPt:8,fontSizePt:8,candidates:[{x:10,y:10}]}]};
+ writeFileSync(input,JSON.stringify({figures:[{id:'one',scene},{id:'two',scene}]}));
+ assert.equal(run(['--config',f.configFile,'solve-batch','batch-job',input],()=>{throw Error('Native must not launch');}),0);
+ const result=JSON.parse(readFileSync(path.join(f.workspaceRoot,'batch-job/layout-solutions.json'),'utf8'));assert.equal(result.results.length,2);assert.equal(result.status,'solved');
+});
