@@ -9,7 +9,13 @@ test('unequal grouped vector lines center independently and retain the block lea
  assert.ok(Math.abs(targets[0].move[1]-targets[1].move[1]-9.6)<1e-9);
  assert.equal(targets.every(t=>t.textRange.characterAttributes.size===8),true);
 });
-function runtime(){const ctx={app:{textFonts:{getByName:name=>({name})}},JFW:{editorialFont:()=>({name:'composite'})},Justification:{CENTER:'center'},RGBColor:function(){this.typename='RGBColor';}};vm.createContext(ctx);vm.runInContext(code,ctx);return ctx.JFW;}
+function runtime(){const ctx={app:{textFonts:{getByName:name=>({name})}},JFW:{editorialFont:()=>({name:'composite'})},BlendModes:{NORMAL:'normal'},Justification:{CENTER:'center'},RGBColor:function(){this.typename='RGBColor';}};vm.createContext(ctx);vm.runInContext(code,ctx);return ctx.JFW;}
+test('explicit appearance repair creates fresh black text and removes the original',()=>{
+ const moves=[];let removed=false;const target={opacity:40,blendingMode:'multiply',textRange:{characterAttributes:{},paragraphAttributes:{}},duplicate(){return{createOutline:()=>({visibleBounds:[0,8,20,0],remove(){}})};},translate:(x,y)=>moves.push([x,y])};
+ const refs=[{contents:'标签',geometricBounds:[10,20,30,10],duplicate(){throw Error('Must not inherit old appearance');},remove(){removed=true;}}];refs.add=()=>target;
+ runtime().reletterGroups({textFrames:refs},[{indices:[0],expected:['标签'],text:'标签',recreate:true}],6.5);
+ assert.equal(target.contents,'标签');assert.equal(target.opacity,100);assert.equal(target.blendingMode,'normal');assert.equal(target.textRange.characterAttributes.fillColor.red,0);assert.equal(target.textRange.characterAttributes.size,6.5);assert.deepEqual(moves,[[10,11]]);assert.equal(removed,true);
+});
 test('a native variable label uses explicit italic font before measuring ink',()=>{
  const target={textRange:{characterAttributes:{},paragraphAttributes:{}},duplicate(){return{createOutline:()=>{assert.equal(this.textRange.characterAttributes.textFont.name,'TimesNewRomanPS-ItalicMT');return{visibleBounds:[0,8,5,0],remove(){}};}};},translate(){}};
  const refs=[{contents:'X',geometricBounds:[0,10,10,0],duplicate(){return target;},remove(){}}];

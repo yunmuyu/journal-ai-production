@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.13-r6-consolidated",
-  "createdAt": "2026-10-13T05:02:04.587Z",
-  "status": "production-pinned",
+  "id": "2026.10.14-r21-common-contract",
+  "createdAt": "2026-10-14T01:53:34.374Z",
+  "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
       "min": 6,
@@ -12,40 +12,50 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "scope": "r5 plus isolated native character subscript and editorial brace fixes; workbench and delivery consolidation",
-    "priorNativeSubscript": "Li1/Li2 actual Illustrator AI/PDF and 8-item deliver verified 2026-10-13; private evidence kept locally",
-    "priorNativeBrace": "Wei2 actual Illustrator AI/PDF verified 2026-10-13; private evidence kept locally",
-    "combinedNativeRegression": {
-      "passed": 2,
-      "mechanicalIssues": 0,
-      "pdfAudit": true,
-      "colorAudit": true,
-      "actualPdfViewed": true,
-      "pdfHashes": [
-        "8a3902f3ebdbae26660c07c4a24918ff3169d797fe2b0584f8bdf2b226b3347a",
-        "90ab60de247c502c84f2b425d426ceec1704967ac41732b6f33bc05dd728fc0c"
-      ]
+    "baseline": "2026.10.14-r20-arrow-label",
+    "changedFiles": [
+      "adobe/illustrator.jsx",
+      "adobe/vector-labels.jsx",
+      "lib/core.mjs",
+      "lib/desktop-notice.mjs",
+      "lib/render.mjs",
+      "scripts/audit_color.py",
+      "scripts/audit_pdf.py"
+    ],
+    "requirements": [
+      "Final visible non-image path strokes normalized to 0.5 pt after fitting; image route excepted.",
+      "PDF effective stroke widths audited.",
+      "Editable text pure black with native subscript and superscript; plans validate styles.",
+      "Diagram geometry audit connected and dependencies hashed into render cache.",
+      "EBUSY cleanup preserves original render result or exception."
+    ],
+    "verification": {
+      "candidateNodeTests": {
+        "passed": 29,
+        "failed": 0
+      },
+      "candidatePythonTests": {
+        "passed": 4,
+        "failed": 0
+      },
+      "broaderRun": {
+        "passed": 32,
+        "failed": 1,
+        "failedTest": "A reused Windows PID does not keep a lease older than that process alive",
+        "reason": "Unchanged r20 lib/recovery.mjs; outside r21 scope."
+      },
+      "native": "pending main-thread serial validation"
     },
-    "unreleasedScalingExcluded": true,
-    "authorityRecordsNotRewritten": true,
-    "tests": {
-      "releasePass": 78,
-      "releaseSkipped": 1,
-      "workbenchPass": 70,
-      "sealReleasePass": 1
-    },
-    "browserDeliveryRegression": {
-      "acceptedPublished": true,
-      "withdrawnRemoved": true,
-      "officialRecordsUnchanged": true,
-      "actualScreenshotViewed": true
-    }
+    "limits": [
+      "Candidate only; no Adobe native execution or installation in this packaging pass.",
+      "Further author acceptance and production publication remain separate."
+    ]
   },
   "files": [
     {
       "path": "运行说明.md",
-      "sha256": "19ecb8af08406c084de5a3a675c03f488a2bab0ea05f7dac470e5b4b06e05501",
-      "bytes": 12209
+      "sha256": "42989de63dbebf14785b15bf115f376f739d4d36a21610182150c31baaee0b07",
+      "bytes": 13474
     },
     {
       "path": "adobe/common.jsx",
@@ -69,13 +79,13 @@
     },
     {
       "path": "adobe/editorial-box-layout.jsx",
-      "sha256": "87254e6269df648434b71bbd8e3cae20e82df45cd24217ca1de63714dcf75ee0",
-      "bytes": 6903
+      "sha256": "6100e39bdf6db2e6c3126e9e94793466e1b97c0de623e4fdfce1e79d8bcfd878",
+      "bytes": 7958
     },
     {
       "path": "adobe/editorial-connectors.jsx",
-      "sha256": "15367ed686cd65fe8a713b79e29dbd05103a1c03cdc8f9518f6e429ac6ea7ef6",
-      "bytes": 1214
+      "sha256": "5a93bfd194ea503c953168b7b5dcc5a1a11bc77f220688d3d64ee015add16048",
+      "bytes": 1989
     },
     {
       "path": "adobe/editorial-copy.jsx",
@@ -84,8 +94,13 @@
     },
     {
       "path": "adobe/editorial-generator.jsx",
-      "sha256": "72378893af442c7fd0bae504b3c7980b2686ca3253e9c023a7af66a80a4fe8ab",
-      "bytes": 5822
+      "sha256": "8a18f3ae0f5fa0332e2efd105934c48872581aebd48a2fb2f6f383e0c9846fbb",
+      "bytes": 8546
+    },
+    {
+      "path": "adobe/editorial-layout.jsx",
+      "sha256": "3cc2a54261f57923915a1aaca98bbd9d9b8f6337f87b71808490e58f41db9922",
+      "bytes": 2493
     },
     {
       "path": "adobe/editorial-parallel.jsx",
@@ -94,13 +109,18 @@
     },
     {
       "path": "adobe/editorial-review-pages.jsx",
-      "sha256": "59cd810e6b3a05d26db51f1d8d3ceed11b2f5a6f535b9d307975000f82f09869",
-      "bytes": 5746
+      "sha256": "1202e0cb4815fa97844b00486179a99deadc2b166adc82cf4a43653754456d8f",
+      "bytes": 5778
     },
     {
       "path": "adobe/editorial-update.jsx",
       "sha256": "7af52425a7d2753edff4b874825584345d5b0bf29201a79130fe400e2e3fdbb9",
       "bytes": 4884
+    },
+    {
+      "path": "adobe/editorial-whitespace.jsx",
+      "sha256": "1fc27aed4099f496b0b36fa6b28952d8e9a697597a170bbd4653a992d843760c",
+      "bytes": 974
     },
     {
       "path": "adobe/existing-export.jsx",
@@ -114,8 +134,8 @@
     },
     {
       "path": "adobe/illustrator.jsx",
-      "sha256": "325013e156c0d09c8e8b920de23c3b85fad4a67c6fbba4f2064c6fcc45e78718",
-      "bytes": 18420
+      "sha256": "cbf7e102f7ce4d2684a874dc5fd77ef74d888442f42cf76de2b1ec731edf86ca",
+      "bytes": 19610
     },
     {
       "path": "adobe/invoke.js",
@@ -124,18 +144,48 @@
     },
     {
       "path": "adobe/photoshop.jsx",
-      "sha256": "9db9d41de8b4a35136729b00fb49d1f95a3d91e88810efd65d6edc233f1502fa",
-      "bytes": 2841
+      "sha256": "f00fa0641a30e6b1b61f204ffca1e62b648069ecd02cc2d07840ed21b11f0229",
+      "bytes": 3180
     },
     {
       "path": "adobe/vector-labels.jsx",
-      "sha256": "91858ec54a8f2d684dcd8df3bb4486befc42763506df8332bb013f19a98e3a81",
-      "bytes": 5362
+      "sha256": "cad9e31acc525e67e0e18fd3eaed95d8b20fdc99b61e973274da740ff50588a6",
+      "bytes": 5892
     },
     {
       "path": "adobe/window-state.ps1",
       "sha256": "cf91294d1e24334428df23cd6badea9f514a14e40cf855bb15bee33144c8d46e",
       "bytes": 1901
+    },
+    {
+      "path": "flowchart/assets/AI流程图生成器.jsx",
+      "sha256": "883da7e8400531498d69554b1959667572737e7c8a6a7be29c69030f74de9fe2",
+      "bytes": 164540
+    },
+    {
+      "path": "flowchart/assets/technical-layouts.jsx",
+      "sha256": "ede34dc7b041ad56e01908ce9bf3ff6d0f1feb0aa3f4ae31ffa4696a291bf7f3",
+      "bytes": 8279
+    },
+    {
+      "path": "flowchart/package.json",
+      "sha256": "a51bff776fdd53226e2e67d8f654d17dadfe3decc8bf8bf869cba3aff9813826",
+      "bytes": 44
+    },
+    {
+      "path": "flowchart/references/schema.md",
+      "sha256": "3d4fb2ff678384089ffb7bffa15f55cc2993430a59add7e06f47c559140711e9",
+      "bytes": 34121
+    },
+    {
+      "path": "flowchart/scripts/technical-schema.cjs",
+      "sha256": "9c957078d22e69220deb9f6f05c67d1c0d2ac493498016bc3f8888abcfb59b49",
+      "bytes": 2216
+    },
+    {
+      "path": "flowchart/scripts/validate_flowchart.js",
+      "sha256": "ffd343c0f32d82a617595e00366cbe3ec28fa7c1c53040463f23030c9047987f",
+      "bytes": 48583
     },
     {
       "path": "lib/adobe-health.mjs",
@@ -174,8 +224,8 @@
     },
     {
       "path": "lib/core.mjs",
-      "sha256": "a290332e3859817fa3780764f880ba533b504e9699018afb6c91b4e2907a3e94",
-      "bytes": 6709
+      "sha256": "4bed93588c38305c2667a201751d2460980ab734249a5209b779782a3e9131b5",
+      "bytes": 7514
     },
     {
       "path": "lib/data-audit.mjs",
@@ -184,8 +234,8 @@
     },
     {
       "path": "lib/desktop-notice.mjs",
-      "sha256": "6a88b3f40c99f4857d365285638c04cb6a35b3488a178d560ebda23e73dc9085",
-      "bytes": 1214
+      "sha256": "57c216e91451a000ee75725c6cfc8a4d2a9ccb8f7d993e9cbd6bd121b464bdd5",
+      "bytes": 1939
     },
     {
       "path": "lib/diagram-audit.mjs",
@@ -194,8 +244,8 @@
     },
     {
       "path": "lib/fit.mjs",
-      "sha256": "23a4a15a5471aa238bb3f6cdc48eda5d1c261abeef9746d167087908afe3626e",
-      "bytes": 2021
+      "sha256": "8161c84096ec19ae9f66dbd37c910260bbea3c2c43dccb1f6684bf338df3ffc9",
+      "bytes": 2113
     },
     {
       "path": "lib/ingest.mjs",
@@ -234,13 +284,13 @@
     },
     {
       "path": "lib/render.mjs",
-      "sha256": "ef89a536240f4292cad3ef372a1fa2bb10a9b17a3ef3d921e11c696c84b7c3c9",
-      "bytes": 10711
+      "sha256": "65afef3b8842a352e4d7f6bae56d4ab05dfde7caa6d76c9038073376e3af9958",
+      "bytes": 11817
     },
     {
       "path": "lib/review.mjs",
-      "sha256": "d70e300d9ade5c97fd86ae1aab1175d5365f7afd75256041ebfed59602f89f1c",
-      "bytes": 17663
+      "sha256": "be6e15d0616e57bcae489486d319cd1adfef8b3c375cc021216bd82026b7b758",
+      "bytes": 17685
     },
     {
       "path": "lib/svg.mjs",
@@ -269,8 +319,8 @@
     },
     {
       "path": "references/editorial-profile.md",
-      "sha256": "9db8741cbf22d5774d58d53dafd426c5fa4ec6a3012c686f5ad1a2223fa4ce98",
-      "bytes": 17023
+      "sha256": "b74fd40494672ee892c012e3e8f41497d2976a7574469d49318a8a1585dd718b",
+      "bytes": 18238
     },
     {
       "path": "references/legacy-provenance.json",
@@ -279,13 +329,13 @@
     },
     {
       "path": "scripts/audit_color.py",
-      "sha256": "f84f643d7d1d87ce0b8e64a7d203139701f95ced9455869922ebca748cc6971e",
-      "bytes": 7179
+      "sha256": "85ffdbefb5e6ab04e6ca2831019482d4bfee427591ada82745410c5186afa609",
+      "bytes": 10753
     },
     {
       "path": "scripts/audit_delivery.py",
-      "sha256": "96e77c81684e630b86f422700ed58875a5dfffca505f02ceed24ca4116d8b2a5",
-      "bytes": 16284
+      "sha256": "a05c911e8e39615e2589996cf176c2e92db590a92e551a9b80dfbbf30b0efeae",
+      "bytes": 16296
     },
     {
       "path": "scripts/audit_image_identity.py",
@@ -294,8 +344,8 @@
     },
     {
       "path": "scripts/audit_pdf.py",
-      "sha256": "8418c31c9c51416e542e30645a093912f73aa5c42f63bcbcd6a788d0fb9b2d95",
-      "bytes": 2113
+      "sha256": "5e43310367c653c77331b06993f2f7216d9b7ab795260ada36806865853e16be",
+      "bytes": 8682
     },
     {
       "path": "scripts/convert-office.js",
@@ -334,8 +384,8 @@
     },
     {
       "path": "scripts/normalize_svg_color.py",
-      "sha256": "ab4fe37475168ac38901753f136c356d6d9ceffabf493fefa4d55eacb729ecf8",
-      "bytes": 15104
+      "sha256": "2af75d9838104b33904e323952b6062155dbe435b2c43fe7d8dd49c4ba9b79d2",
+      "bytes": 15359
     },
     {
       "path": "scripts/prepare_matplotlib_svg.py",
@@ -353,7 +403,7 @@
       "bytes": 1232
     }
   ],
-  "skillSha256": "728fbb4a53f40adbed42c05c64b20404db2eeb213192df140fa6d6aa5f9b2eb8",
-  "supersedes": "2026.10.12-r5-pdf-grid",
+  "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
+  "supersedes": "2026.10.14-r20-arrow-label",
   "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged."
 }

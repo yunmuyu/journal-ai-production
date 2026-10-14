@@ -1,4 +1,6 @@
 import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+const {validateTechnical}=createRequire(import.meta.url)('../../production-runtime/flowchart/scripts/technical-schema.cjs');
 
 const PT_PER_MM=72/25.4;
 
@@ -26,6 +28,7 @@ export function preflightPlan(plan,{generatorFile}={}){
   if(!plan.graph||typeof plan.graph!=='object'||Array.isArray(plan.graph))throw Error('Rebuild plan requires graph');
   if(![6,7,8].includes(plan.fontSize))throw Error('Generator supports only 6, 7, or 8 pt');
   if(plan.graph.fontSize!==plan.fontSize)throw Error('graph.fontSize must equal plan.fontSize');
+  if(plan.graph.kind==='technical'){validateTechnical(plan.graph);if(!Number.isFinite(plan.widthMm)||plan.widthMm<=0)throw Error('widthMm required');return {fontSizePt:plan.fontSize,widthPt:plan.widthMm*PT_PER_MM,marginPt:0.25,contentWidthPt:plan.widthMm*PT_PER_MM-0.5,contentWidthMm:plan.widthMm-0.5/PT_PER_MM};}
   if(plan.graph.treeLayout==='module'&&plan.fontSize!==8)throw Error('module-tree requires fixed 8 pt');
   if(!Array.isArray(plan.graph.nodes)||plan.graph.nodes.length===0){
     if(plan.fontSize!==8)throw Error('Freeform generator uses fixed 8 pt when nodes are empty');

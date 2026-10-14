@@ -1,5 +1,5 @@
 JFW.drawBoxLayout=function(doc,spec,fontSize,targetWidthMm){
- var font=app.textFonts.getByName('ATC-73b000205b8b4f530020*1'),gap=3,padX=4.5,padY=2.7,framePad=3;
+ var metrics=JFW.layoutMetrics,font=app.textFonts.getByName('ATC-73b000205b8b4f530020*1'),gap=metrics.compactGap,padX=metrics.padX,padY=metrics.padY,framePad=metrics.framePad;
  var black=new RGBColor();black.red=black.green=black.blue=0;
  var texts=[],boxes=[],frames=[],groups={},ids={},sections=spec.sections;
  if(!sections||!sections.length)throw Error('Box layout sections required');
@@ -21,7 +21,7 @@ JFW.drawBoxLayout=function(doc,spec,fontSize,targetWidthMm){
  }
  function measure(n){
   if(n.kind==='box'){if(n.widthGroup)n.w=groups[n.widthGroup];return;}
-  if(n.kind==='frame'){measure(n.content);n.w=Math.max(n.content.w,n.label.inkWidth)+2*framePad;n.h=n.content.h+n.label.inkHeight+gap+2*framePad;return;}
+  if(n.kind==='frame'){measure(n.content);n.w=Math.max(n.content.w,n.label.inkWidth)+2*framePad;n.h=n.content.h+n.label.inkHeight+gap+2*framePad;if(n.widthGroup){n.w=Math.max(n.w,groups[n.widthGroup]||0);groups[n.widthGroup]=n.w;}return;}
   var sum=0,max=0;for(var i=0;i<n.children.length;i++){var c=n.children[i];measure(c);if(n.kind==='row'){sum+=c.w;max=Math.max(max,c.h);}else{sum+=c.h;max=Math.max(max,c.w);}}
   if(n.kind==='row'){n.w=sum+gap*(n.children.length-1);n.h=max;}else{n.w=max;n.h=sum+gap*(n.children.length-1);}
  }
@@ -48,12 +48,24 @@ JFW.drawBoxLayout=function(doc,spec,fontSize,targetWidthMm){
  }
  var labelBand=0,contentWidth=0,i;
  for(i=0;i<sections.length;i++){var s=sections[i];s.label=label('section-'+s.id,s.title);labelBand=Math.max(labelBand,s.label.inkWidth);prepare(s.content);}
+ for(i=0;i<sections.length;i++)measure(sections[i].content);
  for(i=0;i<sections.length;i++){measure(sections[i].content);contentWidth=Math.max(contentWidth,sections[i].content.w);}
- var y=0,separators=[];
+ var y=0,separators=[],layerFrames=spec.sectionFrames===true;
+ function layerArrow(x,top,bottom,both,id){
+  JFW.drawArrow5(doc.activeLayer,'JFW_LAYER_ARROW_'+id,[[x,-bottom],[x,-top]],black,.5,both);
+ }
  for(i=0;i<sections.length;i++){
-  var s=sections[i];positionText(s.label,0,y,labelBand,s.content.h);place(s.content,labelBand+gap,y,contentWidth,s.content.h);y+=s.content.h;
+  var s=sections[i],inset=layerFrames?Math.max(framePad,padX):0,height=s.content.h+2*inset;
+  if(layerFrames)rect('section-'+s.id,0,y,labelBand+gap+contentWidth+2*inset,height);
+  positionText(s.label,inset,y+inset,labelBand,s.content.h);place(s.content,inset+labelBand+gap,y+inset,contentWidth,s.content.h);y+=height;
   if(i<sections.length-1){
-   var line=doc.pathItems.add();line.name='JFW_BOX_SEPARATOR_'+s.id;line.setEntirePath([[0,-y-gap/2],[labelBand+gap+contentWidth,-y-gap/2]]);line.filled=false;line.stroked=true;line.strokeWidth=.5;line.strokeColor=black;line.strokeDashes=[4,3];separators.push(s.id);y+=gap;
+   if(layerFrames){
+    var links=s.linksAfter||[],distance=metrics.arrowLength;for(var al=0;al<links.length;al++)if(links[al].both)distance=Math.max(distance,2*JFW.arrow5.depth+4);
+    if(links.length)for(var li=0;li<links.length;li++){var link=links[li];if(!(link.position>=0&&link.position<=1))throw Error('Invalid layer arrow position');layerArrow(inset+labelBand+gap+contentWidth*link.position,y,y+distance,link.both===true,s.id+'-'+li);}
+    y+=distance;
+   }else{
+    var line=doc.pathItems.add();line.name='JFW_BOX_SEPARATOR_'+s.id;line.setEntirePath([[0,-y-gap/2],[labelBand+gap+contentWidth,-y-gap/2]]);line.filled=false;line.stroked=true;line.strokeWidth=.5;line.strokeColor=black;line.strokeDashes=[4,3];separators.push(s.id);y+=gap;
+   }
   }
  }
  app.redraw();var scale=1,naturalBounds=JFW.bounds(doc.visibleBounds),naturalWidthMm=(naturalBounds[2]-naturalBounds[0]+.5)*25.4/72;

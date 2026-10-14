@@ -2,9 +2,9 @@
 
 ## 当前整理版本
 
-2026.10.13-r6-consolidated。RELEASE.json锁定正式production-runtime与Skill字节；根目录lib/adobe/scripts为研发树，candidates为未发布试验，不能全量互覆。旧r5固定快照保留回滚。
+2026.10.13-r18-label-clearance。RELEASE.json锁定正式production-runtime与Skill字节；根目录lib/adobe/scripts为研发树，candidates为未发布试验，不能全量互覆。旧r5固定快照保留回滚。
 
-先读 [当前交付与审核契约](collaboration/20261013-consolidation.md) 和 [版本验证](release-notes/2026.10.13-r6.md)。旧交接是历史证据，不作为当前界面要求。
+先读 [当前交付与审核契约](collaboration/20261013-consolidation.md) 和 [版本验证](release-notes/2026.10.13-r18.md)。旧交接是历史证据，不作为当前界面要求。
 
 ## 机器入口
 
@@ -19,7 +19,7 @@
 
 ## 生产与协作边界
 
-本轮停止新图生产，只整理工具和交付。Adobe串行，保留应用和文档；已验收成果不得重制。正式记录由接手回执指定唯一写入者按ID和字段合并，反馈和验收冲突不按时间取胜。
+用户已恢复分栏目集中制作；按最新本地任务表续做，已通过作者不重复核对新版差异。Adobe串行，保留应用和文档；已验收成果不得重制。正式记录由接手回执指定唯一写入者按ID和字段合并，反馈和验收冲突不按时间取胜。
 
 真实原稿、图件、AI/PDF、截图、密钥及机器配置不上传GitHub。当前交付目录是台账的派生副本，不是第二份生产状态权威。交接先暂停、封包、校验并写接收回执，不双机共写运行中的Git、台账和AI。
 

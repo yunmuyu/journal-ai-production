@@ -1,0 +1,13 @@
+{
+  "releaseId": "2026.10.14-r21-common-contract",
+  "distributionStatus": "validated-runtime-handoff",
+  "manifestSha256": "595fe555380724ad8c4678988e7afce3d5a9b6da164c4d870fdd7ba1baf93fef",
+  "runtimeFilesVerified": 70,
+  "handoffNodeTests": {"passed":15,"failed":0},
+  "handoffPythonTests": {"passed":4,"failed":0},
+  "nativeEvidence": "release-notes/2026.10.14-r21.md",
+  "nativeVerificationSha256": "36c2803d8f876c9e70c2c28bfd0cb75dab4344ae4f057fc0ca23a609bd31ce02",
+  "productionPaused": true,
+  "excluded": ["unshipped acceptance binding changes", "local author materials", "new PDF conversion experiment"],
+  "limitations": ["No full-suite pass claim", "Existing recovery PID regression unresolved", "Side HTTP test failure unresolved", "No production resumed during release"]
+}

@@ -17,7 +17,7 @@ JFW.aggregateReviewPages=function(req,stage){
    var copiedBounds=JFW.bounds(group.visibleBounds);
    if(Math.abs((copiedBounds[2]-copiedBounds[0])-(sourceBounds[2]-sourceBounds[0]))>0.1||Math.abs((copiedBounds[1]-copiedBounds[3])-(sourceBounds[1]-sourceBounds[3]))>0.1)throw Error('Cross-document dimensions differ');
    var badgePad=req.reviewBadges===true?3:0;
-   if(req.reviewBadges===true&&item.columnLabel!=='单栏'&&item.columnLabel!=='双栏')throw Error('Review badge requires confirmed column');
+   if(req.reviewBadges===true&&item.columnLabel!=='小单栏'&&item.columnLabel!=='单栏'&&item.columnLabel!=='双栏')throw Error('Review badge requires confirmed column');
    var labelText=item.author+' 图'+item.number+(req.reviewBadges===true?' · '+item.columnLabel:''),label=production.textFrames.add();label.contents=labelText;label.name='JFW_REVIEW_LABEL_'+k;
    var ca=label.textRange.characterAttributes;ca.textFont=JFW.editorialFont();ca.size=7;ca.autoLeading=false;ca.leading=8.4;var black=new RGBColor();black.red=black.green=black.blue=0;ca.fillColor=black;
    label.left=cursor+padding+badgePad;label.top=-padding-badgePad;var outline=label.duplicate().createOutline(),ink=JFW.bounds(outline.visibleBounds);outline.remove();
