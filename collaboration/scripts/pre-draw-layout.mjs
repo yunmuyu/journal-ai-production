@@ -5,9 +5,15 @@ import path from 'node:path';
 import {auditDiagram} from '../../lib/diagram-audit.mjs';
 
 const PT_PER_MM=72/25.4;
-const metricFile=new URL('../../production-runtime/adobe/editorial-layout.jsx',import.meta.url);
+// Read the shared layout metric contract. Prefer the formal production-runtime file when
+// present; otherwise fall back to the vendored copy so the solver stays self-contained on an
+// experimental branch that must not modify the production runtime.
+const prodMetricFile=new URL('../../production-runtime/adobe/editorial-layout.jsx',import.meta.url);
+const vendoredMetricFile=new URL('./editorial-layout-metrics.jsx',import.meta.url);
 function sharedMetrics(){
-const metricCode=fs.readFileSync(metricFile,'utf8');
+let metricCode;
+try{ metricCode=fs.readFileSync(prodMetricFile,'utf8'); }
+catch{ metricCode=fs.readFileSync(vendoredMetricFile,'utf8'); }
 const names=['padX','padY','compactGap','framePad','minFontSize'];
 const metrics=Object.fromEntries(names.map(name=>{
  const match=metricCode.match(new RegExp(String.raw`\b${name}:(\d+(?:\.\d+)?)`));
