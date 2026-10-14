@@ -1,3 +1,4 @@
+import {inspectAcceptance,acceptanceMatches} from './acceptance.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
@@ -9,6 +10,7 @@ function inside(root,relative){const resolved=path.resolve(root,relative);if(!re
 function inventoryPlan({records,inventory,resolve=p=>p}){
  const items=[],issues=[],excluded=[];const articles=new Map(inventory.articles.map(a=>[a.id,a])),figures=new Map(inventory.figures.map(f=>[f.id,f]));
  for(const [id,f]of Object.entries(records.figures||{})){
+  if(f.userAcceptance?.accepted===true&&f.userAcceptance.artifactToken&&!acceptanceMatches(f,inspectAcceptance(id,f,{resolve}))){issues.push({id,error:'Accepted artifact set changed; review required'});continue;}
   const state=approved(f)?'approved':/内部复核通过|待终检/.test(f.status||'')?'review':null;if(!state)continue;
   const mainId=id.replace(/[.][0-9]+$/,'');if(!figures.has(id)&&mainId!==id&&figures.has(mainId)&&records.figures[mainId]){excluded.push({id,reason:'legacy-child-shadow',authority:mainId});continue;}const figure=figures.get(id),article=articles.get(figure?.articleId);if(!article){issues.push({id,error:'Missing authoritative author identity'});continue;}
   const parts=f.subfigures?.length?f.subfigures:[f],planned=[],numbers=new Set();

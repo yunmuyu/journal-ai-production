@@ -1,3 +1,4 @@
+import {inspectAcceptance,acceptanceMatches} from '../collaboration/acceptance.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
@@ -60,6 +61,8 @@ export function loadModel(){
   if(!p&&inProgress.has(f.id))status='生产中';
   if(p&&outputs.some(c=>!c.file)){status='异常';reason='交付记录中的文件缺失';}
   if(p)for(const c of child){const local=c.output&&resolveLocal(c.output);if(c.outputHash&&exists(local)&&cachedHash(local)!==c.outputHash){status='异常';reason='成品已发生变化，需要重新核对';}}
+  const acceptance=inspectAcceptance(f.id,p,{resolve:resolveLocal,hash:cachedHash});
+  if(p&&!acceptanceMatches(p,acceptance)){status='待终检';reason='成品版本已更新，需要重新验收';}
   const source=link(p?.sourceAi)||link(p?.source)||link(extraSources.get(f.id));
   const word=link(a.localWord);
   const modified=outputs.filter(c=>c.file).map(c=>fs.statSync(c.file.path).mtimeMs);
@@ -67,7 +70,7 @@ export function loadModel(){
   const feedback=p?.userFeedback?{...p.userFeedback,attachments:(p.userFeedback.attachments||[]).map(a=>({...a,file:link(a.path)}))}:null;
   const layoutItem=delivery.items.find(item=>item.articleId===f.articleId&&item.state==='approved');
   const layoutFolder=layoutItem?link(path.dirname(path.join(deliveryRoot,'当前',layoutItem.relative))):null;
-  rows.push({layoutFolder,type:figureType(f,p,preflight.get(a.author+'-F'+f.number)),feedback,notices:p?.notices||[],id:f.id,articleId:f.articleId,editor:a.editor,author:a.author,number:f.number,caption:f.caption,status,reason,updated,source,word,outputs,ai,folder,summary,review:p?.review||'',sourceLabel:source?'已记录图源':'原稿Word（附件尚未配对）'});
+  rows.push({artifactToken:acceptance.token,layoutFolder,type:figureType(f,p,preflight.get(a.author+'-F'+f.number)),feedback,notices:p?.notices||[],id:f.id,articleId:f.articleId,editor:a.editor,author:a.author,number:f.number,caption:f.caption,status,reason,updated,source,word,outputs,ai,folder,summary,review:p?.review||'',sourceLabel:source?'已记录图源':'原稿Word（附件尚未配对）'});
  }
  rows.sort((a,b)=>(a.status==='待终检'?0:1)-(b.status==='待终检'?0:1)||a.editor.localeCompare(b.editor,'zh')||a.author.localeCompare(b.author,'zh')||a.number.localeCompare(b.number,undefined,{numeric:true}));
  const articles=groupArticles(rows,inventory.articles).map(a=>({...a,notices:production.articles[a.id]?.notices||[],state:authorState(a.figures)}));

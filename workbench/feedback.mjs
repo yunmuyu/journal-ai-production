@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {inspectAcceptance} from '../collaboration/acceptance.mjs';
 import {root} from './model.mjs';
 import {resolveLocal} from './paths.mjs';
 const recordsPath=path.join(root,'production-results.json');
@@ -15,7 +16,11 @@ export function persistFeedback(id,input,registeredIds,store={recordsPath,attach
  try{
   const before=fs.readFileSync(recordsPath,'utf8'),records=JSON.parse(before),prior=records.figures[id]||{};
   if((prior.userFeedback?.revision||0)!==input.revision)throw Object.assign(Error('这张图的反馈已更新，请刷新后核对再保存'),{status:409});
-  if(input.accepted&&![prior.output,...(prior.subfigures||[]).map(f=>f.output)].some(p=>typeof p==='string'&&fs.existsSync(resolveLocal(p))))throw Object.assign(Error('尚未交付的图不能验收通过'),{status:400});
+  const artifact=input.accepted?inspectAcceptance(id,prior,{resolve:resolveLocal}):null;
+  if(input.accepted){
+   if(!artifact.token)throw Object.assign(Error(artifact.error),{status:400});
+   if(input.artifactToken!==artifact.token)throw Object.assign(Error('当前成品与页面审核版本不一致，请刷新并重新查看后验收'),{status:409});
+  }
   const priorImages=prior.userFeedback?.attachments||[];
   const attachments=input.images.map(image=>{
    if(image.path){const known=priorImages.find(x=>x.path===image.path);if(!known||!fs.existsSync(resolveLocal(known.path)))throw Object.assign(Error('图片不是本图已保存的附件'),{status:400});return known;}
@@ -32,11 +37,12 @@ export function persistFeedback(id,input,registeredIds,store={recordsPath,attach
   const feedback={text:input.text,accepted:input.accepted,attachments,revision:input.revision+1,updatedAt:new Date().toISOString()};
   const status=input.accepted?'用户最终验收通过':hasIssue?'待修订':(prior.userFeedback?.workflowStatus||prior.status||'待制作');
   feedback.workflowStatus=prior.userFeedback?.workflowStatus||prior.status||'待制作';
-  const wasAccepted=/最终验收通过|用户.*通过|终检通过/.test(status);
+  const wasAccepted=prior.userAcceptance?.accepted===true||(prior.userAcceptance?.accepted!==false&&/最终验收通过|用户.*通过|终检通过/.test(prior.status||''));
   if(!input.accepted&&wasAccepted)feedback.workflowStatus='待终检';
-  records.figures[id]={...prior,status:!input.accepted&&!hasIssue&&wasAccepted?'待终检':status,userFeedback:feedback,userAcceptance:{...prior.userAcceptance,accepted:input.accepted,at:feedback.updatedAt,source:'期刊作图工作台'}};
+  records.figures[id]={...prior,status:!input.accepted&&!hasIssue&&wasAccepted?'待终检':status,userFeedback:feedback,userAcceptance:{...prior.userAcceptance,accepted:input.accepted,at:feedback.updatedAt,source:'期刊作图工作台',artifactToken:artifact?.token||null,artifacts:artifact?.outputs||[]}};
   tmp=recordsPath+'.'+randomUUID()+'.tmp';fs.writeFileSync(tmp,JSON.stringify(records,null,2),'utf8');
   if(fs.readFileSync(recordsPath,'utf8')!==before)throw Object.assign(Error('生产记录有并发更新，本次未保存，请重试'),{status:409});
+  if(input.accepted&&inspectAcceptance(id,prior,{resolve:resolveLocal}).token!==artifact.token)throw Object.assign(Error('验收期间成品发生变化，本次未保存，请重新核对'),{status:409});
   fs.renameSync(tmp,recordsPath);tmp=null;return feedback;
  }catch(error){for(const file of created)fs.unlinkSync(file);if(tmp&&fs.existsSync(tmp))fs.unlinkSync(tmp);throw error;}
  finally{fs.closeSync(handle);fs.unlinkSync(lock);}
