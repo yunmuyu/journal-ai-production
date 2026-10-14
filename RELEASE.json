@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.13-r18-label-clearance",
-  "createdAt": "2026-10-13T09:46:26.157Z",
-  "status": "locally-validated",
+  "id": "2026.10.14-r21-common-contract",
+  "createdAt": "2026-10-14T01:53:34.374Z",
+  "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
       "min": 6,
@@ -12,20 +12,50 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "tests": 21,
-    "native": [
-      "卞存健图3外侧标签避开返回线",
-      "卞存健图4阶段竖排标签与括线净距",
-      "王子腾图2普通框竖排真实墨迹套框"
+    "baseline": "2026.10.14-r20-arrow-label",
+    "changedFiles": [
+      "adobe/illustrator.jsx",
+      "adobe/vector-labels.jsx",
+      "lib/core.mjs",
+      "lib/desktop-notice.mjs",
+      "lib/render.mjs",
+      "scripts/audit_color.py",
+      "scripts/audit_pdf.py"
     ],
-    "evidence": "work/review-spacing-20261013",
-    "scope": "Measured phase labels, self-message lanes and exterior arrow label clearance"
+    "requirements": [
+      "Final visible non-image path strokes normalized to 0.5 pt after fitting; image route excepted.",
+      "PDF effective stroke widths audited.",
+      "Editable text pure black with native subscript and superscript; plans validate styles.",
+      "Diagram geometry audit connected and dependencies hashed into render cache.",
+      "EBUSY cleanup preserves original render result or exception."
+    ],
+    "verification": {
+      "candidateNodeTests": {
+        "passed": 29,
+        "failed": 0
+      },
+      "candidatePythonTests": {
+        "passed": 4,
+        "failed": 0
+      },
+      "broaderRun": {
+        "passed": 32,
+        "failed": 1,
+        "failedTest": "A reused Windows PID does not keep a lease older than that process alive",
+        "reason": "Unchanged r20 lib/recovery.mjs; outside r21 scope."
+      },
+      "native": "pending main-thread serial validation"
+    },
+    "limits": [
+      "Candidate only; no Adobe native execution or installation in this packaging pass.",
+      "Further author acceptance and production publication remain separate."
+    ]
   },
   "files": [
     {
       "path": "运行说明.md",
-      "sha256": "19ecb8af08406c084de5a3a675c03f488a2bab0ea05f7dac470e5b4b06e05501",
-      "bytes": 12209
+      "sha256": "42989de63dbebf14785b15bf115f376f739d4d36a21610182150c31baaee0b07",
+      "bytes": 13474
     },
     {
       "path": "adobe/common.jsx",
@@ -64,8 +94,8 @@
     },
     {
       "path": "adobe/editorial-generator.jsx",
-      "sha256": "f5c0386bb71d397f65ce35e2d0b029e4695ccd7b5981fe75a2b853dbb7e8f2d6",
-      "bytes": 6149
+      "sha256": "8a18f3ae0f5fa0332e2efd105934c48872581aebd48a2fb2f6f383e0c9846fbb",
+      "bytes": 8546
     },
     {
       "path": "adobe/editorial-layout.jsx",
@@ -104,8 +134,8 @@
     },
     {
       "path": "adobe/illustrator.jsx",
-      "sha256": "d88b72acbe7855f1be34d2bb89d777dfe76b48323c23f269d45f4aa30ae6df8c",
-      "bytes": 19197
+      "sha256": "cbf7e102f7ce4d2684a874dc5fd77ef74d888442f42cf76de2b1ec731edf86ca",
+      "bytes": 19610
     },
     {
       "path": "adobe/invoke.js",
@@ -114,13 +144,13 @@
     },
     {
       "path": "adobe/photoshop.jsx",
-      "sha256": "9db9d41de8b4a35136729b00fb49d1f95a3d91e88810efd65d6edc233f1502fa",
-      "bytes": 2841
+      "sha256": "f00fa0641a30e6b1b61f204ffca1e62b648069ecd02cc2d07840ed21b11f0229",
+      "bytes": 3180
     },
     {
       "path": "adobe/vector-labels.jsx",
-      "sha256": "91858ec54a8f2d684dcd8df3bb4486befc42763506df8332bb013f19a98e3a81",
-      "bytes": 5362
+      "sha256": "cad9e31acc525e67e0e18fd3eaed95d8b20fdc99b61e973274da740ff50588a6",
+      "bytes": 5892
     },
     {
       "path": "adobe/window-state.ps1",
@@ -194,8 +224,8 @@
     },
     {
       "path": "lib/core.mjs",
-      "sha256": "a290332e3859817fa3780764f880ba533b504e9699018afb6c91b4e2907a3e94",
-      "bytes": 6709
+      "sha256": "4bed93588c38305c2667a201751d2460980ab734249a5209b779782a3e9131b5",
+      "bytes": 7514
     },
     {
       "path": "lib/data-audit.mjs",
@@ -204,8 +234,8 @@
     },
     {
       "path": "lib/desktop-notice.mjs",
-      "sha256": "6a88b3f40c99f4857d365285638c04cb6a35b3488a178d560ebda23e73dc9085",
-      "bytes": 1214
+      "sha256": "57c216e91451a000ee75725c6cfc8a4d2a9ccb8f7d993e9cbd6bd121b464bdd5",
+      "bytes": 1939
     },
     {
       "path": "lib/diagram-audit.mjs",
@@ -254,8 +284,8 @@
     },
     {
       "path": "lib/render.mjs",
-      "sha256": "b6fdfb4c546a78de5e3f54d57a4dafce5180338802d4ca71e93e895d4a6caef3",
-      "bytes": 11564
+      "sha256": "65afef3b8842a352e4d7f6bae56d4ab05dfde7caa6d76c9038073376e3af9958",
+      "bytes": 11817
     },
     {
       "path": "lib/review.mjs",
@@ -299,8 +329,8 @@
     },
     {
       "path": "scripts/audit_color.py",
-      "sha256": "f84f643d7d1d87ce0b8e64a7d203139701f95ced9455869922ebca748cc6971e",
-      "bytes": 7179
+      "sha256": "85ffdbefb5e6ab04e6ca2831019482d4bfee427591ada82745410c5186afa609",
+      "bytes": 10753
     },
     {
       "path": "scripts/audit_delivery.py",
@@ -314,8 +344,8 @@
     },
     {
       "path": "scripts/audit_pdf.py",
-      "sha256": "8418c31c9c51416e542e30645a093912f73aa5c42f63bcbcd6a788d0fb9b2d95",
-      "bytes": 2113
+      "sha256": "5e43310367c653c77331b06993f2f7216d9b7ab795260ada36806865853e16be",
+      "bytes": 8682
     },
     {
       "path": "scripts/convert-office.js",
@@ -354,8 +384,8 @@
     },
     {
       "path": "scripts/normalize_svg_color.py",
-      "sha256": "ab4fe37475168ac38901753f136c356d6d9ceffabf493fefa4d55eacb729ecf8",
-      "bytes": 15104
+      "sha256": "2af75d9838104b33904e323952b6062155dbe435b2c43fe7d8dd49c4ba9b79d2",
+      "bytes": 15359
     },
     {
       "path": "scripts/prepare_matplotlib_svg.py",
@@ -373,7 +403,7 @@
       "bytes": 1232
     }
   ],
-  "skillSha256": "0da665919020e60ba422ae427f4978ff0d0c2a25287518ca8fa26dc4f40d1e91",
-  "supersedes": "2026.10.13-r17-common-arrows",
+  "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
+  "supersedes": "2026.10.14-r20-arrow-label",
   "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged."
 }

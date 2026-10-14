@@ -1,21 +1,26 @@
 import argparse,base64,hashlib,io,json,re,sys,xml.etree.ElementTree as ET
 from pathlib import Path
 from PIL import Image,ImageColor
-NORMALIZATION_RULE_VERSION='jfw-color-normalize-2026-10-12-v3-vector-alpha'
+NORMALIZATION_RULE_VERSION='jfw-color-normalize-2026-10-13-v4-icc'
 LUMA='Pillow L (ITU-R 601 encoded RGB coefficients .299/.587/.114)'
 def sha(data):return hashlib.sha256(data).hexdigest()
 def image_rgb(data,gray,embedded=False):
- im=Image.open(io.BytesIO(data))
+ im=Image.open(io.BytesIO(data));source_mode=im.mode
+ if im.mode not in ['RGB','RGBA','L','LA','P','1']:raise ValueError('Unsupported image mode: '+im.mode)
+ icc_conversion=None
  if im.info.get('icc_profile'):
   from PIL import ImageCms
-  name=ImageCms.getProfileName(ImageCms.ImageCmsProfile(io.BytesIO(im.info['icc_profile'])))
-  if 'srgb' not in name.lower():raise ValueError('Unsupported image ICC profile: '+name.strip())
- if im.mode not in ['RGB','RGBA','L','LA','P','1']:raise ValueError('Unsupported image mode: '+im.mode)
+  profile=ImageCms.ImageCmsProfile(io.BytesIO(im.info['icc_profile']))
+  name=ImageCms.getProfileName(profile).strip()
+  alpha=im.convert('RGBA').getchannel('A')
+  im=ImageCms.profileToProfile(im.convert('RGB'),profile,ImageCms.createProfile('sRGB'),outputMode='RGB')
+  im.putalpha(alpha)
+  icc_conversion={'sourceProfile':name,'targetProfile':'sRGB','engine':'LittleCMS'}
  rgba=im.convert('RGBA');alpha=rgba.getchannel('A')
  if embedded and alpha.getextrema()!=(255,255):raise ValueError('Embedded image transparency needs explicit composition support')
  out=Image.new('RGBA',rgba.size,'white');out.alpha_composite(rgba);out=out.convert('RGB')
  if gray:out=out.convert('L').convert('RGB')
- buf=io.BytesIO();out.save(buf,'PNG');return buf.getvalue(),{'width':out.width,'height':out.height,'sourceMode':im.mode,'outputMode':'RGB','opaque':True,'alphaFlattenedWhite':alpha.getextrema()!=(255,255)}
+ buf=io.BytesIO();out.save(buf,'PNG');return buf.getvalue(),{'width':out.width,'height':out.height,'sourceMode':source_mode,'outputMode':'RGB','opaque':True,'alphaFlattenedWhite':alpha.getextrema()!=(255,255),'iccConversion':icc_conversion}
 def color(s,gray):
  s=s.strip()
  if s in ['none','inherit','currentColor']:return s
