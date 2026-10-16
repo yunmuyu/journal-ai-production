@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "id": "demo-composite-type",
+  "author": "公开合成示例",
+  "kind": "scene",
+  "synthetic": true,
+  "width_pt": 210,
+  "height_pt": 100,
+  "texts": [
+    {
+      "id": "t1",
+      "text": "中文汉字（标点）与 Times New Roman 123",
+      "x": 105,
+      "y": 17
+    },
+    {
+      "id": "t2",
+      "text": [
+        {
+          "text": "变量 "
+        },
+        {
+          "text": "K",
+          "style": "italic"
+        },
+        {
+          "text": "=50，准确率 98.5%"
+        }
+      ],
+      "x": 105,
+      "y": 37
+    },
+    {
+      "id": "t3",
+      "text": [
+        {
+          "text": "x"
+        },
+        {
+          "text": "2",
+          "scale": 0.8,
+          "baseline_shift_pt": -3
+        },
+        {
+          "text": " + H"
+        },
+        {
+          "text": "2",
+          "scale": 0.8,
+          "baseline_shift_pt": 2
+        },
+        {
+          "text": "O"
+        }
+      ],
+      "x": 105,
+      "y": 57
+    },
+    {
+      "id": "t4",
+      "text": "多行文字\n逐行墨迹居中",
+      "x": 105,
+      "y": 82
+    }
+  ],
+  "policy": {
+    "column": "single",
+    "font_sizes": [
+      8
+    ]
+  }
+}

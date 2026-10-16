@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "id": "demo-network",
+  "author": "公开合成示例",
+  "kind": "network",
+  "synthetic": true,
+  "width_pt": 150,
+  "height_pt": 100,
+  "nodes": [
+    {
+      "id": "a",
+      "text": "N1",
+      "x": 25,
+      "y": 50
+    },
+    {
+      "id": "b",
+      "text": "N2",
+      "x": 75,
+      "y": 20
+    },
+    {
+      "id": "c",
+      "text": "N3",
+      "x": 125,
+      "y": 50
+    },
+    {
+      "id": "d",
+      "text": "N4",
+      "x": 75,
+      "y": 80
+    }
+  ],
+  "edges": [
+    {
+      "from": "a",
+      "to": "b",
+      "arrow": true
+    },
+    {
+      "from": "b",
+      "to": "c",
+      "arrow": true
+    },
+    {
+      "from": "c",
+      "to": "d",
+      "arrow": true
+    },
+    {
+      "from": "d",
+      "to": "a",
+      "arrow": true
+    }
+  ],
+  "policy": {
+    "column": "single",
+    "font_sizes": [
+      8
+    ]
+  }
+}

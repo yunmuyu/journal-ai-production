@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "id": "demo-hierarchy",
+  "author": "公开合成示例",
+  "kind": "tree",
+  "synthetic": true,
+  "root": "图件处理",
+  "branches": [
+    {
+      "text": "输入",
+      "children": [
+        "PDF",
+        "SVG",
+        "位图"
+      ]
+    },
+    {
+      "text": "制作",
+      "children": [
+        "字体排版",
+        "版位装配",
+        "图例绑定"
+      ]
+    },
+    {
+      "text": "检查",
+      "children": [
+        "内容核对",
+        "实际 PDF"
+      ]
+    }
+  ],
+  "policy": {
+    "column": "single",
+    "font_sizes": [
+      8,
+      7,
+      6
+    ]
+  }
+}

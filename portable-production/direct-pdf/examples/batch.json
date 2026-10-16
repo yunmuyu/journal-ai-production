@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "source_root": "assets",
+  "expected_export_ids": [
+    "demo-hierarchy",
+    "demo-network",
+    "demo-composite-type"
+  ],
+  "specs": [
+    "specs/demo-hierarchy.json",
+    "specs/demo-network.json",
+    "specs/demo-composite-type.json"
+  ]
+}
