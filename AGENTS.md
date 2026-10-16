@@ -1,8 +1,13 @@
 # 项目协作约束
 
+- 普通新图和续跑的现行入口为 `portable-production/`：先 preflight，再由 localflow 记录来源、路由与状态，最后通过 direct-pdf 公共 scene/layout/font 规则生成并审计。不要在作者脚本复制测字、箭头或字体子集逻辑。
+- `workbench/`、已发布 Adobe runtime 与 `collaboration/scripts/run.mjs` 保留为原生格式兼容路线；只有 direct-pdf 报告未覆盖或任务明确要求原生 AI 时使用。历史预确认流程不是普通新图的默认审批门。
+- 所有生产路径、状态、缓存、字体 profile 和输出目录从仓库外配置传入。仓库内示例只使用占位符；不得提交作者原稿、商业字体、缓存、候选 PDF 或本机绝对路径。
+- `mechanical_checks_passed` 只表示已实现门禁通过。视觉、来源、公式语义或连接语义未核对时不得发布；未知语义须报告未覆盖。
+
 - 先读 README.md、RELEASE.json 和接手回执，再读取该作者最新权威记录。不要从历史聊天推断当前验收状态。
 - 每个修复使用短期分支；并行代码探索使用独立 worktree，明确文件责任。实验不得修改正式验收记录、冻结成品或已安装 Skill。
-- 图件引擎使用外部 machine.json 指定的固定 runtime 与 collaboration/scripts/run.mjs，记录版本事件；不得绕过哈希检查直调未知安装副本。历史任务不补写成“本版本已执行”。
+- 普通生产使用 `portable-production/` 及仓库外配置；旧 machine.json/runtime/Adobe 路线仅用于原生格式兼容或历史恢复。历史任务不补写成“本版本已执行”。
 - runtime 与根目录研发源码目前有已记录的差异，不全量互覆。升级须受影响测试和必要 Adobe 原生验证；运行文件和发布清单一起更新。
 - 同台 Illustrator/Photoshop 串行，保留全局互斥；不关闭或杀死用户软件。已验收成品只用副本实验。
 - 台账由当前接手回执指定的唯一写入者发布；按文章/图件ID和字段三方合并。验收/反馈冲突询问用户，不按时间取胜，不自动执行删除建议。

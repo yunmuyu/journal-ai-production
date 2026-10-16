@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:journal-pdf:agent-reply:1",
+  "title": "Data-only Agent reply envelope; Python also validates all semantic fields and references",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "job_id",
+    "request_sha256",
+    "figures"
+  ],
+  "properties": {
+    "protocol": {
+      "const": "journal-pdf-agent/1"
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "figures": {
+      "type": "array",
+      "maxItems": 80,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "page_id",
+          "kind",
+          "review"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "page_id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "raster-chart",
+              "svg-chart",
+              "diagram"
+            ]
+          },
+          "review": {
+            "type": "object",
+            "required": [
+              "source_checked",
+              "labels_checked"
+            ],
+            "properties": {
+              "source_checked": {
+                "const": true
+              },
+              "labels_checked": {
+                "const": true
+              },
+              "topology_checked": {
+                "type": "boolean"
+              },
+              "inward_ticks_confirmed": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "reason"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string"
+          },
+          "page_id": {
+            "type": "string"
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "disposition": {
+            "enum": [
+              "blocked",
+              "excluded"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,11 @@
 # 期刊 AI 生产工作台
 
+## 2026-10-16 现行入口
+
+新制作与续跑先用 [portable-production](portable-production/README.md)：preflight 判定能力，localflow 管理批次索引、路由、候选与保护状态，direct-pdf 统一排版、字体、连接和 PDF 审计。机器路径、字体与生产素材始终放在仓库外。
+
+下述 `production-runtime`、`workbench`、Adobe 和 `collaboration/scripts/run.mjs` 是已发布的原生格式兼容路线；仅在直接 PDF 明确不覆盖或需编辑原 AI 时选用。旧的预确认流程不再是普通新图的前置门禁，现行 Agent 入口以数据化语义回复和实际 PDF 复核闭环。
+
 ## 当前整理版本
 
 2026.10.13-r18-label-clearance。RELEASE.json锁定正式production-runtime与Skill字节；根目录lib/adobe/scripts为研发树，candidates为未发布试验，不能全量互覆。旧r5固定快照保留回滚。

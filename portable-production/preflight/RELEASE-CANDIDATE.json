@@ -1,0 +1,44 @@
+{
+  "version": "0.2.0",
+  "repository": "yunmuyu/journal-ai-production",
+  "branch": "task/preflight-v2-agent-20261015",
+  "commit": "14994c36f2bbccd528bc17f9c374a0bbeda6153e",
+  "pull_request": 4,
+  "draft": true,
+  "merged": false,
+  "deployed": false,
+  "production_files_modified": false,
+  "remote_vs_tested_implementation": [
+    {
+      "path": "journal_preflight/__init__.py",
+      "git_blob_sha": "0ededa0ed0c70c3e493f5bf2ae0a6734d4845f54",
+      "sha256": "aeafb352fe5af7dd68ed66a0848376836e130859e799314284df7ffa76b66c83",
+      "matches_remote_commit": true
+    },
+    {
+      "path": "journal_preflight/__main__.py",
+      "git_blob_sha": "44b5922748f3fbb2dc62fdd8cc80cf4e9338ab75",
+      "sha256": "e4698e7a49074d6b8d5dad3d0eb13770cfec1dac2350b71ce6cfb9233dafe9ac",
+      "matches_remote_commit": true
+    },
+    {
+      "path": "journal_preflight/probe.py",
+      "git_blob_sha": "1f21ba4680296fc8fd3ee7e7b2d42dc5adf23856",
+      "sha256": "8053523a4ad55caf6d00ba3dada8dd8f589f984b373bad93205cf9e89f5d548b",
+      "matches_remote_commit": true
+    },
+    {
+      "path": "journal_preflight/routing.py",
+      "git_blob_sha": "de6af7a0661be68e7a47f344331f680ec311e0f8",
+      "sha256": "360c7acc14d31c6f6ab694b021744784be536cdd74c9f7296aee193c82cccb26",
+      "matches_remote_commit": true
+    },
+    {
+      "path": "tests/test_preflight.py",
+      "git_blob_sha": "e683d29c9b5f3b5c1040f60c31cba8751e0bd3e6",
+      "sha256": "1792ec2c0145c6759b4ce0ab8b281da134dbefa48e2e88d2c8e43f1a283ad1c9",
+      "matches_remote_commit": true
+    }
+  ],
+  "docs_note": "本地包附额外Agent说明，说明文字排版与仓库文档不同；实现和测试文件与远端逐字节一致。"
+}
