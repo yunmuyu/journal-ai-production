@@ -21,6 +21,7 @@
 ## 本轮回归验证
 
 - direct-pdf 全量测试：261 passed，1 Pillow `Image.getdata` 弃用警告；使用实际 release 虚拟环境与本机字体 profile。测试来自 `portable-production/direct-pdf/tests`，未覆盖 Adobe 原生 AI/新机安装。
+- G 盘提交归档独立检查：从锁文件在临时环境安装依赖；G 盘源码跑 260 passed、1 deselected。未运行的用例专门核对汉仪中宋简 PostScript 名；商业字体未随包迁移，不做替代。合成 network 样例 PDF 已从 G 源码生成并目视检查，输出 14,902 B，SHA-256 D33B579294DB78012BB32BCC64104CBD00993463A548FB2A37E274DC4A66BD44。临时测试环境使用 C 盘 Python 与系统字体，仍不等于新电脑/Adobe实测。
 
 ## 尚未验证
 
