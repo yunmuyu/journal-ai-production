@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "id": "PREVIEW-AR-PL-SungtiL-GB-LiberationSerif-NOT-production",
+  "purpose": "preview",
+  "faces": {
+    "cn": {
+      "path": "/usr/share/fonts/truetype/arphic-gbsn00lp/gbsn00lp.ttf",
+      "index": 0,
+      "expected_names": [
+        "AR PL SungtiL GB"
+      ]
+    },
+    "punct": {
+      "path": "/usr/share/fonts/truetype/arphic-gbsn00lp/gbsn00lp.ttf",
+      "index": 0,
+      "expected_names": [
+        "AR PL SungtiL GB"
+      ]
+    },
+    "latin": {
+      "path": "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
+      "expected_names": [
+        "Liberation Serif"
+      ]
+    },
+    "latin_italic": {
+      "path": "/usr/share/fonts/truetype/liberation/LiberationSerif-Italic.ttf",
+      "expected_names": [
+        "Liberation Serif"
+      ]
+    }
+  },
+  "character_overrides": {
+    "/": "latin",
+    "|": "latin",
+    "-": "latin",
+    "−": "latin"
+  }
+}

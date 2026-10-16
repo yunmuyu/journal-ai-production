@@ -1,0 +1,7 @@
+{
+  "delivery_root": "CHANGE_ME/delivery",
+  "state_root": "CHANGE_ME/state",
+  "font_profile": "CHANGE_ME/fonts.local.json",
+  "cache_root": "CHANGE_ME/cache/fonts",
+  "workbench_enabled": false
+}

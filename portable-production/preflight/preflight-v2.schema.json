@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:journal:preflight:2",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "version",
+    "source_snapshot",
+    "figures",
+    "publication_performed"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "journal-preflight/2"
+    },
+    "version": {
+      "type": "string"
+    },
+    "publication_performed": {
+      "const": false
+    },
+    "source_snapshot": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "figures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "identity",
+          "sources",
+          "route",
+          "layout",
+          "export",
+          "protection",
+          "gates",
+          "ready_for_publication"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ready_for_publication": {
+            "const": false
+          },
+          "automation_grade": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          "route": {
+            "enum": [
+              "drawio_native_relayout",
+              "raster_panel_assembly",
+              "raster_chart_preserve",
+              "manual_review"
+            ]
+          },
+          "layout": {
+            "type": "object",
+            "required": [
+              "capacity_verified",
+              "locked",
+              "recommended_column"
+            ],
+            "properties": {
+              "recommended_column": {
+                "enum": [
+                  "single",
+                  "double",
+                  "unknown"
+                ]
+              },
+              "capacity_verified": {
+                "type": "boolean"
+              },
+              "locked": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

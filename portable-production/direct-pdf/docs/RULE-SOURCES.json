@@ -1,0 +1,46 @@
+{
+  "repository": "yunmuyu/journal-ai-production",
+  "commit": "ced82c85cb1a8490c52750e772a9415e6ac705f6",
+  "sources": [
+    {
+      "path": "production-runtime/references/editorial-profile.md",
+      "git_blob_sha": "d588e694daf7a9e601fe9614da581755197e498a",
+      "use": "三位一空、校准几何、最新整图适配规则"
+    },
+    {
+      "path": "references/editorial-profile.md",
+      "git_blob_sha": "fcf4e3d2179ee19047eab7ef5b3738345b4d4c1e",
+      "use": "图例、坐标、括号及单位语境、逐行墨迹和工程默认净距"
+    },
+    {
+      "path": "production-runtime/adobe/editorial-generator.jsx",
+      "git_blob_sha": "cfb2194592faa5186f46d2ddfe899d566406e5cf",
+      "use": "正式运行副本菱形比例及包含修正"
+    },
+    {
+      "path": "adobe/editorial-generator.jsx",
+      "git_blob_sha": "2600862a65b7400b34ea4c9bab5f3282a007a258",
+      "use": "仅用于差异诊断；不得以研发树覆盖正式规则"
+    },
+    {
+      "path": "release-notes/2026.10.14-r21.md",
+      "git_blob_sha": "9c2fac69c309e08c6244002a595722b3d3ff9fe1",
+      "use": "最终实际描边0.5pt、文字纯黑、原生上下标、缓存依赖"
+    },
+    {
+      "path": "RELEASE.json",
+      "git_blob_sha": "9a96bf01c2581f04c6a7f5ebf4cd8194c427826a",
+      "use": "当前发行身份2026.10.14-r21-common-contract；非README旧标题"
+    },
+    {
+      "path": "tests/diamond-text-containment.test.mjs",
+      "git_blob_sha": "bf796ca057dc4c5eff0fd58a8078b3e9ebc0dc61",
+      "use": "记录其与正式适配器存在口径差异，不宣称执行/通过此测试"
+    },
+    {
+      "path": "tests/editorial.test.mjs",
+      "git_blob_sha": "abc1148ef60097b02779ab986f0515b64074286a",
+      "use": "边界、端口、组间距及标签净距的仓库回归要求"
+    }
+  ]
+}

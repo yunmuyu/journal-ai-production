@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "现宋体1-显式字体配方-需本机校验",
+  "purpose": "production",
+  "faces": {
+    "cn": {"path": "C:/Windows/Fonts/simsun.ttc", "index": 0, "expected_names": ["SimSun", "宋体"]},
+    "punct": {"path": "REPLACE_WITH_ACTUAL_HY_FONT_PATH.ttf", "index": 0, "expected_names": ["HYa3gj", "汉仪中宋简"]},
+    "latin": {"path": "C:/Windows/Fonts/times.ttf", "expected_names": ["Times New Roman", "TimesNewRomanPSMT"]},
+    "latin_italic": {"path": "C:/Windows/Fonts/timesi.ttf", "expected_names": ["Times New Roman", "TimesNewRomanPS-ItalicMT"]}
+  },
+  "character_overrides": {"/": "latin", "|": "latin", "-": "latin", "−": "latin"},
+  "note": "文件名示例不是字体探测结果；汉仪路径必须显式设置。生产不允许静默使用预览字体。"
+}

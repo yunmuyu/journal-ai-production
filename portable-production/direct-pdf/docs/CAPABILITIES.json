@@ -1,0 +1,78 @@
+{
+  "version": "0.2.0rc1",
+  "protocol": "journal-pdf-agent/1",
+  "status": "candidate-for-heldout-pilot",
+  "default_entry": "existing-conversation-agent",
+  "sources": {
+    "PDF": {
+      "native_text_and_geometry": true,
+      "rotation_and_crop_metadata": true,
+      "diagram_ref_compile": true,
+      "arbitrary_chart_reletter": false
+    },
+    "SVG": {
+      "matplotlib_axis_tick_legend_object_ids": true,
+      "outline_comments_need_visual_confirmation": true,
+      "matched_chart_compile": true,
+      "arbitrary_svg_auto_compile": false
+    },
+    "PPTX": {
+      "nested_group_world_transforms": true,
+      "native_connector_bindings": true,
+      "embedded_image_metadata_and_bytes": true,
+      "native_text_ref_diagram_compile": true,
+      "full_fidelity_ppt_renderer": false
+    },
+    "raster": {
+      "axis_tick_candidates_without_OCR": true,
+      "legend_and_shape_candidates": true,
+      "inward_tick_chart_compile_after_Agent_review": true,
+      "data_digitization": false,
+      "all_images_unattended": false,
+      "reviewed_structured_tree_and_group_templates": true
+    }
+  },
+  "output": {
+    "pdf_required": true,
+    "ai_required": false,
+    "font_scans_per_figure": 0,
+    "default_design_font_pt": 8,
+    "render_font_ladder": false,
+    "whole_artwork_min_font_pt": 6,
+    "existing_rule_coverage": "partial-explicit-ledger",
+    "default_new_frontend_legend": "outside-top-after-safe-source-removal",
+    "summary_identity": "author + complete figure ID + column + candidate; 7pt outside figure"
+  },
+  "automation": {
+    "prepare_and_complete_calls": 2,
+    "provider_callback_for_future_standalone": true,
+    "hidden_model_calls": false,
+    "max_semantic_attempts": 3,
+    "isolated_source_workers": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "default_workers": 1
+  },
+  "not_implemented": [
+    "arbitrary PDF chart removal/series-safe replacement",
+    "general multi-panel raster splitting",
+    "all special circuit/map/matrix rules",
+    "unrestricted nested graph reflow",
+    "automatic user-source/Word figure pairing",
+    "production font and Windows acceptance",
+    "InDesign/PDF-X acceptance"
+  ],
+  "security": {
+    "originals_readonly": true,
+    "source_evidence_and_engine_bound": true,
+    "no_external_upload": true,
+    "no_font_distribution": true,
+    "no_production_record_writes": true,
+    "unaccounted_sources_blocked": true,
+    "native_arrow_direction_guard": true,
+    "summary_and_mechanical_report_hash_bound": true
+  }
+}
