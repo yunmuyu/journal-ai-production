@@ -123,6 +123,12 @@ def audit_scene(s:Scene):
     for n in s.nodes:
         x,y,r,b=n['rect'];w=n['width']/2
         if not contains(page,[x-w,y-w,r+w,b+w],.02):issues.append({'code':'shape_outside_page','id':n['id']})
+        if n['kind']=='rectangle':
+            corners=[[x,y],[r,y],[r,b],[x,b],[x,y]]
+            for t in s.texts:
+                if t['owner']==n['id']:continue
+                if any(segment_hits(a,b,t['position']['bbox'],w+.1) for a,b in zip(corners,corners[1:])):
+                    issues.append({'code':'text_shape_collision','text':t['id'],'shape':n['id']})
     for p in s.paths:
         pts=p['points'];protection=p['width']/2+.1
         if s.template=='primitive-scene' and p['arrow'] and not p.get('endpoint_nodes'):

@@ -118,3 +118,19 @@ delivery-manifest.json 保存现行三类规则版本、expectedExportNumbers/ex
 8pt基准普通框按实际文字墨迹左右各4.5pt、上下各2.7pt。整图缩放时留白同比变化。同一语义组优先同列等宽、同行等高，长组允许改成两排，保留顺序、层级与连接。无连线紧凑成员用3pt净距。3mm是基础箭头长度，用户选择B：箭头尾和尖贴框；标签、折线路由和双箭头头部占位需要更长时按实测增加，不能把3mm套为全部元素间距。双向箭头至少为两箭头头部深度加可见中段。
 
 公共参数与整图适配位于adobe/editorial-layout.jsx。分层嵌套仍由box-layout负责，分支流程由流程布局负责；共用规范不等于使用同一种网格。正式适配层editorial-generator.jsx也须纳入测试，不能仅查看源生成器常量推断运行行为。
+
+
+## 2026-10-18：PPT 原生换字前置排布
+
+原生模块标注先显式绑定所属图形，按实际墨迹和可见边界计算位置，成功后再导出；不以导出后的集中修正替代前置计算。允许在所属面内放字、在附近上下左右避让，或按声明小幅扩大虚线框；不得离标注对象过远、猜连线或自动降低字号。完整协议与混合图支持边界见 [native-label-placement.md](native-label-placement.md)。已验收成品冻结。
+
+
+## 2026-10-18 通用生产修订
+
+- 已有原生结果先只读查找并核验全部工件、计划和工具证据。`fit` 不再以8/7/6 pt三份重生成来试排；超宽时复用已有AI整体等比缩放。低于6 pt返回重排。无法核验旧缓存时返回REUSE_UNVERIFIED，不自动重做。
+- 用户明确单栏时，计划设置 `columnConstraint: "single"`。该限制优先于历史双栏理由。仅试排说明widthDecision变化不生成新图；正常render的栏宽、字号、文字、源版本等仍属于制作身份。fit只读寻找原AI时允许栏宽决定变化，再用实际尺寸与字号决定能否缩放。
+- 向量换字的近距摆放使用 `texts[].layout` 显式指定ownerPathIndex，来源为当前原生inspect。按实际outline墨迹测量，框内左右4.5 pt、上下2.7 pt按基础字号比例缩放，并计描边。连接线、其他文字及图片均作为障碍；不能凭最近矩形猜owner。
+- `layoutCoverage` 明确列出owner、遮挡和公式语义的覆盖范围；mechanicalIssues为空不代表拓扑或数学语义已核对。机械错误写入mechanical-audit.json后中止成功返回。
+- 最终线型可声明 `strokeExpectations: [{pathName: "post-curve", widthPt: 0.5, dashPt: [3,2]}]`，单位为最终物理pt，按保存后原生对象检查。PDF strokeAudit另测Form Matrix、页面CTM、UserUnit后的物理虚线长度；非等比且无法确认的虚线不作确定长度通过。
+- U+0300～U+036F组合附标（含x+组合帽）目前在导出前报COMBINING_MARK_REQUIRES_VECTOR_ACCENT；保留可编辑基础字，用独立矢量附标。尚未实现自动数学语义推断或任意字体字形覆盖检测。
+- 最终混合PDF色彩审计支持常见有效ICCBased和Indexed图片；在掩码合成前检查原像素，仍核对实际PDF中性灰度，不删除透明蒙版来消警。复杂渐变、Pattern和未实现编码仍明确拒收。

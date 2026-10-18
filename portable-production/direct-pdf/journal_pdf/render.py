@@ -57,10 +57,13 @@ def compile_figure(spec,reg,assets,root):
     if kind=='chart':scene=chart(spec,reg,size,assets,root)
     elif kind in DIAGRAMS:scene=DIAGRAMS[kind](spec,reg,size)
     else:raise FigureError('unsupported_figure_kind','未实现的图种，不生成冒充成果的空页',kind=kind)
+    layout_build_count=1
     limit=col*PT_PER_MM-.5
     factor=min(1.,limit/scene.width)
     if factor<1 and any(p.get('exact_terminal') for p in scene.paths):
         def rebuild(font_size):
+            nonlocal layout_build_count
+            layout_build_count+=1
             if kind=='chart':return chart(spec,reg,font_size,assets,root)
             return DIAGRAMS[kind](spec,reg,font_size)
         # Exact 3 mm terminals are a final-size constraint. Rebuild the layout at
@@ -88,7 +91,7 @@ def compile_figure(spec,reg,assets,root):
     attempts=[{'column_mm':col,'design_font_size_pt':size,'font_size_pt':scene.size,'whole_artwork_scale':factor,
                'width_pt':scene.width,'height_pt':scene.height,'issues':issues}]
     scene.layout_evidence.update({'fit_attempts':attempts,'column_mm':col,
-        'layout_build_count':1,'pdf_font_ladder_renders':False,
+        'layout_build_count':layout_build_count,'pdf_font_ladder_renders':False,
         'priority':'default-8pt-first; no exhaustive 8/7/6 PDF rendering',
         'optimization_claim':'feasible measured template layout; not a proven global optimum'})
     if issues:raise FigureError('no_feasible_layout','布局未通过实际几何检查，不输出定稿',attempts=attempts)

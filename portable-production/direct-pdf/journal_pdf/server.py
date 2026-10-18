@@ -31,7 +31,7 @@ def apply_changes(spec,changes):
             raise FigureError('invalid_plot_width','绘图区宽度无效')
         new['plot_width_pt']=v*PT_PER_MM
     if 'legend_placement' in changes:
-        if new['kind']!='chart' or changes['legend_placement'] not in ('upper-right','lower-right','source-region'):
+        if new['kind']!='chart' or changes['legend_placement'] not in ('upper-right','lower-right','source-region','outside-top'):
             raise FigureError('invalid_legend_override','图例位置无效')
         new['legend_placement']=changes['legend_placement']
     return new

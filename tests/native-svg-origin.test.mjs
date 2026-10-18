@@ -20,10 +20,10 @@ test('native SVG option rejects nonboolean and nonvector plans',()=>{
 });
 test('PDF overlay plans normalize a nonzero artboard before taking the geometry baseline',()=>{
  const source=fs.readFileSync(new URL('../adobe/illustrator.jsx',import.meta.url),'utf8');
- const branch=source.slice(source.indexOf('doc=app.open(new File(req.input));if(p.grayscale'),source.indexOf('before=snapshot(doc);'));
+ const branch=source.slice(source.indexOf('doc=app.open(new File(req.input));if(p.grayscale'),source.indexOf("stage('source_snapshot');",source.indexOf('doc=app.open(new File(req.input));if(p.grayscale')));
  for(const overlay of [{texts:[{}]},{masks:[{}]},{lineSamples:[{}]}]){
   const doc={artboards:[{artboardRect:[12,137,237,0]}]},calls=[];
-  const ctx={p:overlay,req:{input:'source.pdf'},File:function(value){return value;},app:{open(){return doc;}},normalizeVector(w,b){calls.push([w,Array.from(b)]);doc.artboards[0].artboardRect=[0,0,w,-137];}};
+  const ctx={stage(){},p:overlay,req:{input:'source.pdf'},File:function(value){return value;},app:{open(){return doc;}},normalizeVector(w,b){calls.push([w,Array.from(b)]);doc.artboards[0].artboardRect=[0,0,w,-137];}};
   vm.runInNewContext(branch,ctx);
   assert.deepEqual(calls,[[225,[12,137,237,0]]]);
   assert.deepEqual(doc.artboards[0].artboardRect,[0,0,225,-137]);

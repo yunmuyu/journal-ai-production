@@ -1,0 +1,62 @@
+{
+  "stage": "verified-local",
+  "node": {
+    "main": {
+      "passed": 302,
+      "skipped": 11,
+      "failed": 0
+    },
+    "collaboration": {
+      "passed": 49,
+      "skipped": 1,
+      "failed": 0
+    },
+    "workbenchAndKnowledge": {
+      "passed": 87,
+      "skipped": 2,
+      "failed": 0
+    },
+    "totalPassed": 438,
+    "totalSkipped": 14,
+    "totalFailed": 0
+  },
+  "python": {
+    "sharedAuditAndDoctorPassed": 25,
+    "layoutRegressionsPassed": 7,
+    "totalPassed": 32,
+    "failed": 0
+  },
+  "native": {
+    "illustrator": "passed",
+    "syntheticOnly": true,
+    "actualPdfViewed": true,
+    "fontPt": 8,
+    "measuredLabelWidthPt": 46.53125,
+    "trackGapPt": 52.53125000000021,
+    "labelClearanceLeftPt": 3.0001754760742045,
+    "labelClearanceRightPt": 2.9998245239260086,
+    "pdfAuditPassed": true,
+    "colorAuditPassed": true,
+    "mechanicalIssues": []
+  },
+  "inheritedNativeEvidence": "release-validation-20261018-r29.json",
+  "scope": [
+    "r22/r29 common fixes consolidated",
+    "non-owner rectangle text-boundary collision",
+    "outside-top legend control and entry validation",
+    "accurate layout build count",
+    "doctor diagnostics without rendering dependencies",
+    "native character typography with explicit script semantics",
+    "measured long-label via route clearance",
+    "null vector replacement validation",
+    "portable regression fixtures and environment configuration"
+  ],
+  "limitations": [
+    "Full portable preflight/direct-pdf/localflow end-to-end suites not run: this machine lacks PyMuPDF, fontTools and pytest. Doctor now reports missing dependencies.",
+    "Fourteen private-data integration cases skipped explicitly; original assertions retained.",
+    "Final PDF physical font size matrix/semantic audit is not implemented. Native font checks cannot replace that audit.",
+    "Non-owner curved-shape boundaries remain outside the new rectangle-only check.",
+    "Uncaptured per-character native styles still have frame-level evidence only.",
+    "No software restart, dependency installation or accepted-author re-rendering was performed."
+  ]
+}

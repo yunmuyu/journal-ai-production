@@ -2,11 +2,6 @@ from __future__ import annotations
 import argparse,json,sys,shutil,time
 from pathlib import Path
 from .common import read_json,atomic_json,FigureError
-from .fonts import FontRegistry
-from .assets import Assets
-from .batch import run_batch
-from .render import render_one
-from .inspect import inspect_file
 
 
 def main(argv=None):
@@ -49,6 +44,7 @@ def main(argv=None):
             from .doctor import diagnose
             out=diagnose();atomic_json(args.output,out)
         elif args.command=='fonts':
+            from .fonts import FontRegistry
             t=time.perf_counter();r=FontRegistry(args.profile,args.cache,refresh=args.refresh)
             out=r.summary()|{'initialization_ms':round((time.perf_counter()-t)*1000,3)};r.close()
             if args.report:atomic_json(args.report,out)
@@ -56,8 +52,10 @@ def main(argv=None):
             from .windows_fonts import registry_inventory
             out=registry_inventory();atomic_json(args.output,out)
         elif args.command=='inspect':
+            from .inspect import inspect_file
             out={'files':[inspect_file(f) for f in args.files]};atomic_json(args.output,out)
         elif args.command=='batch':
+            from .batch import run_batch
             r=run_batch(args.input,args.profile,args.output,args.cache,args.overwrite)
             out={'status':r['status'],'rendered':len(r['results']),'blocked':len(r['failures']),'wall_clock_ms':r['wall_clock_ms'],'output':str(args.output)}
             print(json.dumps(out,ensure_ascii=False));return 0 if not r['failures'] else 2
@@ -65,6 +63,9 @@ def main(argv=None):
             from .server import serve
             serve(args.batch,args.profile,args.output,args.cache,args.port);return 0
         else:
+            from .fonts import FontRegistry
+            from .assets import Assets
+            from .render import render_one
             reg=FontRegistry(args.profile,args.cache);a=Assets()
             try:r=render_one(read_json(args.input),reg,a,args.source_root,args.output,overwrite=args.overwrite)
             finally:reg.close();a.close()

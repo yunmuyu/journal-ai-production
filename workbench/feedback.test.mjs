@@ -10,9 +10,11 @@ test('逐图保存反馈并保留同作者其他图与权威字段',t=>{const st
 test('附件路径必须属于本图，未知图和无交付验收明确失败',t=>{const store=fixture(t),ids=new Set(['one','new']);assert.throws(()=>persistFeedback('unknown',body,ids,store),{status:404});assert.throws(()=>persistFeedback('one',{...body,images:[{path:'C:/arbitrary.png'}]},ids,store),{status:400});assert.throws(()=>persistFeedback('new',{...body,accepted:true},ids,store),{status:400});assert.throws(()=>persistFeedback('one',{...body,images:[{data:'ZmFrZQ=='}]},ids,store),{status:400});assert.equal(JSON.parse(fs.readFileSync(store.recordsPath)).figures.one.status,'内部复核通过');});
 test('勾选和取消验收分别持久化，取消后恢复待终检',t=>{const store=fixture(t),ids=new Set(['one']);persistFeedback('one',{...body,text:'',accepted:true},ids,store);assert.equal(JSON.parse(fs.readFileSync(store.recordsPath)).figures.one.status,'用户最终验收通过');persistFeedback('one',{...body,text:'',revision:1},ids,store);assert.equal(JSON.parse(fs.readFileSync(store.recordsPath)).figures.one.status,'内部复核通过');});
 test('原生产发布器持锁时拒绝反馈，释放后保留发布器的其他图更新',async t=>{
+ const moduleDir=path.resolve(process.env.JFW_TEST_REGISTRY_MODULE_DIR||'work/october-production/lixiumei');
+ if(!fs.existsSync(path.join(moduleDir,'registry_lock.py'))){t.skip('需要本机私有发布器模块；可通过 JFW_TEST_REGISTRY_MODULE_DIR 指定');return;}
  const store=fixture(t),{spawn}=await import('node:child_process');
- const python='C:/Users/xdxxk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe';
- const moduleDir=path.resolve('work/october-production/lixiumei');
+ const bundled=path.join(os.homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe');
+ const python=process.env.JFW_TEST_PYTHON||process.env.JFW_PYTHON||(fs.existsSync(bundled)?bundled:'python');
  const source='import sys,json\nfrom pathlib import Path\nsys.path.insert(0,sys.argv[1])\nfrom registry_lock import production_registry_lock\np=Path(sys.argv[2])\nwith production_registry_lock(p):\n print("LOCKED",flush=True)\n sys.stdin.readline()\n state=json.loads(p.read_text(encoding="utf-8"))\n state["figures"]["two"]["review"]="publisher-update"\n tmp=p.with_name(p.name+".tmp")\n tmp.write_text(json.dumps(state),encoding="utf-8")\n tmp.replace(p)\n';
  const child=spawn(python,['-c',source,moduleDir,store.recordsPath],{stdio:['pipe','pipe','pipe'],windowsHide:true});
  let stderr='';child.stderr.on('data',chunk=>stderr+=chunk);const done=new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(Error(stderr)));});

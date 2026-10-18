@@ -12,12 +12,20 @@ STROKE_TARGET_PT = 0.5
 STROKE_TOLERANCE_PT = 0.005  # PDF width/transform operands are commonly rounded to 3 decimals.
 STROKE_PAINT = {b'S', b's', b'B', b'B*', b'b', b'b*'}
 
-def stroke_audit(reader: PdfReader) -> dict[str, object]:
+def stroke_audit(reader: PdfReader, target_pt: float = STROKE_TARGET_PT) -> dict[str, object]:
     """Measure painted path strokes in final page coordinates, including nested Forms."""
+    if not math.isfinite(target_pt) or target_pt<=0:raise ValueError('Invalid physical stroke target')
+    dash_patterns=[];unverified_dashes=0
     widths: list[float] = []
     issues: list[dict[str, float | int]] = []
     filled_only_paths = 0
     nonuniform_curves_sampled = 0
+
+    def dash_state(value):
+        if not isinstance(value,(list,tuple))or len(value)!=2 or not isinstance(value[0],(list,tuple)):raise ValueError('Invalid PDF dash state')
+        pattern,phase=value
+        if any(not isinstance(v,(int,float))or not math.isfinite(v)or v<0 for v in pattern)or pattern and not any(pattern)or not isinstance(phase,(int,float))or not math.isfinite(phase)or phase<0:raise ValueError('Invalid PDF dash pattern or phase')
+        return tuple(map(float,pattern)),float(phase)
 
     def multiply(left: tuple[float, ...], right: tuple[float, ...]) -> tuple[float, ...]:
         a,b,c,d,e,f = left
@@ -26,10 +34,10 @@ def stroke_audit(reader: PdfReader) -> dict[str, object]:
 
     def walk(stream: object, resources: object, initial: tuple[float, ...], page_number: int,
              initial_width: float = 1.0,
-             active: frozenset[int] = frozenset()) -> None:
-        nonlocal filled_only_paths, nonuniform_curves_sampled
+             active: frozenset[int] = frozenset(), initial_dash: tuple = (), initial_phase: float = 0) -> None:
+        nonlocal filled_only_paths, nonuniform_curves_sampled, unverified_dashes
         ctm = initial
-        width = initial_width
+        width = initial_width;dash=initial_dash;phase=initial_phase
         stack: list[tuple[tuple[float, ...], float]] = []
         tangents: list[tuple[float, float]] = []
         curves_in_path = 0
@@ -38,13 +46,15 @@ def stroke_audit(reader: PdfReader) -> dict[str, object]:
         local = resources.get_object()
         for args, op in ContentStream(stream, reader).operations:
             if op == b'q':
-                stack.append((ctm, width))
+                stack.append((ctm, width,dash,phase))
             elif op == b'Q':
                 if not stack:
                     raise ValueError('PDF graphics state stack underflow')
-                ctm, width = stack.pop()
+                ctm, width,dash,phase = stack.pop()
             elif op == b'cm':
                 ctm = multiply(ctm, tuple(map(float, args)))
+            elif op == b'd':
+                dash,phase=dash_state(args)
             elif op == b'w':
                 width = float(args[0])
             elif op == b'gs':
@@ -53,6 +63,7 @@ def stroke_audit(reader: PdfReader) -> dict[str, object]:
                     raise ValueError('PDF graphics state missing from resources')
                 state = state_ref.get_object()
                 width = float(state.get('/LW',width))
+                if '/D' in state:dash,phase=dash_state(state['/D'])
             elif op == b'm':
                 point = start = (float(args[0]), float(args[1]))
             elif op == b'l':
@@ -87,6 +98,10 @@ def stroke_audit(reader: PdfReader) -> dict[str, object]:
                 a,b,c,d,_,_ = ctm
                 if curves_in_path and (abs(a*a+b*b-c*c-d*d)>1e-9 or abs(a*c+b*d)>1e-9):
                     nonuniform_curves_sampled += curves_in_path
+                if dash and tangents:
+                    if abs(a*a+b*b-c*c-d*d)>1e-9 or abs(a*c+b*d)>1e-9:unverified_dashes+=1
+                    else:
+                        scale=math.hypot(a,b);dash_patterns.append({'page':page_number,'lengthsPt':[round(v*scale,6)for v in dash],'phasePt':round(phase*scale,6)})
                 determinant = abs(a*d-b*c)
                 for dx,dy in tangents:
                     source_length = math.hypot(dx,dy)
@@ -95,7 +110,7 @@ def stroke_audit(reader: PdfReader) -> dict[str, object]:
                         continue
                     effective = width*determinant*source_length/transformed_length if transformed_length else 0
                     widths.append(effective)
-                    if not math.isfinite(effective) or abs(effective-STROKE_TARGET_PT)>STROKE_TOLERANCE_PT:
+                    if not math.isfinite(effective) or abs(effective-target_pt)>STROKE_TOLERANCE_PT:
                         issues.append({'page':page_number,'widthPt':round(effective,6),'declaredWidthPt':width})
             if op in (b'f',b'f*') and tangents:
                 filled_only_paths += 1
@@ -115,13 +130,13 @@ def stroke_audit(reader: PdfReader) -> dict[str, object]:
                         raise ValueError('Recursive PDF Form')
                     form_matrix = tuple(map(float, child.get('/Matrix',[1,0,0,1,0,0])))
                     walk(child, child.get('/Resources',local), multiply(ctm,form_matrix),page_number,
-                         width,active|{identity})
+                         width,active|{identity},dash,phase)
 
     for number, page in enumerate(reader.pages, 1):
         unit = float(page.get('/UserUnit',1))
         walk(page.get_contents(),page['/Resources'],(unit,0,0,unit,0,0),number)
-    return {'ok':not issues and nonuniform_curves_sampled == 0,
-            'targetPt':STROKE_TARGET_PT,'tolerancePt':STROKE_TOLERANCE_PT,
+    return {'ok':not issues and nonuniform_curves_sampled == 0 and unverified_dashes == 0,
+            'dashPatterns':dash_patterns,'unverifiedDashPaths':unverified_dashes,'targetPt':target_pt,'tolerancePt':STROKE_TOLERANCE_PT,
             'scope':'Painted path strokes only; filled outlines, filled markers, text glyphs and raster ink have no stroke-width verdict.',
             'nonUniformCurvePolicy':'Five tangent samples are reported but cannot prove every point; reject these curves pending a complete geometry check.',
             'strokeSegments':len(widths),'minWidthPt':min(widths) if widths else None,
@@ -137,7 +152,7 @@ def native_grid(rendered: Image.Image, expected_size: tuple[int, int]) -> Image.
         return aligned
     return rendered.resize(expected_size)
 
-def audit(pdf_path: str, native_path: str, preview_path: str, route: str = 'vector-reletter') -> dict[str, object]:
+def audit(pdf_path: str, native_path: str, preview_path: str, route: str = 'vector-reletter', expected_stroke_pt: float = STROKE_TARGET_PT) -> dict[str, object]:
     reader = PdfReader(pdf_path)
     invisible = 0
     images = reader.pages[0].images
@@ -160,12 +175,12 @@ def audit(pdf_path: str, native_path: str, preview_path: str, route: str = 'vect
     recall = matched / total if total else 1.0
     page.close()
     pdf.close()
-    strokes = None if route == 'image' else stroke_audit(reader)
+    strokes = None if route == 'image' else stroke_audit(reader,float(expected_stroke_pt))
     return {'ok': invisible == 0 and recall >= 0.94 and (strokes is None or strokes['ok']),
             'invisibleImages': invisible, 'nativeInkRecall': recall, 'pdfPreview': preview_path,
             'imageCount': len(images), 'strokeAudit': strokes}
 
 if __name__ == '__main__':
-    result = audit(*sys.argv[1:5])
+    result = audit(*sys.argv[1:6])
     print(json.dumps(result, ensure_ascii=False))
     sys.exit(0 if result['ok'] else 2)

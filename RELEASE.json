@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.14-r21-common-contract",
-  "createdAt": "2026-10-14T01:53:34.374Z",
-  "status": "release-candidate",
+  "id": "2026.10.18-r30-final-tools",
+  "createdAt": "2026-10-18T13:22:39.736Z",
+  "status": "released",
   "constraints": {
     "fontSizePt": {
       "min": 6,
@@ -12,43 +12,65 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "baseline": "2026.10.14-r20-arrow-label",
-    "changedFiles": [
-      "adobe/illustrator.jsx",
-      "adobe/vector-labels.jsx",
-      "lib/core.mjs",
-      "lib/desktop-notice.mjs",
-      "lib/render.mjs",
-      "scripts/audit_color.py",
-      "scripts/audit_pdf.py"
-    ],
-    "requirements": [
-      "Final visible non-image path strokes normalized to 0.5 pt after fitting; image route excepted.",
-      "PDF effective stroke widths audited.",
-      "Editable text pure black with native subscript and superscript; plans validate styles.",
-      "Diagram geometry audit connected and dependencies hashed into render cache.",
-      "EBUSY cleanup preserves original render result or exception."
-    ],
-    "verification": {
-      "candidateNodeTests": {
-        "passed": 29,
+    "stage": "verified-local",
+    "node": {
+      "main": {
+        "passed": 302,
+        "skipped": 11,
         "failed": 0
       },
-      "candidatePythonTests": {
-        "passed": 4,
+      "collaboration": {
+        "passed": 49,
+        "skipped": 1,
         "failed": 0
       },
-      "broaderRun": {
-        "passed": 32,
-        "failed": 1,
-        "failedTest": "A reused Windows PID does not keep a lease older than that process alive",
-        "reason": "Unchanged r20 lib/recovery.mjs; outside r21 scope."
+      "workbenchAndKnowledge": {
+        "passed": 87,
+        "skipped": 2,
+        "failed": 0
       },
-      "native": "pending main-thread serial validation"
+      "totalPassed": 438,
+      "totalSkipped": 14,
+      "totalFailed": 0
     },
-    "limits": [
-      "Candidate only; no Adobe native execution or installation in this packaging pass.",
-      "Further author acceptance and production publication remain separate."
+    "python": {
+      "sharedAuditAndDoctorPassed": 25,
+      "layoutRegressionsPassed": 7,
+      "totalPassed": 32,
+      "failed": 0
+    },
+    "native": {
+      "illustrator": "passed",
+      "syntheticOnly": true,
+      "actualPdfViewed": true,
+      "fontPt": 8,
+      "measuredLabelWidthPt": 46.53125,
+      "trackGapPt": 52.53125000000021,
+      "labelClearanceLeftPt": 3.0001754760742045,
+      "labelClearanceRightPt": 2.9998245239260086,
+      "pdfAuditPassed": true,
+      "colorAuditPassed": true,
+      "mechanicalIssues": []
+    },
+    "inheritedNativeEvidence": "release-validation-20261018-r29.json",
+    "scope": [
+      "r22/r29 common fixes consolidated",
+      "non-owner rectangle text-boundary collision",
+      "outside-top legend control and entry validation",
+      "accurate layout build count",
+      "doctor diagnostics without rendering dependencies",
+      "native character typography with explicit script semantics",
+      "measured long-label via route clearance",
+      "null vector replacement validation",
+      "portable regression fixtures and environment configuration"
+    ],
+    "limitations": [
+      "Full portable preflight/direct-pdf/localflow end-to-end suites not run: this machine lacks PyMuPDF, fontTools and pytest. Doctor now reports missing dependencies.",
+      "Fourteen private-data integration cases skipped explicitly; original assertions retained.",
+      "Final PDF physical font size matrix/semantic audit is not implemented. Native font checks cannot replace that audit.",
+      "Non-owner curved-shape boundaries remain outside the new rectangle-only check.",
+      "Uncaptured per-character native styles still have frame-level evidence only.",
+      "No software restart, dependency installation or accepted-author re-rendering was performed."
     ]
   },
   "files": [
@@ -94,8 +116,8 @@
     },
     {
       "path": "adobe/editorial-generator.jsx",
-      "sha256": "8a18f3ae0f5fa0332e2efd105934c48872581aebd48a2fb2f6f383e0c9846fbb",
-      "bytes": 8546
+      "sha256": "521dda494479fc5ee73e4ae18b3825b712b20e325dbce6d7c22d85c196802a30",
+      "bytes": 9370
     },
     {
       "path": "adobe/editorial-layout.jsx",
@@ -134,8 +156,8 @@
     },
     {
       "path": "adobe/illustrator.jsx",
-      "sha256": "cbf7e102f7ce4d2684a874dc5fd77ef74d888442f42cf76de2b1ec731edf86ca",
-      "bytes": 19610
+      "sha256": "5013ca9c9a08aacf0c5f5e06a45c692e37d8914b51c3a039c9b354f9bf800c45",
+      "bytes": 27844
     },
     {
       "path": "adobe/invoke.js",
@@ -143,9 +165,24 @@
       "bytes": 2833
     },
     {
+      "path": "adobe/label-placement-native.jsx",
+      "sha256": "2ab509e5b602a633c9e73a3436e3e7fb3bc66d80ec1016f4f811d1449a685100",
+      "bytes": 7814
+    },
+    {
+      "path": "adobe/label-placement.jsx",
+      "sha256": "67593032cf33fb595e62866b3d3b5b2b4511fc87ddddb1ed14375f31caf2dd03",
+      "bytes": 16213
+    },
+    {
       "path": "adobe/photoshop.jsx",
       "sha256": "f00fa0641a30e6b1b61f204ffca1e62b648069ecd02cc2d07840ed21b11f0229",
       "bytes": 3180
+    },
+    {
+      "path": "adobe/text-only.jsx",
+      "sha256": "e602a9b6a0cb6d1c672edecc90e50d79b33acf76ab66d273d433e068bd2902da",
+      "bytes": 4382
     },
     {
       "path": "adobe/vector-labels.jsx",
@@ -159,8 +196,8 @@
     },
     {
       "path": "flowchart/assets/AI流程图生成器.jsx",
-      "sha256": "883da7e8400531498d69554b1959667572737e7c8a6a7be29c69030f74de9fe2",
-      "bytes": 164540
+      "sha256": "78eb5dca6049b2a9e275a3fafda12ecf21e2c586d908a29d5652b878534cbb79",
+      "bytes": 164648
     },
     {
       "path": "flowchart/assets/technical-layouts.jsx",
@@ -188,6 +225,16 @@
       "bytes": 48583
     },
     {
+      "path": "lib/adjust-text-contract.mjs",
+      "sha256": "0366c8ff4d8058b93cf84f550cc81a0bc8b1e25c22abcff9506d656a8a49080f",
+      "bytes": 5966
+    },
+    {
+      "path": "lib/adjust-text.mjs",
+      "sha256": "68507aa7bb20d9b4d23cdd6adcc2829c6bd12725a5e60fbf36264c2130250482",
+      "bytes": 6531
+    },
+    {
       "path": "lib/adobe-health.mjs",
       "sha256": "8e3c402780e7e88f9c31b9f850a50f8ad81a5d2d2a2fefbb98697e49b78a5f5a",
       "bytes": 2392
@@ -199,8 +246,8 @@
     },
     {
       "path": "lib/adobe.mjs",
-      "sha256": "a2379a3e5120ea315b6765a3706406dc8d450c720d96a0139c15a69a6579645a",
-      "bytes": 2466
+      "sha256": "dfa4225e554a17feb30a05b3973e98d2794de891ad45e014e0c4d47f1e2c2bf5",
+      "bytes": 2896
     },
     {
       "path": "lib/aggregate-cache.mjs",
@@ -224,8 +271,8 @@
     },
     {
       "path": "lib/core.mjs",
-      "sha256": "4bed93588c38305c2667a201751d2460980ab734249a5209b779782a3e9131b5",
-      "bytes": 7514
+      "sha256": "5d38077272c1164cb29deddfadf1c7856015b38e88940277b27a6b8e85dc4bf0",
+      "bytes": 8578
     },
     {
       "path": "lib/data-audit.mjs",
@@ -239,13 +286,13 @@
     },
     {
       "path": "lib/diagram-audit.mjs",
-      "sha256": "025fbfd09ddd2015097b24af64baf10cfa7b6e9f6a3e1b2293404ab540ca11c4",
-      "bytes": 3608
+      "sha256": "b901e9c5950cb3f8ba077f45b75bf15a4916d0b2d661218aa25561f1dcdd3050",
+      "bytes": 4284
     },
     {
       "path": "lib/fit.mjs",
-      "sha256": "8161c84096ec19ae9f66dbd37c910260bbea3c2c43dccb1f6684bf338df3ffc9",
-      "bytes": 2113
+      "sha256": "165f09bd1be858e63fa3ed2049b59efde52c21d2bdd40da4b1824211abaf3fb7",
+      "bytes": 3638
     },
     {
       "path": "lib/ingest.mjs",
@@ -258,9 +305,19 @@
       "bytes": 3444
     },
     {
+      "path": "lib/label-layout-contract.mjs",
+      "sha256": "ded705705c05e0d4e0da6c705e2e1111c2a9f59d9b8f0e8b7a50dfc328661376",
+      "bytes": 1515
+    },
+    {
       "path": "lib/local-paths.mjs",
       "sha256": "21f2e48288548552ba18978c0f23f81b29fd14ae953fe25323acbc6ee1afacca",
       "bytes": 1729
+    },
+    {
+      "path": "lib/native-output-audit.mjs",
+      "sha256": "957413931d4ae953d623369ae9e43e284d7829ca359d46b19642b11eb33bb78a",
+      "bytes": 2225
     },
     {
       "path": "lib/outlined-chart.mjs",
@@ -283,9 +340,14 @@
       "bytes": 1684
     },
     {
+      "path": "lib/render-reuse.mjs",
+      "sha256": "dd1c4dabe2a9fe3da066aa6dcc00ab1ee80b76b473f8034894fc128c682a1355",
+      "bytes": 1996
+    },
+    {
       "path": "lib/render.mjs",
-      "sha256": "65afef3b8842a352e4d7f6bae56d4ab05dfde7caa6d76c9038073376e3af9958",
-      "bytes": 11817
+      "sha256": "d9c308cf1bc9c443894fff88daabaee52863df4a17ab02df92e852a7dd6e5119",
+      "bytes": 16858
     },
     {
       "path": "lib/review.mjs",
@@ -296,6 +358,11 @@
       "path": "lib/svg.mjs",
       "sha256": "6265e5308c5624d79af0469752858da6f1c675e078f7d485d4efec570442a4b5",
       "bytes": 2264
+    },
+    {
+      "path": "lib/trim-geometry-reuse.mjs",
+      "sha256": "faad93f4bb3fed8908f093a1580aabaa8237483f312acb6aef5ba35ba536f0f4",
+      "bytes": 2987
     },
     {
       "path": "lib/typesafe.mjs",
@@ -319,8 +386,8 @@
     },
     {
       "path": "references/editorial-profile.md",
-      "sha256": "b74fd40494672ee892c012e3e8f41497d2976a7574469d49318a8a1585dd718b",
-      "bytes": 18238
+      "sha256": "000edde97438b1208c3c0cacde05e077dd1d39ef3579db542578b5b7e26e6dbb",
+      "bytes": 20692
     },
     {
       "path": "references/legacy-provenance.json",
@@ -328,9 +395,14 @@
       "bytes": 606
     },
     {
+      "path": "references/native-label-placement.md",
+      "sha256": "458b72404f8679064f692c6cf3753f9bbaeddb25c27b96fbfd372e1029d77ae7",
+      "bytes": 3320
+    },
+    {
       "path": "scripts/audit_color.py",
-      "sha256": "85ffdbefb5e6ab04e6ca2831019482d4bfee427591ada82745410c5186afa609",
-      "bytes": 10753
+      "sha256": "17898f03561b05dd8d5b13d4c495d15e35e1ae6b1451459f419454964b18c313",
+      "bytes": 17389
     },
     {
       "path": "scripts/audit_delivery.py",
@@ -344,8 +416,8 @@
     },
     {
       "path": "scripts/audit_pdf.py",
-      "sha256": "5e43310367c653c77331b06993f2f7216d9b7ab795260ada36806865853e16be",
-      "bytes": 8682
+      "sha256": "12f905f77b71e359ae4b566846b9036d4cf0ab980bc2edb44392c2be454b72a9",
+      "bytes": 10311
     },
     {
       "path": "scripts/convert-office.js",
@@ -369,8 +441,8 @@
     },
     {
       "path": "scripts/jfw.mjs",
-      "sha256": "42c8f0a2b88d5da9b9c12801309b75277e20849b9bb8bf647ba727d415a5577e",
-      "bytes": 2859
+      "sha256": "881bead9f8eb4fa64cb105ada731e82450f93ce97614a594cb458907b1e9257d",
+      "bytes": 2968
     },
     {
       "path": "scripts/label_geometry.mjs",
@@ -384,8 +456,8 @@
     },
     {
       "path": "scripts/normalize_svg_color.py",
-      "sha256": "2af75d9838104b33904e323952b6062155dbe435b2c43fe7d8dd49c4ba9b79d2",
-      "bytes": 15359
+      "sha256": "ce55ccdba8e6d9990929583f558420fb5271f2f5ebcb9b53a2ea40825be6ec40",
+      "bytes": 22576
     },
     {
       "path": "scripts/prepare_matplotlib_svg.py",
@@ -404,6 +476,6 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.14-r20-arrow-label",
+  "supersedes": "2026.10.18-r29-common-production-fixes",
   "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged."
 }

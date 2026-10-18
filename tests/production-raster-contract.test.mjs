@@ -17,6 +17,6 @@ test('Photoshop numeric width uses 300 dpi without an action preset',()=>{
 });
 test('source-artboard overlays retain the full source coordinate frame',()=>{
  const code=fs.readFileSync(new URL('adobe/illustrator.jsx',runtime),'utf8');const begin=code.indexOf('doc=app.open(new File(req.input));if(p.grayscale');const branch=code.slice(begin,code.indexOf('if(p.strokeWidthPt',begin));
- const doc={artboards:[{artboardRect:[0,432,720,0]}]},frames=[];const ctx={p:{normalizeWidth:true,overlayFrame:'source-artboard',texts:[{x:.5,y:.1}]},req:{input:'source.pdf'},W:226.5,File:function(p){return p;},app:{open:()=>doc},snapshot:()=>({}),artworkBounds:()=>[48,405,709,42],normalizeVector:(w,b)=>{frames.push(Array.from(b));doc.artboards[0].artboardRect=[0,0,w,-432*w/720];return w/720;}};
- vm.runInNewContext(branch,ctx);assert.deepEqual(frames.at(-1),[0,0,720,-432]);
+ const doc={artboards:[{artboardRect:[0,432,720,0]}]},frames=[];const ctx={p:{normalizeWidth:true,overlayFrame:'source-artboard',texts:[{x:.5,y:.1}]},req:{input:'source.pdf'},W:226.5,File:function(p){return p;},app:{open:()=>doc},stage:()=>{},snapshot:()=>({}),artworkBounds:()=>[48,405,709,42],normalizeVector:(w,b)=>{frames.push(Array.from(b));doc.artboards[0].artboardRect=[0,0,w,-432*w/720];return w/720;}};
+ vm.runInNewContext(branch,ctx);assert.equal(frames.length,2);assert.deepEqual(frames[0],[0,432,720,0]);assert.deepEqual(frames[1],[0,0,720,-432]);assert.equal(ctx.vectorScale,226.5/720);assert.deepEqual(Array.from(doc.artboards[0].artboardRect),[0,0,226.5,-432*226.5/720]);
 });

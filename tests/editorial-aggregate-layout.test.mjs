@@ -28,12 +28,12 @@ function runLayout(figures,artboardCount=3){
     JFW:{bounds(value){return Array.prototype.slice.call(value);},stringify(value){return JSON.stringify(value);},editorialFont(){return {}; }},
     File:function(path){this.path=path;},
     app:{open(file){return file.path==='template.ai'?template:openFigure(figures.find(f=>f.ai===file.path));}},
-    SaveOptions:{DONOTSAVECHANGES:1},ElementPlacement:{PLACEATBEGINNING:1},
+    DocumentColorSpace:{CMYK:'CMYK',RGB:'RGB'},SaveOptions:{DONOTSAVECHANGES:1},ElementPlacement:{PLACEATBEGINNING:1},
     RGBColor:function(){},IllustratorSaveOptions:function(){},PDFSaveOptions:function(){},
     ExportOptionsPNG24:function(){},ExportType:{PNG24:1}
   };
   vm.runInNewContext(source,context);
-  const req={template:'template.ai',ai:'out.ai',pdf:'out.pdf',preview:'out.png',items:figures.map((figure,index)=>({ai:figure.ai,author:figure.author||'作者',number:index+1}))};
+  const req={layout:'legacy',template:'template.ai',ai:'out.ai',pdf:'out.pdf',preview:'out.png',items:figures.map((figure,index)=>({ai:figure.ai,author:figure.author||'作者',number:index+1}))};
   const result=context.JFW.aggregateEditorial(req,()=>{});
   return JSON.parse(JSON.stringify(result.placements));
 }

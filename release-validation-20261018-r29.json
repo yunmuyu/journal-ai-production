@@ -1,0 +1,27 @@
+{
+  "stage": "verified-local",
+  "nodeTestsPassed": 72,
+  "pythonTestsPassed": 19,
+  "native": {
+    "illustrator": "passed",
+    "wholeArtworkWidthMm": 80,
+    "actualFontPt": 6.96393442153931,
+    "repeatFitCached": true,
+    "explanationOnlyCached": true,
+    "occludedRearLinePlacement": "passed",
+    "collisionBlocked": true,
+    "combiningMarkBlockedBeforeAdobe": true,
+    "visualPdfCheck": "passed"
+  },
+  "scope": [
+    "text-owner padding and collision coverage",
+    "single-column whole-artwork reuse",
+    "ICCBased and Indexed final PDF audit",
+    "combining mark guard and physical dash audit"
+  ],
+  "limitations": [
+    "No automatic vector accent creation",
+    "Complex PDF patterns and gradients still rejected",
+    "Unmapped label ownership is reported as incomplete"
+  ]
+}

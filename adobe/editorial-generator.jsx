@@ -24,37 +24,59 @@ JFW.alignContainerLabel=function(tf,frame,fontSize){
  tf.translate(dx,dy);
 };
 JFW.editorialFont=function(){var f=app.textFonts.getByName('ATC-73b000205b8b4f530020*1');if(f.family!=='现 宋体 1')throw Error('Required composite font family differs');return f;};
+// Layout reserves the label and the arrow as one block; drawing keeps the symbol narrow.
+JFW.editorialArrowSymbol=function(n){
+ if(!n.arrowSymbol)return n;
+ var symbol={},key;for(key in n)if(n.hasOwnProperty(key))symbol[key]=n[key];
+ symbol.w=n.arrowSymbol.w;symbol.h=n.arrowSymbol.h;
+ symbol.left=n.cx-symbol.w/2;symbol.right=n.cx+symbol.w/2;
+ symbol.top=n.bottom+symbol.h;symbol.cy=n.bottom+symbol.h/2;
+ return symbol;
+};
+JFW.reserveContainerColumns=function(containers,byId,gaps){
+ var ranges=[],i,j,k,n,s;
+ for(i=0;i<containers.length;i++){
+  s=containers[i];var r={left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity,pad:s.framePaddingX};
+  for(k=0;k<s.members.length;k++){n=byId[s.members[k]];r.left=Math.min(r.left,n.column);r.right=Math.max(r.right,n.column+n.columnSpan-1);r.top=Math.min(r.top,n.row);r.bottom=Math.max(r.bottom,n.row+n.rowSpan-1);}
+  ranges.push(r);
+ }
+ for(i=0;i<ranges.length;i++)for(j=0;j<ranges.length;j++){
+  var a=ranges[i],b=ranges[j];
+  if(a.right+1!==b.left||a.bottom<b.top||b.bottom<a.top)continue;
+  if(Math.floor(a.right)!==a.right)continue;
+  gaps[a.right]=Math.max(gaps[a.right],a.pad+b.pad+3);
+ }
+};
 JFW.adaptEditorialGenerator=function(code){
+ var metrics=JFW.layoutMetrics||{padX:4.5,padY:2.7,compactGap:3};
  function replaceOnce(from,to){var i=code.indexOf(from);if(i<0||code.indexOf(from,i+from.length)>=0)throw Error('Generator adaptation boundary changed: '+from);code=code.slice(0,i)+to+code.slice(i+from.length);}
- replaceOnce('var w = (units * CFG.HORIZONTAL_CHAR_WIDTH + CFG.HORIZONTAL_PADDING_TOTAL) * scale;','var w = measure.w + 9 * scale;');
- var start=code.indexOf('var h = Math.max(',code.indexOf('var w = measure.w + 9 * scale;')),end=code.indexOf('if (node.shape === "functionBlock")',start);
- if(start<0||end<0)throw Error('Generator rectangle boundary changed');code=code.slice(0,start)+'var h = measure.h + 5.4 * scale;\n        '+code.slice(end);
+ function setPadding(name,original,target){var pattern=new RegExp('\\b'+name+'\\s*:\\s*([0-9]+(?:[.][0-9]+)?)\\s*,','g'),matches=[],match;while((match=pattern.exec(code))!==null)matches.push(match);if(matches.length!==1||(Number(matches[0][1])!==original&&Number(matches[0][1])!==target))throw Error('Generator adaptation boundary changed: '+name);code=code.slice(0,matches[0].index)+name+': '+target+','+code.slice(matches[0].index+matches[0][0].length);}
+ setPadding('PAD_X',4.5,metrics.padX);setPadding('PAD_Y',2.7,metrics.padY);
+ replaceOnce('var w = (units * CFG.HORIZONTAL_CHAR_WIDTH + CFG.HORIZONTAL_PADDING_TOTAL) * scale;','var w = measure.w + 2 * CFG.PAD_X * scale;');
+ var start=code.indexOf('var h = Math.max(',code.indexOf('var w = measure.w + 2 * CFG.PAD_X * scale;')),end=code.indexOf('if (node.shape === "functionBlock")',start);
+ if(start<0||end<0)throw Error('Generator rectangle boundary changed');code=code.slice(0,start)+'var h = measure.h + 2 * CFG.PAD_Y * scale;\n        '+code.slice(end);
  start=code.indexOf('} else if (node.shape === "decision" && lines.length >= 4)');end=code.indexOf('} else if (node.shape === "ellipse")',start);
- if(start<0||end<0)throw Error('Generator diamond boundary changed');code=code.slice(0,start)+'} else if (node.shape === "decision") { w = 2 * (measure.w + 9 * scale + 0.5); h = 2 * (measure.h + 5.4 * scale + 0.5);\n        '+code.slice(end);
+ if(start<0||end<0)throw Error('Generator diamond boundary changed');code=code.slice(0,start)+'} else if (node.shape === "decision") { var a = measure.w * 0.85 + 2 * scale, b = measure.h * 0.8 + 2 * scale; var clearance = Math.max(1, measure.w / (2 * (a - scale)) + measure.h / (2 * (b - scale))); w = 2 * a * clearance; h = 2 * b * clearance;\n        '+code.slice(end);
  start=code.indexOf('function resolveFont() {');end=code.indexOf('function findFont(names)',start);
  if(start<0||end<0)throw Error('Generator font boundary changed');code=code.slice(0,start)+'function resolveFont() { return {font:JFW.editorialFont(),composite:true}; }\n    '+code.slice(end);
  replaceOnce('GAP_MINIMAL: 1 * PT_PER_MM,','GAP_MINIMAL: 3,');
+ replaceOnce('size = calibratedBoxSize(n, measure, fontSize);','size = calibratedBoxSize(n, measure, fontSize); if(n.shape==="arrow" && text && !n.arrowLabelSide){size.symbol={w:size.w,h:size.h};size.w=Math.max(size.w,measure.w);size.h+=measure.h+3*fontSize/8;}');
+ replaceOnce('w: size.w, h: size.h, rowSpan:', 'w: size.w, h: size.h, arrowSymbol: size.symbol, rowSpan:');
+ replaceOnce('n.shape === "arrow" && n.text ? 2 *', 'n.shape === "arrow" && n.text && !n.arrowSymbol ? 2 *');
+ replaceOnce('drawArrowSymbol(n, targetLayer, stroke, all);','drawArrowSymbol(JFW.editorialArrowSymbol(n), targetLayer, stroke, all);');
+ replaceOnce('n.top + labelInk.h / 2 + 3 * fontSize / 8','n.arrowSymbol ? n.top-labelInk.h/2 : n.top + labelInk.h / 2 + 3 * fontSize / 8');
+ replaceOnce('if (!containers[ci].label || data.swimlaneLayout || containers[ci].sizeClass) continue;', 'containers[ci].framePaddingX=containerPaddingX(containers[ci]); if (!containers[ci].label || data.swimlaneLayout || containers[ci].sizeClass) continue;');
+ replaceOnce('var columnGaps = columnTrackGaps(nodes, byId, edges, colCount, columnGap);','var columnGaps = columnTrackGaps(nodes, byId, edges, colCount, columnGap); JFW.reserveContainerColumns(containers,byId,columnGaps);');
+
 
  start=code.indexOf('function applyVerticalStacks(specs, byId) {');end=code.indexOf('function compactSiblingBusMembers(',start);
  if(start<0||end<0)throw Error('Generator stack boundary changed');
  code=code.slice(0,start)+'function applyVerticalStacks(specs,byId){for(var i=0;i<specs.length;i++){var spec=specs[i],first=byId[spec.members[0]],last=byId[spec.members[spec.members.length-1]],anchor=(first.cy+last.cy)/2,gap=spec.gap==="minimal"?CFG.GAP_MINIMAL:CFG.GAP,previous=first;for(var j=1;j<spec.members.length;j++){var current=byId[spec.members[j]];current.cy=previous.bottom-gap-current.h/2;current.top=current.cy+current.h/2;current.bottom=current.cy-current.h/2;previous=current;}var shift=anchor-(first.cy+previous.cy)/2;for(var j=0;j<spec.members.length;j++){var node=byId[spec.members[j]];node.cy+=shift;node.top+=shift;node.bottom+=shift;}}} '+code.slice(end);
  replaceOnce('function opposingHorizontalPortPoints(source, target, fromPort, toPort, fromPortPosition, toPortPosition) {','function opposingHorizontalPortPoints(source, target, fromPort, toPort, fromPortPosition, toPortPosition) { if(source.shape==="decision"||target.shape==="decision")return [portPoint(source,fromPort,fromPortPosition),portPoint(target,toPort,toPortPosition)];');
+ replaceOnce('var requiredGap = shaftRouteGap(edge), j, axis;', 'var requiredGap = shaftRouteGap(edge), j, axis; if(edge.label){var labelFontSize=data.fontSize||8;requiredGap=Math.max(requiredGap,measureText(displayText(edge.label),labelFontSize,resolveFont().font).w+6*labelFontSize/8);}');
+ replaceOnce('requiredGap = CFG.GAP * 2;', 'requiredGap = Math.max(requiredGap, CFG.GAP * 2);');
  start=code.indexOf('function columnTrackGaps(');end=code.indexOf('return gaps;',start);if(start<0||end<0)throw Error('Column gaps boundary changed');code=code.slice(0,end)+'var fanouts={};for(var e=0;e<edges.length;e++){var edge=edges[e],source=byId[edge.from],target=byId[edge.to];if(source&&target&&target.column===source.column+1&&edge.fromPort==="right"&&edge.toPort==="left"){var key=source.id;fanouts[key]=(fanouts[key]||0)+1;if(fanouts[key]>=2)gaps[source.column]=Math.max(gaps[source.column],CFG.BUS_LEG*2);}} '+code.slice(end);
  replaceOnce("point = containerLabelPoint(frame);\n                addEdgeLabel(frame.label, point[0], point[1], all, fontSize, font, stroke);","point = containerLabelPoint(frame);\n                addEdgeLabel(frame.label, point[0], point[1], all, fontSize, font, stroke); JFW.alignContainerLabel(all[all.length-1],frame,fontSize);");
-
- replaceOnce('var b = tf.visibleBounds;\n        tf.translate(cx - (b[0] + b[2]) / 2, cy - (b[1] + b[3]) / 2);','var outline = tf.duplicate().createOutline(), b = outline.visibleBounds; outline.remove();\n        tf.translate(cx - (b[0] + b[2]) / 2, cy - (b[1] + b[3]) / 2);');
- replaceOnce('var b = tf.visibleBounds, result = { w: b[2] - b[0], h: b[1] - b[3] };','var outline=tf.duplicate().createOutline(), b=outline.visibleBounds, result = { w: b[2] - b[0], h: b[1] - b[3] }; outline.remove();');
- replaceOnce('return containerPaddingY(container);\n    }\n\n    function shaftRouteGap','if(container.label && container.labelPosition === "bottomRight") return Math.max(containerPaddingY(container),measureText(container.label,data.fontSize || 8,resolveFont().font).h+6); return containerPaddingY(container);\n    }\n\n    function shaftRouteGap');
- replaceOnce('if (spec.sizeClass === "wideNested") padBottom = containerPaddingBottom(spec, byId[spec.members[0]].h);','if (spec.sizeClass === "wideNested" || spec.labelPosition === "bottomRight") padBottom = containerPaddingBottom(spec, byId[spec.members[0]].h);');
- replaceOnce('} else if (spec.labelPosition === "bottomRight") frame.top = frame.top - padY + containerPaddingTop(spec);','} else if (spec.labelPosition === "bottomRight") { frame.top = frame.top - padY + containerPaddingTop(spec); frame.bottom += padY-containerPaddingBottom(spec,members[0].h); }');
- replaceOnce('var requiredGap = shaftRouteGap(edge), j, axis;','var requiredGap = shaftRouteGap(edge), j, axis; if(edge.label){var lm=measureText(displayText(edge.label,false),data.fontSize || 8,resolveFont().font), labelPad=6; for(var ci=0;ci<(data.containers||[]).length;ci++){var owner=data.containers[ci];for(var mi=0;mi<owner.members.length;mi++)if(owner.members[mi]===edge.from || owner.members[mi]===edge.to)labelPad+=containerPaddingX(owner);} requiredGap=Math.max(requiredGap,lm.w+labelPad);}');
- replaceOnce('if (edge.labelSide === "below") y -= 5;\n            else if (edge.labelSide === "left") x -= 6;\n            else if (edge.labelSide === "right") x += 6;\n            else y += 5;','var lm=measureText(displayText(edge.label,false),data.fontSize || 8,resolveFont().font); if (edge.labelSide === "below") y -= lm.h/2+3;\n            else if (edge.labelSide === "left") x -= lm.w/2+3;\n            else if (edge.labelSide === "right") x += lm.w/2+3;\n            else y += lm.h/2+3;');
-
- replaceOnce('shapeW = n.w - CFG.STROKE; shapeH = n.h - CFG.STROKE;\n            shapeLeft = n.left + CFG.STROKE / 2; shapeTop = n.top - CFG.STROKE / 2;','shapeW = n.w; shapeH = n.h;\n            shapeLeft = n.left; shapeTop = n.top;');
- replaceOnce('if (lastRow < gaps.length && !hasSharedBoundary(spec, i, lastRow, false, byId, containerRanges, memberOwners)) ends[lastRow] = Math.max(ends[lastRow] || 0, padBottom);','var needsLowerBand=false; for(var ni=0;ni<nodes.length;ni++){var next=nodes[ni];if(next.row<=lastRow)continue;for(var mi=0;mi<spec.members.length;mi++){var owned=byId[spec.members[mi]];if(next.column===owned.column)needsLowerBand=true;}} if (needsLowerBand && lastRow < gaps.length && !hasSharedBoundary(spec, i, lastRow, false, byId, containerRanges, memberOwners)) ends[lastRow] = Math.max(ends[lastRow] || 0, padBottom);');
-
- replaceOnce('centerText(tf, cx, ay); return tf;','centerText(tf, cx, ay); if(item.vertical && ((item.xr === 0 && item.align === "right") || (item.xr === 1 && item.align === "left"))) JFW.positionDiagramSideLabel(tf,item.xr === 0 ? "left" : "right",doc,size); return tf;');
- replaceOnce('requiredGap = CFG.GAP * 2;','requiredGap = Math.max(requiredGap, CFG.GAP * 2);');
  start=code.indexOf('function drawBraceSymbol(');end=code.indexOf('function drawSignalOperator(',start);
  if(start<0||end<0)throw Error('Generator brace boundary changed');
  code=code.slice(0,start)+'function drawBraceSymbol(n,targetLayer,stroke,all){JFW.drawEditorialBrace(n,targetLayer,stroke,all,CFG.STROKE);} '+code.slice(end);

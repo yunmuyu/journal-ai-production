@@ -3,19 +3,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {auditDiagram as baseAuditDiagram} from '../lib/diagram-audit.mjs';
 const auditDiagram=(snapshot)=>baseAuditDiagram(snapshot,{checkPathContainment:true});
+const fixtureMissing=(n,kind='rejected')=>!fs.existsSync(new URL(`./fixtures/path-containment/${kind}-figure${n}-snapshot.json`,import.meta.url))&&`Private ${kind} figure ${n} geometry fixture is unavailable`;
 const fixture=n=>JSON.parse(fs.readFileSync(new URL(`./fixtures/path-containment/rejected-figure${n}-snapshot.json`,import.meta.url)));
 const line=(points,extra={})=>({stroked:true,strokeWidthPt:.5,closed:false,points:points.map(([x,y])=>[[x,y,x,y],[x,y]]),...extra});
-for(const n of [5,6])test(`Rejects actual figure ${n} with paths outside cropped artboard`,()=>{
+for(const n of [5,6])test(`Rejects actual figure ${n} with paths outside cropped artboard`,{skip:fixtureMissing(n)},()=>{
  const snapshot=fixture(n);
  const result=auditDiagram(snapshot);
  assert.ok(result.issues.some(i=>i.type==='visible_path_outside_artboard'));
  assert.equal(result.ok,false);
 });
-test('Allows the same actual geometry when its full boundary is inside the artboard',()=>{
- for(const n of [5,6]){
+for(const n of [5,6])test(`Allows actual figure ${n} geometry when its full boundary is inside the artboard`,{skip:fixtureMissing(n)},()=>{
   const snapshot=fixture(n);snapshot.artboard=n===5?[1.5,-.5,223.5,-403.5]:[.5,-7.5,224.5,-92.5];
   assert.ok(!auditDiagram(snapshot).issues.some(i=>i.type==='visible_path_outside_artboard'));
- }
 });
 test('Excludes hidden, transparent, guides and clipping-mask paths',()=>{
  const snapshot={artboard:[0,20,20,0],texts:[],pathGeometry:[
@@ -38,7 +37,7 @@ test('Includes stroke half-width at the physical page boundary',()=>{
  const snapshot={artboard:[0,20,20,0],texts:[],pathGeometry:[line([[0,10],[10,10]])]};
  assert.ok(auditDiagram(snapshot).issues.some(i=>i.type==='visible_path_outside_artboard'));
 });
-for(const n of [5,6])test(`Accepts actually rendered explicit-path figure ${n} with all geometry in page`,()=>{
+for(const n of [5,6])test(`Accepts actually rendered explicit-path figure ${n} with all geometry in page`,{skip:fixtureMissing(n,'corrected')},()=>{
  const snapshot=JSON.parse(fs.readFileSync(new URL(`./fixtures/path-containment/corrected-figure${n}-snapshot.json`,import.meta.url)));
  const result=auditDiagram(snapshot);
  assert.equal(result.ok,true,JSON.stringify(result.issues));

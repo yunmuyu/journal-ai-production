@@ -1,3 +1,4 @@
+import {adjustText} from '../lib/adjust-text.mjs';
 import {adobeHealth} from '../lib/adobe-health.mjs';
 import {fit} from '../lib/fit.mjs';
 import path from 'node:path';
@@ -31,6 +32,7 @@ try{
  case 'inspect':result=inspect(job,args[0]);break;
  case 'fit':result=fit(job,args[0]);break;
  case 'render':result=render(job,args[0]);break;
+ case 'adjust-text':result=adjustText(job,args[0]);break;
  case 'review':result=recordReview(job,args[0],args[1],args.slice(2).join(' '));break;
  case 'deliver':result=deliver(job,{draft:args.includes('--draft')});break;
  default:throw Error('Unknown command '+command);

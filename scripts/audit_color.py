@@ -1,6 +1,6 @@
-import argparse,hashlib,json,sys
+import argparse,hashlib,io,json,sys
 from pathlib import Path
-from PIL import Image,ImageChops
+from PIL import Image,ImageChops,ImageCms
 import pypdfium2 as pdfium
 import pypdf
 RULE='jfw-color-2026-10-11-v1'
@@ -8,8 +8,82 @@ TOLERANCE=2
 def hash_file(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def pixels(im):
  im=im.convert('RGB');r,g,b=im.split();d=ImageChops.lighter(ImageChops.lighter(ImageChops.difference(r,g),ImageChops.difference(r,b)),ImageChops.difference(g,b));h=d.histogram();bad=sum(h[TOLERANCE+1:]);return {'coloredPixels':bad,'totalPixels':im.width*im.height,'maxChannelDelta':max(i for i,n in enumerate(h) if n),'size':list(im.size),'ok':bad==0}
+
+def image_samples(x,resources,mask_kind=None):
+ if not isinstance(x,pypdf.generic.StreamObject) or x.get('/Subtype')!='/Image':raise ValueError('Final PDF mask must be an image stream')
+ if any(k in x for k in ['/F','/Matte','/SMaskInData']):raise ValueError('Final PDF linked/custom image transparency unsupported')
+ if mask_kind and any(k in x for k in ['/Mask','/SMask']):raise ValueError('Final PDF nested image mask unsupported')
+ if '/ImageMask' in x and not isinstance(x['/ImageMask'],pypdf.generic.BooleanObject):raise ValueError('Final PDF ImageMask must be boolean')
+ stencil=bool(getattr(x.get('/ImageMask',False),'value',False))
+ if mask_kind=='Mask' and not stencil or mask_kind=='SMask' and stencil:raise ValueError('Final PDF mask image type mismatch')
+ if any(not isinstance(x.get(k),pypdf.generic.NumberObject) or x[k]<=0 for k in ['/Width','/Height']):raise ValueError('Final PDF image dimensions must be positive integers')
+ width,height=int(x['/Width']),int(x['/Height']);bits=x.get('/BitsPerComponent',pypdf.generic.NumberObject(1)if stencil else None)
+ if not isinstance(bits,pypdf.generic.NumberObject) or bits not in [1,2,4,8,16] or stencil and bits!=1:raise ValueError('Final PDF image bit depth unsupported')
+ cs=x.get('/ColorSpace');cs=cs.get_object()if cs is not None else None
+ def space(value,depth=0):
+  if depth>8:raise ValueError('Final PDF recursive image color space')
+  value=value.get_object()if value is not None else None
+  if isinstance(value,pypdf.generic.NameObject)and str(value)not in ['/DeviceGray','/DeviceRGB']:
+   return space(resources.get('/ColorSpace',{}).get(value),depth+1)
+  if str(value)in ['/DeviceGray','/DeviceRGB']:return (1 if str(value)=='/DeviceGray'else 3,None)
+  if isinstance(value,list)and len(value)==2 and str(value[0])=='/ICCBased':
+   profile=value[1].get_object();count=profile.get('/N')
+   if count not in [1,3]or profile.get('/Alternate',pypdf.generic.NameObject('/DeviceGray'if count==1 else'/DeviceRGB'))!=('/DeviceGray'if count==1 else'/DeviceRGB'):raise ValueError('Final PDF ICC image components/alternate unsupported')
+   return int(count),ImageCms.ImageCmsProfile(io.BytesIO(profile.get_data()))
+  raise ValueError('Final PDF image color encoding unsupported')
+ palette=None;profile=None;indexed=False
+ if stencil:
+  if cs is not None:raise ValueError('Final PDF stencil mask must not have ColorSpace')
+  components=1;label='stencil'
+ else:
+  if isinstance(cs,pypdf.generic.NameObject)and str(cs)not in ['/DeviceGray','/DeviceRGB']:cs=resources.get('/ColorSpace',{}).get(cs);cs=cs.get_object()if cs is not None else None
+  if isinstance(cs,list)and len(cs)==4 and str(cs[0])=='/Indexed':
+   if mask_kind or bits not in [1,2,4,8]:raise ValueError('Final PDF Indexed image/mask bit depth unsupported')
+   indexed=True;components=1;count,profile=space(cs[1]);limit=cs[2]
+   if not isinstance(limit,pypdf.generic.NumberObject)or not 0<=int(limit)<=255:raise ValueError('Final PDF Indexed palette bounds invalid')
+   table=cs[3].get_object()
+   if isinstance(table,pypdf.generic.StreamObject):table=table.get_data()
+   elif hasattr(table,'original_bytes'):table=table.original_bytes
+   if not isinstance(table,bytes)or len(table)!=(int(limit)+1)*count:raise ValueError('Final PDF Indexed palette length mismatch')
+   palette=Image.frombytes('RGB'if count==3 else'L',(int(limit)+1,1),table)
+   if profile is not None:palette=ImageCms.profileToProfile(palette,profile,ImageCms.createProfile('sRGB'),outputMode='RGB')
+   palette=palette.convert('RGB');palette=[palette.getpixel((i,0))for i in range(palette.width)];profile=None;label='/Indexed'
+  else:
+   components,profile=space(cs);label='/ICCBased'if profile is not None else str(cs)
+   if mask_kind=='SMask'and str(cs)!='/DeviceGray':raise ValueError('Final PDF image color encoding unsupported')
+  if components==3 and bits!=8:raise ValueError('Final PDF RGB image bit depth unsupported')
+ default=[0,(2**int(bits)-1)if indexed else 1]*components
+ decode=x.get('/Decode',pypdf.generic.ArrayObject([pypdf.generic.NumberObject(v)for v in default]))
+ maximum=2**int(bits)-1 if indexed else 1
+ if not isinstance(decode,pypdf.generic.ArrayObject)or len(decode)!=2*components or any(not isinstance(v,(pypdf.generic.NumberObject,pypdf.generic.FloatObject))or not 0<=float(v)<=maximum for v in decode)or stencil and list(decode)not in [[0,1],[1,0]]:raise ValueError('Final PDF image/mask Decode unsupported')
+ filters=x.get('/Filter',pypdf.generic.ArrayObject());filters=filters.get_object();filters=filters if isinstance(filters,list)else[filters]
+ if any(str(f)not in ['/FlateDecode','/DCTDecode']for f in filters)or (stencil or mask_kind)and any(str(f)=='/DCTDecode'for f in filters):raise ValueError('Final PDF image/mask filter unsupported')
+ data=x.get_data()
+ if any(str(f)=='/DCTDecode'for f in filters):
+  im=Image.open(io.BytesIO(data));im.load()
+  if im.size!=(width,height)or im.mode!=('RGB'if components==3 else'L'):raise ValueError('Final PDF JPEG image dictionary mismatch')
+  data=im.tobytes()
+ if len(data)!=((width*components*int(bits)+7)//8)*height:raise ValueError('Final PDF image/mask decoded pixel length mismatch')
+ colored=0
+ if indexed:
+  row_bytes=(width*int(bits)+7)//8;indices=[];mask=(1<<int(bits))-1
+  for row in range(height):
+   for column in range(width):
+    offset=column*int(bits);sample=(data[row*row_bytes+offset//8]>>(8-int(bits)-offset%8))&mask
+    index=round(float(decode[0])+sample*(float(decode[1])-float(decode[0]))/mask);index=max(0,min(len(palette)-1,index));values=palette[index]
+    colored+=max(values)-min(values)>TOLERANCE
+ elif components==3 or profile is not None:
+  if bits!=8:raise ValueError('Final PDF ICC image bit depth unsupported')
+  image=Image.frombytes('RGB'if components==3 else'L',(width,height),data);channels=[]
+  for component,channel in enumerate(image.split()):
+   low,high=map(float,decode[2*component:2*component+2]);channels.append(channel.point([max(0,min(255,round(low*255+v*(high-low))))for v in range(256)]))
+  image=Image.merge('RGB'if components==3 else'L',channels)
+  if profile is not None:image=ImageCms.profileToProfile(image,profile,ImageCms.createProfile('sRGB'),outputMode='RGB')
+  colored=pixels(image)['coloredPixels']
+ return {'width':width,'height':height,'bitsPerComponent':int(bits),'colorSpace':label,'decode':list(decode),'decodedHash':hashlib.sha256(data).hexdigest(),'decodedBytes':len(data),'coloredPixels':colored,'pixelsCheckedBeforeMask':True}
+
 def objects(pdf,gray):
- r=pypdf.PdfReader(pdf);seen=set();counts={'images':0,'forms':0,'deviceColorOperators':0,'nonNeutralColorOperators':0,'normalVectorAlphaStates':0,'pureVectorAlphaForms':0}
+ r=pypdf.PdfReader(pdf);seen=set();masks_seen=set();counts={'images':0,'forms':0,'deviceColorOperators':0,'nonNeutralColorOperators':0,'normalVectorAlphaStates':0,'pureVectorAlphaForms':0,'imageMasks':0,'nonNeutralImagePixels':0,'imageAudits':[]}
  def pure_vector_form(form,resources,active=None):
   active=set() if active is None else active
   if id(form) in active:raise ValueError('Final PDF recursive alpha Form unsupported')
@@ -38,12 +112,13 @@ def objects(pdf,gray):
    seen.add(identity)
    if x.get('/Subtype')=='/Image':
     counts['images']+=1
-    if x.get('/SMask') or x.get('/Mask') or x.get('/F') or x.get('/ImageMask'):raise ValueError('Final PDF image mask/transparency/linked image unsupported')
-    cs=x.get('/ColorSpace')
-    if cs:
-     cs=cs.get_object()
-     if isinstance(cs,list) and str(cs[0]) not in ['/ICCBased','/Indexed']:raise ValueError('Final PDF image color encoding unsupported')
-     if isinstance(cs,list) and str(cs[0])=='/ICCBased' and cs[1].get_object().get('/N') not in [1,3]:raise ValueError('Final PDF image profile unsupported')
+    if '/Mask'in x and '/SMask'in x:raise ValueError('Final PDF simultaneous Mask/SMask unsupported')
+    audit=image_samples(x,resources);counts['nonNeutralImagePixels']+=audit['coloredPixels']
+    for key in ['/Mask','/SMask']:
+     if key in x:
+      mask=x[key].get_object();audit['mask']=image_samples(mask,resources,key[1:]);audit['mask']['kind']=key[1:]
+      if id(mask)not in masks_seen:counts['imageMasks']+=1;masks_seen.add(id(mask))
+    counts['imageAudits'].append(audit)
    elif x.get('/Subtype')=='/Form':counts['forms']+=1;walk(x.get('/Resources',resources),x)
   if stream is None:return
   content=pypdf.generic.ContentStream(stream,r)
@@ -72,7 +147,7 @@ def objects(pdf,gray):
     values=[float(z)*255 for z in a if isinstance(z,(int,float))]
     if len(values)>1 and max(values)-min(values)>TOLERANCE:counts['nonNeutralColorOperators']+=1
  for p in r.pages:walk(p['/Resources'],p.get_contents())
- counts['ok']=not gray or counts['nonNeutralColorOperators']==0;counts['unsupportedRejected']=True;return counts
+ counts['ok']=not gray or counts['nonNeutralColorOperators']==0 and counts['nonNeutralImagePixels']==0;counts['unsupportedRejected']=True;return counts
 def main():
  parser=argparse.ArgumentParser();parser.add_argument('request');q=parser.parse_args();req=json.loads(Path(q.request).read_text('utf-8-sig'));policy=req['policy'];gray=policy=='grayscale'
  if req['ruleVersion']!=RULE or policy not in ['grayscale','source-color']:raise ValueError('Invalid color rule/policy')

@@ -8,9 +8,9 @@
 
 ## 当前整理版本
 
-2026.10.13-r18-label-clearance。RELEASE.json锁定正式production-runtime与Skill字节；根目录lib/adobe/scripts为研发树，candidates为未发布试验，不能全量互覆。旧r5固定快照保留回滚。
+2026.10.18-r30-final-tools，整合此前未推送的 r22/r29 修复及本轮工具修订。RELEASE.json锁定正式production-runtime与Skill字节；根目录lib/adobe/scripts为研发树，candidates为未发布试验，不能全量互覆。旧r5固定快照保留回滚。
 
-先读 [当前交付与审核契约](collaboration/20261013-consolidation.md) 和 [版本验证](release-notes/2026.10.13-r18.md)。旧交接是历史证据，不作为当前界面要求。
+先读 [当前交付与审核契约](collaboration/20261013-consolidation.md) 和 [本版范围与验证边界](release-notes/2026.10.18-r30-final-tools.md)。旧交接是历史证据，不作为当前界面要求。
 
 ## 机器入口
 
@@ -31,4 +31,4 @@
 
 ## 验证边界
 
-发布回归覆盖固定入口、安装故障回滚、完整交付和当前目录撤回、状态保护、分类审核、原生样式与括号。另有两项真实Adobe副本回归与实际PDF检查；不是所有图种的全量原生回归，也不宣称新速度收益。历史本机样例从外部资料包取得，不进云端CI。
+本版测试结果以 [验证记录](release-validation-20261018-r30.json) 为准。本轮未修改 Adobe 渲染器，原生实测证据继承 r29；本机缺少 PyMuPDF/fontTools，完整 direct-pdf 渲染尚未验证。PDF 物理字号矩阵解析和矩形以外曲框边界检查尚未实现，不声称覆盖所有图种。历史本机样例从外部资料包取得，不进云端CI。

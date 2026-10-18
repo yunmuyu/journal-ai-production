@@ -65,7 +65,7 @@ test('production replacement applies styles and resets inherited color to black'
  assert.equal(tf.note,'JFW_STYLED_TEXT');
 });
 test('production snapshot reports native baseline position for styled characters',()=>{
- const start=driver.indexOf('function snapshot(d)');
+ const start=driver.indexOf('function snapshot(');
  const end=driver.indexOf('    function geometryPreserved',start);
  const ctx=context(),tf=frame('X1');
  tf.note='JFW_STYLED_TEXT';tf.characters[1].characterAttributes.baselinePosition='native-sub';

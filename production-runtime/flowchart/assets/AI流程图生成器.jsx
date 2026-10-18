@@ -1526,6 +1526,7 @@
     }
 
     function shapeBoundaryPoint(node, port, coordinate) {
+        if (node.w === 0 && node.h === 0) return [node.cx, node.cy];
         if(node.shape==="ellipse"||node.shape==="decision"){
             var horizontal=port==="left"||port==="right",r=horizontal?node.h/2:node.w/2,delta=Math.max(-r,Math.min(r,coordinate-(horizontal?node.cy:node.cx))),fraction=Math.abs(delta)/r;
             var other=(horizontal?node.w/2:node.h/2)*(node.shape==="ellipse"?Math.sqrt(Math.max(0,1-fraction*fraction)):1-fraction);
@@ -2337,7 +2338,7 @@
         finally { if (outline) outline.remove(); tf.remove(); }
     }
 
-    function measureText(contents, size, font) { return measureContainerTitle(contents, size, font); }
+    function measureText(contents, size, font) { if (contents === "") return {w:0,h:0}; return measureContainerTitle(contents, size, font); }
 
     function displayText(value, vertical) {
         var text = String(value).replace(/\r\n/g, "\r").replace(/\n/g, "\r");

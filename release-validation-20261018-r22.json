@@ -1,0 +1,43 @@
+{
+  "scope": "mixed PDF images and native pre-export label placement",
+  "automatedTests": {
+    "node": {"passed": 65, "failed": 0},
+    "python": {"passed": 13, "failed": 0}
+  },
+  "nativeValidation": {
+    "entry": "collaboration/scripts/run.mjs",
+    "application": "Illustrator",
+    "measuredCentering": true,
+    "unchangedFontRotation": true,
+    "controlledDashedFrameExpansion": true,
+    "protectedGeometryPreserved": true,
+    "mixedImageRetained": true,
+    "pdfAuditPassed": true,
+    "grayscaleAuditPassed": true,
+    "saveOutputCalls": 1,
+    "pixelTrimReopenUsed": false,
+    "identicalPlanCacheReused": true,
+    "noSpaceRejectedBeforeSaving": true
+  },
+  "localApprovedCopyReplay": {
+    "checks": 20,
+    "inside": 18,
+    "nearbyExterior": 2,
+    "unresolved": 0,
+    "formalFilesUnchanged": true,
+    "unmappedLabelsExcluded": true,
+    "doesNotReplaceUserAcceptance": true
+  },
+  "knownBaselineFailures": [{
+    "test": "tests/fit-reuse-scale.test.mjs",
+    "count": 3,
+    "reproducedOnBaseline": "ab7642f5f09e4324cba8cb89029cb3ecd4a767ee",
+    "fitImplementationChanged": false,
+    "newLabelPlacementCallsFit": false
+  }],
+  "limitations": [
+    "Explicit source-bound owner mapping required; old plans do not infer owners.",
+    "Common opaque 8-bit RGB, Gray and RGB ICCBased PDF images supported; unverified masks and encodings still fail explicitly.",
+    "Curve boundaries use segmentation; source semantics and a final PDF check remain required."
+  ]
+}

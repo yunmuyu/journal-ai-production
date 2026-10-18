@@ -13,3 +13,5 @@ function harness(width){
 test('existing 8pt is reused; oversize uses one uniform scale and repeat uses cache',()=>{const h=harness(86.6125),first=h.fit();assert.deepEqual(h.calls,['scale']);assert.ok(first.decision.fontSize>7&&first.decision.fontSize<8);assert.equal(first.decision.widthMm,80);h.fit();assert.deepEqual(h.calls,['scale']);});
 test('existing 8pt fitting column needs no native operation',()=>{const h=harness(79);h.fit();assert.deepEqual(h.calls,[]);});
 test('scale below 6pt stops for layout revision without 7pt/6pt redraw',()=>{const h=harness(120),r=h.fit();assert.equal(r.decision.reason,'layout_revision_required');assert.deepEqual(h.calls,[]);});
+
+test('exactly six points is allowed after whole artwork scaling',()=>{const h=harness(80*8/6),r=h.fit();assert.equal(r.decision.fontSize,6);assert.deepEqual(h.calls,['scale']);});
