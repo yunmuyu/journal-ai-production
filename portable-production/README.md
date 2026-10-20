@@ -23,3 +23,7 @@ PS/JPG 图统一按单栏作为默认排版，用户明确指定双栏时再调�
 本地 Windows 上已有真实图件生产记录；本次整合代码的可核对状态见 [收尾缺口](CLOSEOUT-STATUS.md)。私有生产证据和作者图件不上传仓库，保存在用户指定的本机交接盘。direct-pdf 是范围受限的候选生产工具，代码可运行不代表跨机运行或 Adobe/PS 自动链路已验收。PS 自动制作、任意转曲 SVG 文字重建、复杂多面板、复杂嵌套 Form 描边归一、用户字体/Adobe 插件在新机器上均需按状态清单验证。
 
 开始具体任务先看 [AGENTS.md](AGENTS.md)，再看 [收尾缺口](CLOSEOUT-STATUS.md)、[直接 PDF 使用说明](direct-pdf/README.md)、[能力表](direct-pdf/docs/CAPABILITIES.json)。历史工作台及 Illustrator/Photoshop 脚本保留为兼容路线；普通新任务不要求先走工作台同步或制作前逐图确认。
+
+## 任务质量门禁
+
+对子代理批量任务需要保存输入、产物和独立复核证据时，使用[质量优先任务协议](task-quality-workflow.md)和[四阶段 CLI](task_quality/README.md)。它复用现有来源哈希和交付保护，不能替代源图核对、视觉复核或用户终审。
