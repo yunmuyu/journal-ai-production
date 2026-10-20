@@ -79,7 +79,8 @@ def normalize_axis_title(content, role='axis-title'):
 
 
 def axis_title_evidence(content):
-    source=plain_content(content);normalized=plain_content(normalize_axis_title(content))
+    from .editorial import normalize_numeric_range_connectors
+    source=plain_content(content);normalized=plain_content(normalize_numeric_range_connectors(normalize_axis_title(content)))
     tail=_TERMINAL.search(source)
     unresolved=source==normalized and tail is not None and not source[:tail.start()].rstrip().endswith('/')
     return {'source':source, 'display':normalized, 'changed':source!=normalized,

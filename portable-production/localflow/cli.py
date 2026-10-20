@@ -37,6 +37,8 @@ def parser() -> argparse.ArgumentParser:
     delivery.add_argument("--author-rel", required=True)
     delivery.add_argument("--figure-number", required=True)
     delivery.add_argument("--expected-target-sha", help="仅替换时给出当前目标 PDF 的准确 SHA-256；旧版外置归档")
+    delivery.add_argument("--author", help="显式目标文件作者；必须与已确认约束和审阅记录完全一致")
+    delivery.add_argument("--target-basename", help="显式平铺PDF文件名；须绑定约束及审阅，不得含目录")
     acceptance = commands.add_parser("accept", help="显式登记人工终检文件及哈希，此后普通发布不可替换")
     acceptance.add_argument("--author-rel", required=True)
     acceptance.add_argument("--figure-number", required=True)
@@ -65,7 +67,8 @@ def main(argv: list[str] | None = None) -> int:
                 result = review(config, args.candidate_id, args.record)
             case "publish":
                 result = publish(config, args.candidate_id, args.author_rel,
-                    args.figure_number, args.expected_target_sha)
+                    args.figure_number, args.expected_target_sha,
+                    author=args.author, target_basename=args.target_basename)
             case "accept":
                 result = accept(config, args.author_rel, args.figure_number,
                     args.expected_sha, args.reviewer, args.evidence)

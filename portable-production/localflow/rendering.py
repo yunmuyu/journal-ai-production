@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .core import Config, FlowError, hash_file, hash_json, json_file, safe_child, write_json, writer_lock
 from .probing import check_snapshot
+from .target_identity import TargetIdentity
 
 
 @contextmanager
@@ -50,7 +51,7 @@ def check_constraints(spec: dict, constraints: dict) -> None:
         if not isinstance(output, dict) or not isinstance(output.get("author_rel"), str) or not isinstance(output.get("figure_number"), str):
             raise FlowError("constraints", "每项 expected_outputs 须含 author_rel 和 figure_number")
         pair = (output["author_rel"], output["figure_number"])
-        figure_name(Path(pair[0]).name, pair[1])
+        TargetIdentity(output.get("author"), output.get("target_basename")).basename(Path(pair[0]).name, pair[1])
         if pair in pairs:
             raise FlowError("constraints", "expected_outputs 重复")
         pairs.add(pair)

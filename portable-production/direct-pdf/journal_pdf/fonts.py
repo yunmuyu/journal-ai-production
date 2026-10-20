@@ -206,9 +206,13 @@ class FontRegistry:
             for g in item['measurement']['glyphs']:groups.setdefault(g['face'],set()).add(ord(g['ch']))
         result={}
         for role,chars in groups.items():
-            # Only used codepoints enter the subset. This also removes unused
-            # compatibility-character aliases which can otherwise corrupt ToUnicode.
-            key=digest_json(['subset-v1',self.face_info[role]['face_sha256'],sorted(chars)])
+            # Retain a real capital-H metric witness only when OS/2 lacks one.
+            # Visible text and positioning still use only the requested glyphs.
+            model,cmap,_,_=self._font_models[role]
+            cap=getattr(model['OS/2'],'sCapHeight',0) if 'OS/2' in model else 0
+            if cap<=0 and ord('H') in cmap:
+                chars=chars|{ord('H')}
+            key=digest_json(['subset-v4-cap-witness-ps-identity',self.face_info[role]['face_sha256'],sorted(chars)])
             if key in self._doc_buffers:result[role]=self._doc_buffers[key];continue
             file=self.cache/('subset-'+key+'.bin')
             if file.is_file():data=file.read_bytes()
@@ -217,6 +221,8 @@ class FontRegistry:
                 tt=TTFont(io.BytesIO(self.faces[role][1]),recalcTimestamp=False)
                 opts=subset.Options();opts.layout_features=[];opts.notdef_glyph=True;opts.notdef_outline=True
                 opts.recommended_glyphs=True;opts.name_IDs=[1,2,4,6];opts.name_legacy=True
+                opts.name_languages=sorted({n.langID for n in tt['name'].names
+                    if n.nameID==6 and n.toUnicode()==self.postscript_names[role]})
                 sub=subset.Subsetter(options=opts);sub.populate(unicodes=chars);sub.subset(tt)
                 b=io.BytesIO();tt.save(b);tt.close();data=b.getvalue()
                 tmp=file.with_suffix('.tmp-'+str(os.getpid()));tmp.write_bytes(data);os.replace(tmp,file)

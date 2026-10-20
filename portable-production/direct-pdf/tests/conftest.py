@@ -12,9 +12,13 @@ def profile():
         pytest.skip("当前测试字体路径不适用于本机，请显式指定字体方案；不扫描或自动替代")
     return p
 
+@pytest.fixture(scope="session")
+def font_cache(tmp_path_factory):
+    return tmp_path_factory.mktemp('font-cache')
+
 @pytest.fixture
-def reg(profile,tmp_path):
-    f=FontRegistry(profile,tmp_path/'cache')
+def reg(profile,font_cache):
+    f=FontRegistry(profile,font_cache)
     try:yield f
     finally:f.close()
 

@@ -95,7 +95,10 @@ def grayscale_svg(root):
         return '#'+f'{gray:02x}'*3
     for e in root.iter():
         if not isinstance(e.tag,str):continue
-        for attr in ('style','fill','stroke'):
+        if ET.QName(e).localname=='style' and e.text:
+            e.text=re.sub(r'((?:fill|stroke|stop-color|color)\s*:\s*)(#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b)',
+                          lambda m:m.group(1)+re.sub(r'#[0-9a-fA-F]+',replace,m.group(2)),e.text)
+        for attr in ('style','fill','stroke','stop-color'):
             if attr in e.attrib:e.set(attr,re.sub(r'#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b',replace,e.get(attr)))
     return count
 
@@ -123,6 +126,69 @@ class Assets:
     def close(self):
         for a in self._cache.values():
             if a.doc is not None:a.doc.close()
+
+    def source_icon(self,path:Path,page_no:int,clip,*,text_replacements=None):
+        """Explicit font-free source vector icon; ordinary PDF defaults stay unchanged."""
+        from .source_icons import prepare_icon
+        sha=digest_file(path);key=digest_json(['source-icon-v1',sha,page_no,clip,text_replacements])
+        if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
+        prepared=prepare_icon(path,page_no,clip,text_replacements=text_replacements)
+        import json
+        audit=json.loads(prepared.receipt_json)
+        doc=fitz.open(stream=prepared.data,filetype='pdf')
+        a=Asset(key,'pdf',str(path),sha,list(doc[0].rect),prepared.data,audit)
+        a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
+        return a
+
+    def source_vector_body(self,path:Path,page_no:int,clip,*,text_replacements=None):
+        """Explicit original nontext vector body with source-bound glyph replacements."""
+        from .source_icons import prepare_icon
+        sha=digest_file(path);key=digest_json(['source-vector-body-v1',sha,page_no,clip,text_replacements])
+        if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
+        prepared=prepare_icon(path,page_no,clip,text_replacements=text_replacements,source_vector_body=True)
+        import json
+        audit=json.loads(prepared.receipt_json)
+        doc=fitz.open(stream=prepared.data,filetype='pdf')
+        a=Asset(key,'pdf',str(path),sha,list(doc[0].rect),prepared.data,audit)
+        a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
+        return a
+
+    def source_mixed_body(self,path:Path,page_no:int,clip,*,text_replacements=None,outline_text_replacements=None,source_shape_replacements=None):
+        from .source_mixed_body import prepare_mixed_body
+        sha=digest_file(path);key=digest_json(['source-mixed-body-v1',sha,page_no,clip,text_replacements,outline_text_replacements,source_shape_replacements])
+        if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
+        prepared=prepare_mixed_body(path,page_no,clip,text_replacements=text_replacements,outline_text_replacements=outline_text_replacements,source_shape_replacements=source_shape_replacements)
+        import json
+        audit=json.loads(prepared.receipt_json);doc=fitz.open(stream=prepared.data,filetype='pdf')
+        a=Asset(key,'pdf',str(path),sha,list(doc[0].rect),prepared.data,audit)
+        a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
+        return a
+
+    def source_vector_glyph(self,path:Path,page_no:int,clip,source_path_indices,*,gray=True,text_replacements=None):
+        """Explicit original nontext vector body with source-bound glyph replacements."""
+        from .source_native_paths import prepare_native_glyph
+        sha=digest_file(path);key=digest_json(['source-vector-glyph-v1',sha,page_no,clip,source_path_indices,gray,text_replacements])
+        if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
+        prepared=prepare_native_glyph(path,page_no,clip,source_path_indices,gray=gray,text_replacements=text_replacements)
+        import json
+        audit=json.loads(prepared.receipt_json)
+        doc=fitz.open(stream=prepared.data,filetype='pdf')
+        a=Asset(key,'pdf',str(path),sha,list(doc[0].rect),prepared.data,audit)
+        a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
+        return a
+
+    def source_svg_group(self,path:Path,group_id:str,clip,*,text_replacements=None):
+        """Explicit original nontext vector body with source-bound glyph replacements."""
+        from .source_svg_groups import prepare_svg_group
+        sha=digest_file(path);key=digest_json(['source-svg-group-v1',sha,group_id,clip,text_replacements])
+        if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
+        prepared=prepare_svg_group(path,group_id,clip,text_replacements=text_replacements)
+        import json
+        audit=json.loads(prepared.receipt_json)
+        doc=fitz.open(stream=prepared.data,filetype='pdf')
+        a=Asset(key,'pdf',str(path),sha,list(doc[0].rect),prepared.data,audit)
+        a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
+        return a
 
     def svg_chart(self,path: Path,axes_id: str,plot_rect,series_ids,legend_id,gray=True):
         sha=digest_file(path); key=digest_json(['svg-chart',sha,axes_id,plot_rect,series_ids,legend_id,gray])
@@ -171,7 +237,12 @@ class Assets:
         masks=masks or [];approved_empty_regions=approved_empty_regions or []
         sha=digest_file(path);key=digest_json(['raster',sha,clip,masks,approved_empty_regions,gray,swatch])
         if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
-        img=Image.open(path).convert('RGB');full=[0,0,*img.size]
+        opened=Image.open(path);source_alpha_present='A' in opened.getbands()
+        if source_alpha_present:
+            rgba=opened.convert('RGBA');background=Image.new('RGBA',rgba.size,(255,255,255,255))
+            background.alpha_composite(rgba);img=background.convert('RGB')
+        else:img=opened.convert('RGB')
+        full=[0,0,*img.size]
         if not contains(full,clip):raise FigureError('raster_clip','裁取范围越过原图片')
         if any(int(v)!=v for v in clip):raise FigureError('raster_subpixel_clip','位图裁取只接受整数像素，避免隐式插值')
         for mask in masks:
@@ -200,6 +271,8 @@ class Assets:
                 {'mode':'original-raster-swatch' if swatch else 'raster-protected-viewport',
                  'source_clip_pixels':list(clip),'approved_empty_regions':approved_empty_regions,'masks':masks,
                  'protected_pixels_unchanged_before_color_conversion':preserved,'grayscale':gray,
+                 'source_alpha_present':source_alpha_present,
+                 'transparent_pixels_composited_to_white':source_alpha_present,
                  'source_icc_present':source_icc_present,'rgb_icc_removed_for_gray':bool(gray and source_icc_present),
                  'native_pixels':list(work.size),'resampled_before_embedding':False,'curve_values_reconstructed':False})
         self._cache[key]=a;self.stats['preparations']+=1;return a
@@ -210,10 +283,12 @@ class Assets:
         doc=fitz.open(path)
         if page_no<0 or page_no>=len(doc):raise FigureError('pdf_page','源PDF页号超出范围')
         if not contains(list(doc[page_no].rect),clip):raise FigureError('pdf_clip','PDF裁切越界')
+        source_text=doc[page_no].get_text('text',clip=fitz.Rect(clip))
         # Isolate the requested page without modifying source.
         single=fitz.open();single.insert_pdf(doc,from_page=page_no,to_page=page_no);doc.close()
         data=single.tobytes(garbage=4,deflate=True)
-        a=Asset(key,'pdf',str(path),sha,list(clip),data,{'mode':'pdf-preserved-viewport','source_page':page_no,'font_policy':'source_fonts_preserved'})
+        a=Asset(key,'pdf',str(path),sha,list(clip),data,{'mode':'pdf-preserved-viewport','source_page':page_no,
+            'font_policy':'source_fonts_preserved','source_text':source_text,'source_text_character_count':len(source_text)})
         a.doc=single;self._cache[key]=a;self.stats['preparations']+=1;return a
 
     def normalized_svg_pdf(self,asset,scale):
