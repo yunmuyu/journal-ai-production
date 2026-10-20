@@ -11,6 +11,7 @@ from .probing import probe
 from .publishing import accept, publish, review
 from .rendering import render
 from .routing import route
+from .pdf_compat import audit_delivery_pdfs
 
 
 def parser() -> argparse.ArgumentParser:
@@ -18,6 +19,7 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--config", required=True, type=Path, help="含 delivery_root/state_root/font_profile/cache_root/workbench_enabled=false 的 JSON")
     commands = ap.add_subparsers(dest="command", required=True)
     commands.add_parser("catalog", help="只读扫描现有编辑/作者目录，更新外置哈希索引")
+    commands.add_parser("audit-pdfs", help="只读扫描交付根目录全部 PDF 的字体嵌入和兼容性")
     scan = commands.add_parser("probe", help="只读预检 manifest，并逐文件密封证据")
     scan.add_argument("manifest", type=Path, help="含 source_root 与 files[{id,path}] 的 JSON")
     routing = commands.add_parser("route", help="按 Agent 审阅记录做预检路由，并实时复核 manifest 源文件")
@@ -57,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
         match args.command:
             case "catalog":
                 result = catalog(config)
+            case "audit-pdfs":
+                result = audit_delivery_pdfs(config.delivery_root)
             case "probe":
                 result = probe(config, args.manifest)
             case "route":
@@ -99,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
             case _:
                 raise FlowError("command", "未知命令")
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0
+        return 2 if result.get("status") == "blocked" else 0
     except (FlowError, OSError, KeyError, TypeError) as exc:
         code = exc.code if isinstance(exc, FlowError) else type(exc).__name__
         print(json.dumps({"status": "blocked", "code": code, "detail": str(exc)}, ensure_ascii=False), file=sys.stderr)

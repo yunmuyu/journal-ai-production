@@ -9,6 +9,7 @@ from pathlib import Path
 from .core import Config, FlowError, author_dir, figure_name, hash_file, hash_json, json_file, write_json, writer_lock
 from .rendering import check_candidate
 from .target_identity import TargetIdentity
+from .pdf_compat import audit_pdf_compatibility
 
 
 def review(config: Config, candidate_id: str, record_path: Path) -> dict:
@@ -116,6 +117,7 @@ def publish(config: Config, candidate_id: str, author_rel: str, figure_number: s
             temp = Path(temp_name)
             if hash_file(temp) != candidate["output_sha256"]:
                 raise FlowError("copy_failed", "发布副本哈希核对失败")
+            audit_pdf_compatibility(temp)
             if target.exists() != existed:
                 raise FlowError("target_changed", "写入前目标存在状态变化")
             if existed and hash_file(target) != expected_target_sha:
@@ -142,6 +144,7 @@ def accept(config: Config, author_rel: str, figure_number: str, expected_sha: st
     with writer_lock(config.state_root):
         if not target.is_file() or target.is_symlink() or hash_file(target) != expected_sha:
             raise FlowError("acceptance_target", "人工终检登记的目标哈希与实际文件不一致")
+        audit_pdf_compatibility(target)
         path = config.state_root / "accepted" / author_rel / f"{target.name}.json"
         if path.exists():
             previous = json_file(path)

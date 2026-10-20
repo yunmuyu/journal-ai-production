@@ -9,6 +9,7 @@ from localflow.catalog import catalog
 from localflow.core import Config, FlowError, hash_file, write_json
 from localflow.probing import check_snapshot, probe
 from localflow.publishing import accept, publish, review
+from localflow.pdf_compat import audit_delivery_pdfs, audit_pdf_compatibility
 from localflow.rendering import check_candidate, check_constraints, render
 
 
@@ -155,6 +156,38 @@ class LocalFlowTest(unittest.TestCase):
         (self.author / "作者-图1.jpg").write_bytes(b"existing JPEG")
         with self.assertRaisesRegex(FlowError, "JPG/JPEG"):
             publish(self.config, cid, "编辑/作者", "1")
+
+    def test_accept_rejects_pdf_missing_cap_height(self) -> None:
+        import pymupdf as fitz
+
+        probed = probe(self.config, self.manifest)
+        candidate = render(self.config, self.spec, self.constraints, probed["probe_id"])
+        target = self.author / "作者-图1.pdf"
+        source = Path(candidate["pdf"])
+        broken = Path(self.temp.name) / "missing-cap-height.pdf"
+        with fitz.open(source) as doc:
+            descriptor = next(
+                xref for xref in range(1, doc.xref_length())
+                if doc.xref_get_key(xref, "Type") == ("name", "/FontDescriptor")
+            )
+            doc.xref_set_key(descriptor, "CapHeight", "null")
+            doc.save(broken)
+        target.write_bytes(broken.read_bytes())
+        with self.assertRaisesRegex(FlowError, "/CapHeight"):
+            audit_pdf_compatibility(target)
+        with self.assertRaisesRegex(FlowError, "/CapHeight"):
+            accept(
+                self.config,
+                "编辑/作者",
+                "1",
+                hash_file(target),
+                "人工审阅者",
+                "实际尺寸、原稿语义及排版稿终检完成",
+            )
+        result = audit_delivery_pdfs(self.delivery)
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["issue_count"], 1)
+        self.assertEqual(result["issues"][0]["path"], "编辑\\作者\\作者-图1.pdf")
 
 
 if __name__ == "__main__":
