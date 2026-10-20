@@ -9,3 +9,11 @@ jobs:
         with:
           node-version: '24'
       - run: node --test knowledge/production-policy.test.mjs knowledge/decision-corrections.test.mjs workbench/feedback-summary.test.mjs collaboration/current-delivery.test.mjs collaboration/tests/seal-release.test.mjs collaboration/tests/entrypoints.test.mjs collaboration/tests/snapshot-baseline.test.mjs collaboration/state-transfer/merge.test.mjs tests/font-policy.test.mjs tests/local-paths.test.mjs workbench/classification-store.test.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m unittest discover -s tests -p test_release_bundle.py -v
+      - run: python -m unittest discover -s portable-production/tests-local -p test_engine_directory.py -v
+        env:
+          PYTHONPATH: portable-production
+      - run: python scripts/release_bundle.py build --root . --output "${{ runner.temp }}/journal-portable.zip"

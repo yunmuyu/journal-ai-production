@@ -8,7 +8,7 @@ from contextlib import contextmanager, redirect_stderr
 from typing import Iterator
 from pathlib import Path
 
-from .core import Config, FlowError, hash_file, hash_json, json_file, safe_child, write_json, writer_lock
+from .core import Config, FlowError, engine_directory, hash_file, hash_json, json_file, safe_child, write_json, writer_lock
 from .probing import check_snapshot
 from .target_identity import TargetIdentity
 from .pdf_compat import audit_pdf_compatibility
@@ -113,8 +113,7 @@ def check_candidate(config: Config, candidate_id: str) -> tuple[dict, dict, Path
         raise FlowError("constraints_changed", "原始已确认约束文件已变化")
     if hash_file(config.font_profile) != candidate["font_profile_sha256"]:
         raise FlowError("font_changed", "字体方案文件已变化")
-    release = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(release / "engine"))
+    sys.path.insert(0, str(engine_directory()))
     from journal_pdf.editorial import engine_signature
     from journal_pdf.fonts import FontRegistry
     if engine_signature() != report["engine_signature"]:
@@ -158,11 +157,10 @@ def render(config: Config, spec_path: Path, constraints_path: Path, probe_id: st
             raise FlowError("source_identity", "制作说明来源与当前预检快照不一致")
     candidate_id = uuid.uuid4().hex
     folder = config.state_root / "candidates" / candidate_id
-    release = Path(__file__).resolve().parents[1]
     with writer_lock(config.state_root):
         folder.mkdir(parents=True)
         log_path = folder / "render.log"
-        sys.path.insert(0, str(release / "engine"))
+        sys.path.insert(0, str(engine_directory()))
         from journal_pdf.assets import Assets
         from journal_pdf.common import FigureError
         from journal_pdf.fonts import FontRegistry
