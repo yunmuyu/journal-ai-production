@@ -1,8 +1,8 @@
-# 期刊图件直接PDF · 2026-10-16 仓库整合快照
+# 期刊图件直接 PDF 引擎
 
-> 本目录由2026-10-15本机实际使用的引擎迁入仓库。旧版号/“候选”标签以下保留为开发沿革，不能单独代表本次整合状态。普通任务入口和状态分工见同级 `../README.md` 与 `../CLOSEOUT-STATUS.md`。当前能力仍受 `docs/CAPABILITIES.json` 限制。
+> 本引擎随 r32 正式基线交付。安装与验收见 [发布指南](../../docs/RELEASE-GUIDE.md)，普通任务入口见 [制作入口](../README.md)。内部 `0.2.0rc1` 与下文旧“候选”标记保留为组件开发沿革；整体发布身份以根目录 `RELEASE.json` 为准，具体能力仍按 `docs/CAPABILITIES.json` 的各项开关判断。
 
-独立候选：现有对话/Agent入口已接通。不是任意图片无人值守制作器，不覆盖正式项目。
+对话/Agent 入口已接通。来源、视觉与语义复核仍需执行；引擎只生成候选，正式交付由 localflow 管理。
 
 先读 **AGENT.md**，使用说明见 **docs/AGENT-ENTRY.md**。新增能力与边界机器可读表：**docs/CAPABILITIES.json**。
 

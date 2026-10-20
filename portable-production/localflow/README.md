@@ -1,6 +1,6 @@
 # 离线本地流程
 
-从 `release` 目录运行 `python -m localflow --config config.local.json <命令>`。`run.cmd` 可使用同一入口。配置必须有 `delivery_root`、`state_root`、`font_profile`、`cache_root`，并明确 `workbench_enabled: false`。状态、候选、预检证据、归档和日志全在交付目录之外。
+从源码或下载包的 `portable-production` 目录运行 `python -m localflow --config <包外配置.json> <命令>`。已安装机器的旧 `run.cmd` 继续使用原入口，不随公共包分发。配置必须有 `delivery_root`、`state_root`、`font_profile`、`cache_root`，并明确 `workbench_enabled: false`。状态、候选、预检证据、归档和日志全在交付目录之外。
 
 流程：
 
@@ -13,4 +13,4 @@
 7. `publish <candidate-id> --author-rel <编辑/作者> --figure-number <N>`：只向已存在作者目录写平铺 `作者-图N.pdf`。同哈希幂等；已有异哈希 PDF 默认拒绝，显式 `--expected-target-sha <当前哈希>` 才归档旧版后原子替换。若同图号已有 JPG/JPEG，阻断并要求单独迁移；源绑定原件及已登记人工终检的文件不可覆盖。发布临时副本和 `accept` 目标都会重新读取实际 PDF 字节，检查字体描述中的有效 `/CapHeight`；禁止用普通文件复制绕过发布入口。
 8. `accept --author-rel ... --figure-number ... --expected-sha ... --reviewer ... --evidence ...`：人工终检完成后显式登记受保护哈希。`status [candidate-id]` 查看外置状态；状态中 Agent review、发布和人工终检分开。
 
-验证：`release/.venv/Scripts/python.exe -m pytest tests_local -q`。测试包含临时目录 probe→真实引擎 render→Agent review→publish→改写拒绝→显式哈希替换及归档→accept 后拒绝覆盖，以及源变化、约束变化、错误图号、预览字体、字体描述缺失和同图 JPG 冲突。真实周鹏清单冷 probe 3 件约 681.802 ms，热复用约 30.204 ms；其交付目录只读。字体库警告保存在候选 `render.log`，不影响已通过的实际 PDF 审计。
+验证：从 `portable-production` 运行 `python -m pytest tests-local -q`，先将环境变量 `JFW_TEST_FONT_PROFILE` 指向包外的正式字体配置（未设置时使用历史路径 `fonts.local.json`）。测试包含临时目录 probe→真实引擎 render→Agent review→publish→改写拒绝→显式哈希替换及归档→accept 后拒绝覆盖，以及源变化、约束变化、错误图号、预览字体、字体描述缺失和同图 JPG 冲突。字体库警告保存在候选 `render.log`，不影响已通过的实际 PDF 审计。

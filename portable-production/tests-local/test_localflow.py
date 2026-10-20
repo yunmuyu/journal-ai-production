@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
 
 from localflow.catalog import catalog
-from localflow.core import Config, FlowError, hash_file, write_json
+from localflow.core import Config, FlowError, engine_directory, hash_file, write_json
 from localflow.probing import check_snapshot, probe
 from localflow.publishing import accept, publish, review
 from localflow.pdf_compat import audit_delivery_pdfs, audit_pdf_compatibility
@@ -25,12 +26,13 @@ class LocalFlowTest(unittest.TestCase):
         self.author.mkdir(parents=True)
         self.source = self.author / "原稿.txt"
         self.source.write_text("N1 -> N2", encoding="utf-8")
-        self.config = Config(self.delivery, root / "state", RELEASE / "fonts.local.json", root / "cache")
+        profile = Path(os.environ.get("JFW_TEST_FONT_PROFILE", RELEASE / "fonts.local.json"))
+        self.config = Config(self.delivery, root / "state", profile, root / "cache")
         self.manifest = root / "manifest.json"
         write_json(self.manifest, {"source_root": str(self.author),
             "files": [{"id": "source-1", "path": self.source.name}]})
         self.spec = root / "spec.json"
-        template = json.loads((RELEASE / "engine" / "examples" / "specs" / "demo-network.json").read_text(encoding="utf-8"))
+        template = json.loads((engine_directory() / "examples" / "specs" / "demo-network.json").read_text(encoding="utf-8"))
         template.update({"synthetic": False, "author": "作者", "author_rel": "编辑/作者",
             "figure_number": "1", "processing_method": "rebuild",
             "sources": [{"path": self.source.name, "sha256": hash_file(self.source), "role": "source"}]})

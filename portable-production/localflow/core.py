@@ -19,6 +19,15 @@ class FlowError(Exception):
         super().__init__(detail)
 
 
+def engine_directory(release: Path | None = None) -> Path:
+    release = release or Path(__file__).resolve().parents[1]
+    candidates = [release / name for name in ("direct-pdf", "engine")
+                  if (release / name / "journal_pdf" / "__init__.py").is_file()]
+    if len(candidates) != 1:
+        raise FlowError("engine_layout", "应有且仅有一套引擎：direct-pdf 或 engine")
+    return candidates[0]
+
+
 @dataclass(frozen=True, slots=True)
 class Config:
     delivery_root: Path
