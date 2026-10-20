@@ -189,6 +189,21 @@ class LocalFlowTest(unittest.TestCase):
         self.assertEqual(result["issue_count"], 1)
         self.assertEqual(result["issues"][0]["path"], "编辑\\作者\\作者-图1.pdf")
 
+    def test_image_only_page_ignores_unused_standard_font_resource(self) -> None:
+        import pymupdf as fitz
+
+        target = self.author / "作者-图2.pdf"
+        with fitz.open() as doc:
+            page = doc.new_page()
+            page.insert_font(fontname="helv")
+            doc.save(target)
+        with fitz.open(target) as doc:
+            self.assertEqual(doc[0].get_texttrace(), [])
+            self.assertEqual(doc[0].get_fonts(full=True)[0][2], "Type1")
+        report = audit_pdf_compatibility(target)
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["font_descriptors"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

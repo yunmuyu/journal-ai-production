@@ -46,6 +46,8 @@ def audit_pdf_compatibility(path: Path) -> dict:
                     raise FlowError("pdf_compatibility", "PDF 页面含旋转标记")
                 if any(True for _ in (page.annots() or [])):
                     raise FlowError("pdf_compatibility", "PDF 页面含批注对象")
+                if not page.get_texttrace():
+                    continue
                 for row in page.get_fonts(full=True):
                     font_xref, subtype = row[0], row[2]
                     if subtype == "Type3":
