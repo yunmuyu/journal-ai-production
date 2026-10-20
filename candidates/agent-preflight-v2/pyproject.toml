@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "journal-agent-preflight"
+version = "0.2.0"
+description = "Read-only source/Word evidence extraction and Agent-reviewed production routing"
+requires-python = ">=3.10"
+dependencies = ["lxml>=5", "Pillow>=10", "PyMuPDF>=1.24"]
+[project.optional-dependencies]
+test = ["pytest>=8", "jsonschema>=4"]
+[project.scripts]
+journal-preflight = "journal_preflight.__main__:main"
+[tool.setuptools.packages.find]
+include = ["journal_preflight*"]
