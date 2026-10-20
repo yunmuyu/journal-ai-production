@@ -1,6 +1,6 @@
 # 接手 Agent 入口
 
-1. 阅读本目录 `README.md` 与 `CLOSEOUT-STATUS.md`，再读取机器外配置和该作者最新 Word/附件。Word 是图号与语义依据，不能按现有 PDF 数量断定完整。
+1. 阅读本目录 `README.md`、根目录 `RELEASE.json` 和当前机器外任务表，再读取机器外配置和该作者最新 Word/附件。`CLOSEOUT-STATUS.md` 仅是历史记录。Word 是图号与语义依据，不能按现有 PDF 数量断定完整。
 2. 先查本地来源索引和当前目标 hash；跨批次来源不得只依赖绝对路径。检查用户手改和终审记录。任何不匹配都停止覆盖并保留双方。
 3. 能力分流依据 `direct-pdf/docs/CAPABILITIES.json`。工具运行通过、PDF 已导出、内部审核通过、用户终审通过必须分开记录。
 4. 公共图形走 `direct-pdf/journal_pdf/scene.py` + `graph_layout.py` + `editorial.py`。不要私有手绘三角箭头、绕过 endpoint audit，或只调整单条文字却不重验间距。统计图柱顶文字使用 `charts.py`。

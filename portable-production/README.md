@@ -1,6 +1,6 @@
 # 本地期刊图件生产入口
 
-本目录汇合实际使用的前置筛选、作者目录状态管理和直接 PDF 引擎。它在 `2026-10-16` 开始整合，能力仍按 `direct-pdf/docs/CAPABILITIES.json` 中的范围执行；不把候选当作覆盖所有图种的正式工具。
+本目录是 **2026.10.20-r32-production-baseline** 正式交付的当前制作路线，汇合前置筛选、作者目录状态管理和直接 PDF 引擎。安装与升级见 [正式版指南](../docs/RELEASE-GUIDE.md)。能力按 `direct-pdf/docs/CAPABILITIES.json` 逐项判断；正式发布不扩大原有支持范围。
 
 ## 接手流程
 
@@ -20,9 +20,9 @@ PS/JPG 图统一按单栏作为默认排版，用户明确指定双栏时再调�
 
 ## 实测范围与限制
 
-本地 Windows 上已有真实图件生产记录；本次整合代码的可核对状态见 [收尾缺口](CLOSEOUT-STATUS.md)。私有生产证据和作者图件不上传仓库，保存在用户指定的本机交接盘。direct-pdf 是范围受限的候选生产工具，代码可运行不代表跨机运行或 Adobe/PS 自动链路已验收。PS 自动制作、任意转曲 SVG 文字重建、复杂多面板、复杂嵌套 Form 描边归一、用户字体/Adobe 插件在新机器上均需按状态清单验证。
+本地 Windows 上已有真实图件生产记录；当前验收范围见 [r32 发布说明](../release-notes/2026.10.20-r32-production-baseline.md)。[旧收尾记录](CLOSEOUT-STATUS.md) 保留为历史问题证据，不能代替当前任务状态。私有证据和作者图件保存在授权私有位置。代码可运行不代表跨机运行或 Adobe/PS 自动链路已验收。PS 自动制作、任意转曲 SVG 文字重建、复杂多面板、复杂嵌套 Form 描边归一、用户字体/Adobe 插件在新机器上仍需分别验证。
 
-开始具体任务先看 [AGENTS.md](AGENTS.md)，再看 [收尾缺口](CLOSEOUT-STATUS.md)、[直接 PDF 使用说明](direct-pdf/README.md)、[能力表](direct-pdf/docs/CAPABILITIES.json)。历史工作台及 Illustrator/Photoshop 脚本保留为兼容路线；普通新任务不要求先走工作台同步或制作前逐图确认。
+开始具体任务先看 [AGENTS.md](AGENTS.md)、当前本地任务表、[直接 PDF 使用说明](direct-pdf/README.md)与[能力表](direct-pdf/docs/CAPABILITIES.json)。历史工作台及 Illustrator/Photoshop 脚本保留为兼容路线；普通新任务不要求先走工作台同步或制作前逐图确认。
 
 ## 任务质量门禁
 

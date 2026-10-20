@@ -1,34 +1,42 @@
 # 期刊 AI 生产工作台
 
-## 2026-10-16 现行入口
+用于期刊图件的来源核对、保留原图加工、公共排版、PDF 检查、候选复核与受保护交付。当前正式基线为 **2026.10.20-r32-production-baseline**，基于十月实际制作所用的公共能力整理。
 
-新制作与续跑先用 [portable-production](portable-production/README.md)：preflight 判定能力，localflow 管理批次索引、路由、候选与保护状态，direct-pdf 统一排版、字体、连接和 PDF 审计。机器路径、字体与生产素材始终放在仓库外。
+[下载正式版](https://github.com/yunmuyu/journal-ai-production/releases/latest) · [安装、升级与回滚](docs/RELEASE-GUIDE.md) · [更新日志](CHANGELOG.md) · [本版验证与边界](release-notes/2026.10.20-r32-production-baseline.md)
 
-下述 `production-runtime`、`workbench`、Adobe 和 `collaboration/scripts/run.mjs` 是已发布的原生格式兼容路线；仅在直接 PDF 明确不覆盖或需编辑原 AI 时选用。旧的预确认流程不再是普通新图的前置门禁，现行 Agent 入口以数据化语义回复和实际 PDF 复核闭环。
+## 选择入口
 
-## 当前整理版本
+| 用途 | 入口 | 说明 |
+|---|---|---|
+| 普通制作与已有稿修订 | [portable-production](portable-production/README.md) | preflight 核对输入，localflow 管理状态，direct-pdf 制作与检查 |
+| 批量任务证据与独立复核 | [任务质量协议](portable-production/task-quality-workflow.md) | 输入契约、产物检查、复核记录；不替代视觉与语义判断 |
+| 需要工作台或原生 Adobe 格式 | [兼容路线](docs/RELEASE-GUIDE.md#工作台与-adobe-兼容路线) | 保留 workbench、production-runtime 和协作工具，使用完整源码 |
 
-2026.10.20-r31-public-capabilities，在 r30 基础上纳入已经由真实作图和本机完整回归验证的便携公共能力。现有 `workbench` 完整保留；普通生产仍以 `portable-production` 为主线，工作台与 Adobe 路径继续作为兼容入口。作者私有图件、机器路径、字体文件和过程证据不进入 GitHub。
+生产顺序：查历史成稿 → 核对当前 Word 与图源 → 选择支持的加工路线 → 生成候选 → 自动检查与实际视觉复核 → 发布 → 登记用户终审。已有稿优先修订；已验收文件受哈希保护，不能由普通候选覆盖。
 
-先读 [当前交付与审核契约](collaboration/20261013-consolidation.md) 和 [本版范围与验证边界](release-notes/2026.10.20-r31-public-capabilities.md)。旧交接是历史证据，不作为当前界面要求。
+## 快速开始
 
-## 机器入口
+1. 从 Release 下载 `journal-ai-production-…-portable.zip` 与 `.sha256`，按安装指南校验后解压。
+2. 使用 Python 3.11 或以上版本；复用已验证环境，或在独立环境安装锁定依赖。字体、Cairo DLL、Adobe 不随包分发。
+3. 在包外准备机器配置和合法字体，运行依赖检查、字体检查与一次真实样本验收，再开始新批次。
 
-配置位于仓库外，参照collaboration/machine-config.example.json：
+```powershell
+python scripts/release_bundle.py verify --root .
+Set-Location portable-production
+python -m localflow --help
+python -m localflow --config <包外的配置.json> status
+```
 
-- 固定工具：`node collaboration/scripts/run.mjs --config <machine.json> status <JOB>`
-- 工作台：`node collaboration/scripts/start-workbench.mjs --config <machine.json>`
-- 当前交付：`node collaboration/scripts/sync-delivery.mjs --config <machine.json>`
-- Skill部署预检：`node collaboration/scripts/install.mjs --config <machine.json>`；明确部署追加`--apply`，保留备份和失败回滚。
+完整配置、字体检查和首次样本步骤见[安装指南](docs/RELEASE-GUIDE.md)。包校验或命令启动成功，仅说明相应检查通过。
 
-排版只取`<deliveryRoot>/当前/排版定稿`；未配置deliveryRoot则位于recordRoot/交付。每次按正式验收、完整子图集合和hash生成，不按“最终版”文件名猜测。旧版撤出当前入口并可恢复归档；不自动删除原稿、审计证据及未知排版链接。
+## 发布与维护
 
-## 生产与协作边界
+- 正式版本以 Git tag、GitHub Release、`RELEASE.json` 和下载包校验和共同确定。`files` 保持旧 runtime 安装契约，`portableFiles` 锁定当前制作程序。
+- 后续小修从此基线建立短期分支，带针对性回归与更新记录发布补丁；不重写既有历史。
+- 仓库保留完整工作台与兼容工具。轻量包只含当前制作路线；GitHub 自动生成的 Source code 包包含完整仓库。
+- 作者 Word、图件、字体、机器配置、缓存、生产台账和过程截图不进入公开发布包。交接这些资料应使用授权的私有归档。
+- `HANDOFF-*`、旧 release notes 与 `CLOSEOUT-STATUS.md` 是历史证据，不代表当前任务状态。组件内部旧版号记录其沿革，整体交付版本以根目录 `RELEASE.json` 为准。
 
-用户已恢复分栏目集中制作；按最新本地任务表续做，已通过作者不重复核对新版差异。Adobe串行，保留应用和文档；已验收成果不得重制。正式记录由接手回执指定唯一写入者按ID和字段合并，反馈和验收冲突不按时间取胜。
+## 验收边界
 
-真实原稿、图件、AI/PDF、截图、密钥及机器配置不上传GitHub。当前交付目录是台账的派生副本，不是第二份生产状态权威。交接先暂停、封包、校验并写接收回执，不双机共写运行中的Git、台账和AI。
-
-## 验证边界
-
-本版源码回归和发布包验收以 [验证记录](release-validation-20261020-r31.json) 为准。工作台与 Adobe 渲染器未改动，继续继承 r30 的兼容验证边界；本轮不声称覆盖所有图种，也不把代码测试替代为人工视觉终审或 InDesign 实际置入验收。
+软件测试、PDF 解析/渲染、字体描述完整性、视觉审核、InDesign 实际置入和印刷验收是不同检查。正式发布不表示任意图种全自动合格，也不表示已认证所有 Adobe、印刷 RIP 或新机器环境。统计图不得根据猜测数据重绘；不支持的输入应保留原件并明确转人工处理。
