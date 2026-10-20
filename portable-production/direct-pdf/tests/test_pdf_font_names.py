@@ -51,7 +51,11 @@ def test_normalize_null_descendant_name_from_configured_role():
     doc=fitz.open();page=doc.new_page()
     page.insert_font(fontname='JFW_punct',fontbuffer=registry.document_fonts['punct'])
     page.insert_text((20,40),'，',fontname='JFW_punct')
-    assert _type0_names(doc)=={'(null)'}
+    font_xref=next(row[0] for row in page.get_fonts(full=True) if row[2]=='Type0')
+    descendant=int(doc.xref_get_key(font_xref,'DescendantFonts')[1].replace('[',' ').split()[0])
+    doc.xref_set_key(font_xref,'BaseFont','null')
+    doc.xref_set_key(descendant,'BaseFont','null')
+    assert doc.xref_get_key(descendant,'BaseFont')[0]=='null'
 
     normalize_type0_font_names(doc,registry.postscript_names)
 

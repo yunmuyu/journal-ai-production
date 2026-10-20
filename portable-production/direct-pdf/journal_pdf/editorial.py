@@ -46,6 +46,21 @@ _CJK = re.compile(r'[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]')
 _CJK_LINE = re.compile(r'^[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+$')
 _ASCII_PARENS = re.compile(r'[ \t]*\(([^()]*)\)')
 _TECHNICAL_UNIT = re.compile(r'^(?:[A-Za-zµμΩ℃°‰%]+)(?:/[A-Za-zµμΩ℃°‰%]+)*$')
+_RANGE_NUMBER = r'[+\-−]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)'
+_NUMERIC_RANGE = re.compile(r'(?<![A-Za-z0-9_./\\])'+_RANGE_NUMBER+r'[ \t]*(?P<connector>[~〜～])[ \t]*'+_RANGE_NUMBER+r'(?![A-Za-z0-9_./\\])')
+_RANGE_ROLES = {'label','edge-label','legend-label','title','axis-title','axis-category','axis-tick','numeric-value','number'}
+_LITERAL_ROLES = {'code','command','path','literal'}
+
+def normalize_numeric_range_connectors(content):
+    parts=[{'text':content}] if isinstance(content,str) else copy.deepcopy(content)
+    raw=''.join(part['text'] for part in parts)
+    connectors={match.start('connector') for match in _NUMERIC_RANGE.finditer(raw)}
+    offset=0
+    for part in parts:
+        text=part['text']
+        part['text']=''.join('～' if offset+index in connectors else char for index,char in enumerate(text))
+        offset+=len(text)
+    return parts[0]['text'] if isinstance(content,str) else parts
 
 def normalize_manual_line_breaks(value):
     lines = str(value).split('\n')
@@ -102,11 +117,18 @@ def normalize_chinese_punctuation(value):
     return _ASCII_PARENS.sub(fullwidth, text)
 
 def display_content(content, role='label'):
+    if role in _LITERAL_ROLES:
+        return copy.deepcopy(content)
     if role == 'axis-title':
         from .axis_units import normalize_axis_title
-        return normalize_axis_title(content)
+        return normalize_numeric_range_connectors(normalize_axis_title(content))
     if isinstance(content, str):
         content = content.replace('⮕','→')
+        if role in _RANGE_ROLES:
+            ranged=normalize_numeric_range_connectors(content)
+            if _NUMERIC_RANGE.search(content) and role in ('axis-tick','numeric-value','number'):
+                return ranged
+            content=ranged
         if role in ('axis-tick','numeric-value','number'):
             return group_number(content)
         if role == 'label' and any(_TECHNICAL_UNIT.fullmatch(match.group(1).strip()) for match in _ASCII_PARENS.finditer(content)):
@@ -115,7 +137,7 @@ def display_content(content, role='label'):
             return normalize_manual_line_breaks(normalize_chinese_punctuation(content))
         return content
     if isinstance(content, list):
-        parts = copy.deepcopy(content)
+        parts = normalize_numeric_range_connectors(content) if role in _RANGE_ROLES else copy.deepcopy(content)
         for p in parts:
             if p.get('role') in ('number','numeric-value'):
                 p['text'] = group_number(p['text'])
@@ -144,6 +166,7 @@ def scale_scene(scene, factor):
         raise FigureError('layout_reflow_required','完整图件缩后低于6pt，必须重新布局',scale=factor)
     for n in scene.nodes:
         n['rect']=[v*factor for v in n['rect']]; n['width']=STROKE
+        if 'dash' in n:n['dash']=[v*factor for v in n['dash']]
         if 'padding_pt' in n:n['padding_pt']=[v*factor for v in n['padding_pt']]
     for p in scene.paths:
         p['points']=[[v*factor for v in q] for q in p['points']]

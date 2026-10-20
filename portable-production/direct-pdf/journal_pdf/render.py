@@ -6,7 +6,9 @@ from PIL import Image,ImageChops
 from . import __version__
 from .common import FigureError, atomic_json, digest_file, digest_json, safe_name, resolve_source, PT_PER_MM, contains, finite
 from .fonts import draw_text
-from .pdf_fonts import normalize_type0_font_names
+from .pdf_fonts import finalize_font_descriptors
+from .font_descriptors import FontSafetyError, audit_document
+from dataclasses import asdict
 from .scene import audit_scene, arrow_vertices
 from .layouts import DIAGRAMS
 from .charts import chart
@@ -40,10 +42,11 @@ def draw_node(page,n):
     elif kind=='inputOutput':
         inset=min(r.height*.25,4)
         sh.draw_polyline([[r.x0+inset,r.y0],[r.x1,r.y0],[r.x1-inset,r.y1],[r.x0,r.y1]])
-    sh.finish(width=n['width'],color=(n.get('gray',0),),fill=(n['fill'],) if 'fill' in n else None,closePath=True);sh.commit()
+    sh.finish(width=n['width'],color=(n.get('gray',0),),fill=(n['fill'],) if 'fill' in n else None,
+              dashes=('['+' '.join(map(str,n['dash']))+'] 0') if n.get('dash') else None,closePath=True);sh.commit()
 
 
-def compile_figure(spec,reg,assets,root):
+def compile_figure(spec,reg,assets,root,verified_sources=None):
     from .editorial import scale_scene
     kind=spec.get('kind');policy=spec.get('policy',{});mode=policy.get('column','single')
     if mode not in ('single','double','auto'):raise FigureError('column_policy','栏宽选项为single/double/auto')
@@ -54,9 +57,43 @@ def compile_figure(spec,reg,assets,root):
     size=policy.get('design_font_size_pt',legacy[0])
     if not isinstance(size,(int,float)) or not math.isfinite(size) or not 6<=size<=8:
         raise FigureError('font_sizes_policy','设计字号必须在6—8pt之间')
-    if kind=='chart':scene=chart(spec,reg,size,assets,root)
-    elif kind in DIAGRAMS:scene=DIAGRAMS[kind](spec,reg,size)
-    else:raise FigureError('unsupported_figure_kind','未实现的图种，不生成冒充成果的空页',kind=kind)
+    def attach_trusted_sources(value):
+        value.verified_source_bindings=dict(verified_sources or {})
+        value.source_root=Path(root) if root is not None else None
+        return value
+    def build(font_size):
+        if kind=='chart':value=chart(spec,reg,font_size,assets,root)
+        elif kind in DIAGRAMS:value=DIAGRAMS[kind](spec,reg,font_size)
+        else:raise FigureError('unsupported_figure_kind','未实现的图种，不生成冒充成果的空页',kind=kind)
+        value=attach_trusted_sources(value)
+        if kind=='scene':
+            if spec.get('assets') and assets is None:raise FigureError('scene_assets_unavailable','场景素材需要Assets实例')
+            for item in spec.get('assets',[]):
+                if sum(item.get(flag) is True for flag in ('source_icon','source_vector_body','source_vector_glyph','source_svg_group','source_mixed_body'))>1:raise FigureError('source_asset_mode_conflict','每个源资产只能明确一种保真准备模式')
+                if 'source_shape_replacements' in item and item.get('source_mixed_body') is not True:raise FigureError('source_shape_mode','shape替换仅接受显式源混合图体')
+                path=resolve_source(root,item['path']);source_kind=item['source_kind'];clip=item['clip']
+                if source_kind=='raster':asset=assets.raster(path,clip,gray=item.get('gray',True))
+                elif source_kind=='pdf':
+                    if 'source_path_indices' in item and item.get('source_vector_glyph') is not True:raise FigureError('source_icon_selection_unavailable','源路径重放未通过真实像素验证，禁止使用')
+                    if item.get('source_vector_body') is True and item.get('source_icon') is True:raise FigureError('source_asset_mode_conflict','源图体与源图标不可同时声明')
+                    if item.get('source_mixed_body') is True:asset=assets.source_mixed_body(path,item.get('page',0),clip,text_replacements=item.get('text_replacements'),outline_text_replacements=item.get('outline_text_replacements'),source_shape_replacements=item.get('source_shape_replacements'))
+                    elif item.get('source_vector_glyph') is True:asset=assets.source_vector_glyph(path,item.get('page',0),clip,item['source_path_indices'],gray=item.get('gray',True),text_replacements=item.get('text_replacements'))
+                    elif item.get('source_vector_body') is True:asset=assets.source_vector_body(path,item.get('page',0),clip,text_replacements=item.get('text_replacements'))
+                    elif item.get('source_icon') is True:asset=assets.source_icon(path,item.get('page',0),clip,text_replacements=item.get('text_replacements'))
+                    else:asset=assets.pdf(path,item.get('page',0),clip)
+                elif source_kind=='svg' and item.get('source_svg_group') is True:
+                    asset=assets.source_svg_group(path,item['group_id'],clip,text_replacements=item.get('text_replacements'))
+                else:raise FigureError('scene_asset_kind','场景素材只接受已验证的raster/pdf或显式原SVG组入口',kind=source_kind)
+                for replacement in asset.audit.get('text_replacements',[]):
+                    target=next((t for t in value.texts if t['id']==replacement['target_text_id']),None)
+                    if target is None or ''.join(target['measurement']['text'].splitlines())!=replacement.get('target_text',replacement['source_text']):
+                        raise FigureError('source_icon_replacement_missing','原图清字后必须有同文可编辑目标',asset=item['id'])
+                value.embed(item['id'],asset,item['target'],item.get('role','source-mixed-body' if item.get('source_mixed_body') is True else 'source-vector-glyph' if item.get('source_vector_glyph') is True else 'source-vector-body' if item.get('source_vector_body') is True else 'source-svg-group' if item.get('source_svg_group') is True else 'icon'))
+            if any(row['asset'].audit.get('source_shape_bindings') for row in value.assets):
+                import copy
+                value.source_shape_target_declarations={node['id']:copy.deepcopy(node) for node in spec.get('nodes',[])}
+        return value
+    scene=build(size)
     layout_build_count=1
     limit=col*PT_PER_MM-.5
     factor=min(1.,limit/scene.width)
@@ -64,8 +101,7 @@ def compile_figure(spec,reg,assets,root):
         def rebuild(font_size):
             nonlocal layout_build_count
             layout_build_count+=1
-            if kind=='chart':return chart(spec,reg,font_size,assets,root)
-            return DIAGRAMS[kind](spec,reg,font_size)
+            return build(font_size)
         # Exact 3 mm terminals are a final-size constraint. Rebuild the layout at
         # the largest feasible font size instead of shrinking the completed scene.
         smallest=rebuild(6.)
@@ -101,9 +137,16 @@ def compile_figure(spec,reg,assets,root):
 def pdf_audit(path:Path,scene,reg):
     d=fitz.open(path);p=d[0]
     if len(d)!=1:raise FigureError('page_count','单图必须只有一页')
+    try:
+        descriptors=asdict(audit_document(d))
+    except FontSafetyError as error:
+        d.close()
+        raise FigureError('font_descriptor_incomplete',str(error),xref=error.xref,reason=error.code) from error
     # Ignore only formatting whitespace. Missing scientific symbols remain failures.
     actual=collections.Counter(c for c in p.get_text() if not c.isspace())
-    expected=collections.Counter(c for t in scene.texts for c in t['measurement']['text'] if not c.isspace())
+    scene_expected=collections.Counter(c for t in scene.texts for c in t['measurement']['text'] if not c.isspace())
+    imported_expected=collections.Counter(c for a in scene.assets for c in a['asset'].audit.get('source_text','') if not c.isspace())
+    expected=scene_expected+imported_expected
     content_ok=actual==expected
     missing=dict(expected-actual);extra=dict(actual-expected)
     fontrows=[]
@@ -122,17 +165,31 @@ def pdf_audit(path:Path,scene,reg):
     numeric_missing=dict(numeric_expected-numeric_actual)
     trace=p.get_texttrace()
     black_ok=all(all(abs(v)<1e-8 for v in t['color']) for t in trace)
-    stroke_rows=[g for g in p.get_drawings() if g['type'] in ('s','fs') and g['rect'].intersects(p.rect)]
-    stroke_bad=[{'width_pt':g['width'],'rect':list(g['rect'])} for g in stroke_rows if abs(g['width']-.5)>.005]
+    from .source_icons import audit_icon_paths
+    icon_audit=audit_icon_paths(p,scene.assets)
+    stroke_bad=icon_audit['stroke_violations']
     result={'page_count':len(d),'width_mm':p.rect.width/PT_PER_MM,'height_mm':p.rect.height/PT_PER_MM,
             'expected_text_characters':sum(expected.values()),'actual_text_characters':sum(actual.values()),
+            'expected_scene_text_characters':sum(scene_expected.values()),
+            'expected_imported_text_characters':sum(imported_expected.values()),
             'text_multiset_exact':content_ok,'missing_characters':missing,'extra_characters':extra,
             'all_fonts_embedded':all(x['embedded'] for x in fontrows),'fonts':fontrows,
+            'font_descriptors':descriptors,
             'neutral_rgb_300dpi':color_ok,'nonneutral_pixels':off,'max_channel_difference':max(i for i,v in enumerate(hist) if v),
             'image_resource_count':len(p.get_images()),'vector_drawing_count':len(p.get_drawings()),
             'axis_unit_notation':axis_units,'numeric_grouping_in_actual_pdf':not numeric_missing,'numeric_missing':numeric_missing,
             'editable_text_pure_black':black_ok,'effective_path_strokes_05pt':not stroke_bad,
-            'audited_stroke_count':len(stroke_rows),'stroke_violations':stroke_bad,
+            'audited_stroke_count':icon_audit['audited_stroke_count'],'stroke_violations':stroke_bad,
+            'source_path_ownership':icon_audit,
+            'source_image_ownership':icon_audit['image_ownership'],
+            'source_mixed_body_paths':{'bindings':[row for row in icon_audit['bindings'] if row['mode']=='source-mixed-body'],'shared_path_audit':'source_path_ownership'},
+            'source_icon_paths':icon_audit,
+            'source_vector_body_paths':{'bindings':[row for row in icon_audit['bindings'] if row['mode']=='source-vector-body'],
+                'placement_count':sum(row['mode']=='source-vector-body' for row in icon_audit['bindings']),'shared_path_audit':'source_path_ownership'},
+            'source_vector_glyph_paths':{'bindings':[row for row in icon_audit['bindings'] if row['mode']=='source-vector-glyph'],
+                'placement_count':sum(row['mode']=='source-vector-glyph' for row in icon_audit['bindings']),'shared_path_audit':'source_path_ownership'},
+            'source_svg_group_paths':{'bindings':[row for row in icon_audit['bindings'] if row['mode']=='source-svg-group'],
+                'placement_count':sum(row['mode']=='source-svg-group' for row in icon_audit['bindings']),'shared_path_audit':'source_path_ownership'},
             'stroke_scope':'Visible PDF stroke paths only; raster curves, fills and glyph outlines are not stroke-width checks',
             'not_pdfx_certified':True,'font_profile_is_preview':reg.is_preview,
             'requires_semantic_visual_review':True,'requires_indesign_placement_test':True}
@@ -143,6 +200,9 @@ def pdf_audit(path:Path,scene,reg):
 
 def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=False):
     start=time.perf_counter()
+    crop_padding=spec.get('policy',{}).get('export_crop_padding_pt',.25)
+    if isinstance(crop_padding,bool) or not isinstance(crop_padding,(int,float)) or not math.isfinite(crop_padding) or not 0<=crop_padding<=12:
+        raise FigureError('export_crop_padding_invalid','导出裁切留白必须为0到12pt的有限数值')
     from .common import validate_output_isolation
     validate_output_isolation(source_root, output_root)
     id=safe_name(spec['id']);author=safe_name(spec.get('author','未归属'))
@@ -153,7 +213,8 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         if sha!=v['sha256']:raise FigureError('source_hash_mismatch','原始素材与制作说明绑定的版本不同',source=v['path'])
         bindings.append({'path':v['path'],'sha256':sha,'role':v.get('role','source')})
     if not bindings and not spec.get('synthetic',False):raise FigureError('source_identity_missing','真实图件必须绑定原始素材哈希')
-    scene=compile_figure(spec,reg,assets,source_root)
+    scene=compile_figure(spec,reg,assets,source_root,
+                         verified_sources={b['path']:b['sha256'] for b in bindings})
     allowed={str(resolve_source(source_root,b['path'])):b['sha256'] for b in bindings}
     for a in scene.assets:
         asset=a['asset']
@@ -181,12 +242,15 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         ink=ImageChops.difference(crop_img,Image.new('RGB',crop_img.size,'white')).getbbox()
         if not ink:raise FigureError('empty_pdf','裁切前没有可见墨迹')
         unit=72/300
-        crop=fitz.Rect(max(0,ink[0]*unit-.25),max(0,ink[1]*unit-.25),
-                       min(page.rect.width,ink[2]*unit+.25),min(page.rect.height,ink[3]*unit+.25))
+        crop=fitz.Rect(max(0,ink[0]*unit-crop_padding),max(0,ink[1]*unit-crop_padding),
+                       min(page.rect.width,ink[2]*unit+crop_padding),min(page.rect.height,ink[3]*unit+crop_padding))
         scene.layout_evidence['export_crop']={'method':'actual-PDF-300dpi-ink','source_page_rect':list(page.rect),
-              'crop_box':list(crop),'protection_pt':.25,'rescaled':False,'scene_coordinates':'before CropBox offset'}
+              'crop_box':list(crop),'protection_pt':crop_padding,'rescaled':False,'scene_coordinates':'before CropBox offset'}
         page.set_cropbox(crop)
-        normalize_type0_font_names(doc,reg.postscript_names)
+        try:
+            finalize_font_descriptors(doc)
+        except FontSafetyError as error:
+            raise FigureError('font_descriptor_incomplete',str(error),xref=error.xref,reason=error.code) from error
         doc.save(tmp,garbage=4,deflate=True);doc.close()
         drawing_finished=time.perf_counter()
         audit,img=pdf_audit(tmp,scene,reg)

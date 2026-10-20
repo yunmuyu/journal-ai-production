@@ -22,3 +22,9 @@ def normalize_type0_font_names(doc, postscript_names=None):
             if descriptor_kind=='xref':
                 descriptor=int(descriptor_value.split()[0])
                 doc.xref_set_key(descriptor,'FontName',ps_name)
+
+
+def finalize_font_descriptors(doc):
+    """Complete proven descriptor metrics before saving a generated PDF."""
+    from .font_descriptors import complete_descriptors
+    complete_descriptors(doc)

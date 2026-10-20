@@ -1,0 +1,87 @@
+{
+  "id": "task-example",
+  "producer": "producer-agent",
+  "route": "source-preserving-chart",
+  "source": {
+    "path": "<PRIVATE_ROOT>/source/figure.pdf",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "source_inputs": [
+    {
+      "path": "<PRIVATE_ROOT>/source/article.docx",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "path": "<PRIVATE_ROOT>/source/figure.pdf",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "history": {
+    "evidence": {
+      "path": "<PRIVATE_ROOT>/history/checked.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "conclusion": "new",
+    "reusable": false,
+    "revision_authorization": ""
+  },
+  "frozen_manifest": {
+    "path": "<PRIVATE_ROOT>/frozen-authoritative.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "workspace": "<PRIVATE_ROOT>/tasks/task-example",
+  "author_roots": [
+    "<PRIVATE_ROOT>/authors"
+  ],
+  "runtime": {
+    "python": {
+      "path": "<PYTHON_EXE>",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "code_root": "<CODE_ROOT>",
+    "code": [
+      {
+        "path": "<CODE_ROOT>/producer.py",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "font_profile": {
+      "path": "<PRIVATE_ROOT>/font-profile.json",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "outputs": [
+    {
+      "id": "fig1",
+      "path": "fig1.pdf",
+      "delivery_target": "<PRIVATE_ROOT>/authors/article/fig1.pdf",
+      "format": "pdf",
+      "width_mm": 80,
+      "pixels": [],
+      "dpi": 300,
+      "stroke_pt": null
+    }
+  ],
+  "mechanical": [
+    "dimensions",
+    "coverage"
+  ],
+  "manual_review": [
+    "source_content",
+    "visual",
+    "runtime_provenance"
+  ],
+  "allowed_changes": [
+    "font"
+  ],
+  "immutable_content": [
+    "labels",
+    "source_geometry"
+  ],
+  "failure_policy": {
+    "max_attempts": 3,
+    "repair": "local-only",
+    "time_budget_seconds": null,
+    "cost_budget": null
+  }
+}

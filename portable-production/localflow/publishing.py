@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .core import Config, FlowError, author_dir, figure_name, hash_file, hash_json, json_file, write_json, writer_lock
 from .rendering import check_candidate
+from .target_identity import TargetIdentity
 
 
 def review(config: Config, candidate_id: str, record_path: Path) -> dict:
@@ -22,7 +23,12 @@ def review(config: Config, candidate_id: str, record_path: Path) -> dict:
     if not isinstance(record.get("reviewer"), str) or not record["reviewer"].strip():
         raise FlowError("review_evidence", "审阅人不能为空")
     target = author_dir(config.delivery_root, record.get("author_rel", ""))
-    figure_name(target.name, record.get("figure_number", ""))
+    identity = TargetIdentity(record.get("author"), record.get("target_basename"))
+    identity.target(target, record.get("figure_number", ""))
+    constraints = json_file(config.state_root / "candidates" / candidate_id / "constraints.json")
+    expected_output = {"author_rel": record["author_rel"], "figure_number": record["figure_number"], **identity.fields()}
+    if expected_output not in constraints["confirmed"]["expected_outputs"]:
+        raise FlowError("constraint_target", "审阅目标及显式文件身份未在已确认输出清单中绑定")
     for key in ("content", "visual"):
         item = record.get(key)
         if not isinstance(item, dict) or item.get("conclusion") != "approved":
@@ -45,7 +51,8 @@ def review(config: Config, candidate_id: str, record_path: Path) -> dict:
 
 
 def publish(config: Config, candidate_id: str, author_rel: str, figure_number: str,
-    expected_target_sha: str | None = None) -> dict:
+    expected_target_sha: str | None = None, *, target_basename: str | None = None,
+    author: str | None = None) -> dict:
     began = time.perf_counter()
     candidate, report, pdf = check_candidate(config, candidate_id)
     review_path = config.state_root / "reviews" / f"{candidate_id}.json"
@@ -58,14 +65,17 @@ def publish(config: Config, candidate_id: str, author_rel: str, figure_number: s
     folder = author_dir(config.delivery_root, author_rel)
     if report.get("author") != folder.name:
         raise FlowError("author_mismatch", "制作说明作者与交付目录作者不一致")
-    target = folder / figure_name(folder.name, figure_number)
+    identity = TargetIdentity(author, target_basename)
+    target = identity.target(folder, figure_number)
+    if identity.fields() != TargetIdentity(record.get("author"), record.get("target_basename")).fields():
+        raise FlowError("review_target", "显式发布文件身份与审阅记录不一致")
     from .probing import check_snapshot
     seal = check_snapshot(config, candidate["probe_id"])
     source_root = Path(seal["source_root"])
     if target.resolve() in {(source_root / rel).resolve() for rel in seal["sources"]}:
         raise FlowError("source_protected", "发布目标是本候选绑定的原始素材，禁止覆盖")
     constraints = json_file(config.state_root / "candidates" / candidate_id / "constraints.json")
-    if {"author_rel": author_rel, "figure_number": figure_number} not in constraints["confirmed"]["expected_outputs"]:
+    if {"author_rel": author_rel, "figure_number": figure_number, **identity.fields()} not in constraints["confirmed"]["expected_outputs"]:
         raise FlowError("constraint_target", "发布目标不在已确认输出清单中")
     if target.is_symlink():
         raise FlowError("unsafe_target", "目标 PDF 不能是符号链接")

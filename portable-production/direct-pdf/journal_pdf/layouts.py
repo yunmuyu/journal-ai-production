@@ -2,11 +2,11 @@
 No per-author drawing code. Text and topology enter through data-only specs.
 """
 from __future__ import annotations
-import math, json, subprocess, shutil
+import math, json, subprocess, shutil, re
 from pathlib import Path
 from .common import FigureError, PT_PER_MM, finite
 from .scene import Scene, port, ray_ellipse
-from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, STROKE, COMPACT_GAP
+from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, STROKE, COMPACT_GAP, display_content, wrap_text
 
 
 def metrics(reg,size,texts):
@@ -162,21 +162,27 @@ def tree(spec,reg,size):
     mh=max(m['height'] for m in mainms)+2*padv
     gh=[max(mh,len(b['children'])*lh+(len(b['children'])-1)*gapy) for b in branches]
     height=max(sum(gh)+(len(branches)-1)*groupgap,rootm['height']+2*padv)
-    root=s.box('root',roottext,p,p,rootw,height)
+    rooth=rootm['height']+2*padv
+    root=s.box('root',roottext,p,p+(height-rooth)/2,rootw,rooth)
     mx=p+rootw+gapx;lx=mx+mw+gapx;my=p;centers=[]
     for i,b in enumerate(branches):
         cy=my+gh[i]/2;centers.append(cy)
         main=s.box('branch'+str(i),b['text'],mx,cy-mh/2,mw,mh)
+        main['measurement_contract']={'mode':'measured-group','group':'tree-branches','axis':'both','expected_wh':[mw,mh]}
         ly=my+(gh[i]-(len(b['children'])*lh+(len(b['children'])-1)*gapy))/2
         lcenters=[]
         for j,text in enumerate(b['children']):
-            s.box('leaf'+str(i)+'-'+str(j),text,lx,ly,lw,lh);lcenters.append(ly+lh/2);ly+=lh+gapy
+            leaf=s.box('leaf'+str(i)+'-'+str(j),text,lx,ly,lw,lh)
+            leaf['measurement_contract']={'mode':'measured-group','group':'tree-leaves','axis':'both','expected_wh':[lw,lh]}
+            lcenters.append(ly+lh/2);ly+=lh+gapy
         bus=mx+mw+gapx/2
         s.line('branch-stem'+str(i),[port(main,'right'),[bus,cy]])
         if len(lcenters)>1:s.line('branch-bus'+str(i),[[bus,min(lcenters)],[bus,max(lcenters)]])
         for j,lcy in enumerate(lcenters):s.line('branch-leaf'+str(i)+'-'+str(j),[[bus,lcy],[lx,lcy]])
         my+=gh[i]+groupgap
-    bus=p+rootw+gapx/2;rootcy=p+height/2
+    s.measurement_groups['tree-branches']={'axis':'both','nodes':['branch'+str(i) for i in range(len(branches))]}
+    s.measurement_groups['tree-leaves']={'axis':'both','nodes':['leaf'+str(i)+'-'+str(j) for i,b in enumerate(branches) for j in range(len(b['children']))]}
+    bus=p+rootw+gapx/2;rootcy=(root['rect'][1]+root['rect'][3])/2
     s.line('root-stem',[port(root,'right'),[bus,rootcy]])
     if len(centers)>1:s.line('root-bus',[[bus,min(centers)],[bus,max(centers)]])
     for i,cy in enumerate(centers):s.line('root-branch'+str(i),[[bus,cy],[mx,cy]])
@@ -194,28 +200,109 @@ def network(spec,reg,size):
         ac=port(a,'top');ac[1]=(a['rect'][1]+a['rect'][3])/2
         bc=port(b,'top');bc[1]=(b['rect'][1]+b['rect'][3])/2
         pa=ray_ellipse(a['rect'],bc);pb=ray_ellipse(b['rect'],ac)
-        s.line(e.get('id','edge'+str(i)),[pa,*e.get('via',[]),pb],arrow=e.get('arrow',False),both=e.get('both',False),dash=e.get('dash'))
+        points=[pa,*e.get('via',[]),pb]
+        arrow=bool(e.get('arrow',False) or e.get('both',False))
+        if arrow:
+            dx,dy=pb[0]-points[-2][0],pb[1]-points[-2][1]
+            length=math.hypot(dx,dy)
+            if length<ARROW_LENGTH:raise FigureError('arrow_terminal_short','网络图箭头末段不足3 mm')
+            points.insert(-1,[pb[0]-dx/length*ARROW_LENGTH,pb[1]-dy/length*ARROW_LENGTH])
+        if e.get('both',False):
+            dx,dy=points[1][0]-pa[0],points[1][1]-pa[1]
+            length=math.hypot(dx,dy)
+            if length<ARROW_LENGTH:raise FigureError('arrow_terminal_short','网络图双向箭头起始段不足3 mm')
+            points.insert(1,[pa[0]+dx/length*ARROW_LENGTH,pa[1]+dy/length*ARROW_LENGTH])
+        s.line(e.get('id','edge'+str(i)),points,arrow=e.get('arrow',False),both=e.get('both',False),dash=e.get('dash'),
+               exact_terminal=arrow,endpoint_nodes=[e['from'],e['to']])
     return s.finish(spec['width_pt'],spec['height_pt'])
 
 
 def primitive(spec,reg,size):
     s=Scene(reg,size);s.template='primitive-scene';nodes={}
+    s.source_bindings={v.get('path'):v.get('sha256') for v in spec.get('sources',[]) if isinstance(v,dict)}
+    node_specs={n['id']:n for n in spec.get('nodes',[])};placed=set()
+    for group in spec.get('measured_groups',[]):
+        ids=group.get('nodes',[]);axis=group.get('axis');origin=group.get('origin')
+        if axis not in ('row','column') or not isinstance(origin,list) or len(origin)!=2 or not ids:
+            raise FigureError('measured_group_invalid','测量分组定义无效',group=group.get('id'))
+        if not isinstance(group.get('id'),str) or not group['id'] or group['id'] in s.measurement_groups:
+            raise FigureError('measured_group_invalid','测量分组ID无效或重复',group=group.get('id'))
+        s.measurement_groups[group['id']]={'axis':axis,'nodes':list(ids)}
+        members=[]
+        for node_id in ids:
+            if node_id not in node_specs or node_id in placed:
+                raise FigureError('measured_group_invalid','测量分组引用无效节点',group=group.get('id'),node=node_id)
+            n=node_specs[node_id]
+            if 'rect' in n or 'text' not in n or n.get('container') or n.get('semantic_shape') or n.get('shape','rectangle') not in ('rectangle','roundrect'):
+                raise FigureError('measured_group_invalid','测量分组只接受未指定矩形的普通文字框',group=group.get('id'),node=node_id)
+            display=display_content(n['text'],'label')
+            if n.get('wrap_chars') is not None:display=wrap_text(display,n['wrap_chars'])
+            members.append((n,reg.measure(display,size)))
+        gaps=group.get('gap_pts')
+        if 'gap_pts' in group and (axis!='column' or 'gap_pt' in group or not isinstance(gaps,list) or
+                len(gaps)!=len(ids)-1 or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or v<0 for v in gaps)):
+            raise FigureError('measured_group_gaps','gap_pts仅适用于column，须有n-1个有限非负数且不能与gap_pt并用',group=group.get('id'))
+        padx=4.5*size/8;pady=2.7*size/8;gap=float(group.get('gap_pt',9));x,y=map(float,origin)
+        equal_width=group.get('equal_width',False)
+        if not isinstance(equal_width,bool):
+            raise FigureError('measured_group_equal_width','equal_width须为布尔值',group=group.get('id'))
+        measured_axis='both' if axis=='row' and equal_width else axis
+        s.measurement_groups[group['id']]['axis']=measured_axis
+        widths=[m['width']+2*padx for _,m in members];heights=[m['height']+2*pady for _,m in members]
+        if axis=='row':
+            heights=[max(heights)]*len(heights)
+            if equal_width:widths=[max(widths)]*len(widths)
+        else:widths=[max(widths)]*len(widths)
+        for index,((n,_),w,h) in enumerate(zip(members,widths,heights)):
+            node=s.box(n['id'],n['text'],x,y,w,h,'rectangle',wrap_chars=n.get('wrap_chars'))
+            node['measurement_contract']={'mode':'measured-group','group':group.get('id'),'axis':measured_axis,'expected_wh':[w,h]}
+            nodes[n['id']]=node;placed.add(n['id'])
+            if axis=='row':x+=w+gap
+            else:y+=h+(gaps[index] if gaps is not None and index<len(gaps) else gap)
     for n in spec.get('nodes',[]):
+        if n['id'] in placed:continue
+        if 'rect' not in n:raise FigureError('primitive_node_rect_missing','普通节点缺少矩形或测量分组',id=n['id'])
         r=n['rect'];kind=n.get('shape','rectangle')
         if kind=='roundrect' and not n.get('semantic_shape'):
             kind='rectangle'
-        nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False))
+        nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),dash=n.get('dash'))
         if kind=='rectangle' and not n.get('container',False):
             nodes[n['id']]['padding_pt']=[4.5*size/8,2.7*size/8]
+            fixed=n.get('fixed_size');constraints={'table-cell':'tabular-grid','code-panel':'source-code-viewport',
+                'device-glyph':'source-symbol-bounds','source-locked-viewport':'source-artwork-bounds'}
+            evidence=fixed.get('evidence',{}) if isinstance(fixed,dict) else {}
+            purpose=fixed.get('purpose') if isinstance(fixed,dict) else None
+            sources={v.get('path'):v.get('sha256') for v in spec.get('sources',[]) if isinstance(v,dict)}
+            valid=(purpose in constraints and n.get('role')==purpose and evidence.get('constraint')==constraints[purpose] and
+                isinstance(evidence.get('source_id'),str) and bool(evidence['source_id'].strip()) and
+                isinstance(evidence.get('source_sha256'),str) and bool(re.fullmatch(r'[0-9a-f]{64}',evidence['source_sha256'])) and
+                sources.get(evidence['source_id'])==evidence['source_sha256'])
+            if valid:
+                nodes[n['id']]['measurement_contract']={'mode':'fixed','fixed_size':fixed}
+            elif 'text' in n:
+                display=display_content(n['text'],'label')
+                if n.get('wrap_chars') is not None:display=wrap_text(display,n['wrap_chars'])
+                measurement=reg.measure(display,size)
+                nodes[n['id']]['measurement_contract']={'mode':'tight','expected_wh':[
+                    measurement['width']+9*size/8,measurement['height']+5.4*size/8]}
         if 'text' in n:s.text(n['id']+':text',n['text'],(r[0]+r[2])/2,(r[1]+r[3])/2,owner=n['id'],wrap_chars=n.get('wrap_chars'))
     for t in spec.get('texts',[]):s.text(t['id'],t['text'],t['x'],t['y'],t.get('align','center'),t.get('rotation',0),t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'))
+    node_groups=spec.get('node_groups',[])
+    if not isinstance(node_groups,list):
+        raise FigureError('node_group_invalid','node_groups须为明确成员清单')
+    for group in node_groups:
+        if not isinstance(group,dict) or set(group)!={'id','nodes'}:
+            raise FigureError('node_group_invalid','节点组仅接受id与真实成员nodes')
+        s.group(group['id'],group['nodes'])
     for i,e in enumerate(spec.get('connections',[])):
         if e.get('from') not in nodes or e.get('to') not in nodes:raise FigureError('edge_endpoint','连接引用了未知节点')
         points=[port(nodes[e['from']],e['from_port']),*e.get('via',[]),port(nodes[e['to']],e['to_port'])]
         s.line(e.get('id','edge'+str(i)),points,e.get('arrow',False),e.get('both',False),e.get('dash'),
-               exact_terminal=bool(e.get('arrow',False) or e.get('both',False)),endpoint_nodes=[e['from'],e['to']])
+               exact_terminal=bool(e.get('arrow',False) or e.get('both',False)),endpoint_nodes=[e['from'],e['to']],
+               shared_net=e.get('shared_net'),semantic_role=e.get('semantic_role','connection'))
     for p in spec.get('paths',[]):s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
-                                         exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'))
+                                         exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'),
+                                         shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'))
     return s.finish(spec['width_pt'],spec['height_pt'])
 
 
@@ -223,3 +310,5 @@ DIAGRAMS={'cycle':cycle,'layered':layered,'radial':radial,'fanout':fanout,'tree'
 
 from .graph_layout import graph
 DIAGRAMS["graph"]=graph
+from .columns import columns
+DIAGRAMS["columns"]=columns

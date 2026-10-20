@@ -11,11 +11,12 @@ numpy==2.3.5
 opencv-python-headless==4.13.0.92
 packaging==26.3
 pillow==12.3.0
-pluggy==1.6.0
+pluggy==1.7.0
 pycparser==3.11
 pygments==2.21.0
 pymupdf==1.26.7
-pytest==9.1.1
+pypdf==6.1.1
+pytest==9.0.2
 python-pptx==1.0.2
 tinycss2==1.5.1
 typing-extensions==4.16.0

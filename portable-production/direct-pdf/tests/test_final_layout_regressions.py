@@ -12,6 +12,7 @@ import types
 import unittest
 from unittest.mock import patch
 from typing import Any
+from journal_pdf.boundary_ports import BoundaryGeometry, rectangular_path_bounds
 
 
 SOURCE = Path(__file__).resolve().parents[1] / 'journal_pdf'
@@ -27,7 +28,8 @@ def load_functions(filename, names, context):
 class FinalLayoutRegressions(unittest.TestCase):
     def setUp(self):
         self.context = {'math': math, 'Any': Any, 'copy': copy, 'Scene': object,
-                        '__package__': 'journal_pdf', 'PT_PER_MM': 72 / 25.4}
+                        '__package__': 'journal_pdf', 'PT_PER_MM': 72 / 25.4,
+                        'BoundaryGeometry': BoundaryGeometry, 'rectangular_path_bounds': rectangular_path_bounds}
         load_functions('common.py', {'FigureError', 'contains', 'intersects', 'segment_hits'}, self.context)
         load_functions('scene.py', {'audit_scene'}, self.context)
         load_functions('server.py', {'apply_changes'}, self.context)
@@ -36,7 +38,8 @@ class FinalLayoutRegressions(unittest.TestCase):
         return types.SimpleNamespace(width=100, height=100, size=8, template='', paths=[], assets=[],
             nodes=[{'id': 'frame', 'rect': [20, 20, 50, 50], 'kind': 'rectangle',
                     'container': container, 'width': .5}],
-            texts=[{'id': 'label', 'owner': owner, 'position': {'bbox': bbox}}])
+            texts=[{'id': 'label', 'owner': owner, 'position': {'bbox': bbox}}],
+            node_groups=[], layout_evidence={})
 
     def test_unbound_label_crossing_rectangle_border_is_blocked(self):
         for bbox in ([15, 25, 25, 35], [25, 15, 35, 25],

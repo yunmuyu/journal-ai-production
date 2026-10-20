@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.18-r30-final-tools",
-  "createdAt": "2026-10-18T13:22:39.736Z",
+  "id": "2026.10.20-r31-public-capabilities",
+  "createdAt": "2026-10-20T13:20:00+08:00",
   "status": "released",
   "constraints": {
     "fontSizePt": {
@@ -12,73 +12,59 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "stage": "verified-local",
-    "node": {
-      "main": {
-        "passed": 302,
-        "skipped": 11,
-        "failed": 0
-      },
-      "collaboration": {
-        "passed": 49,
-        "skipped": 1,
-        "failed": 0
-      },
-      "workbenchAndKnowledge": {
-        "passed": 87,
-        "skipped": 2,
-        "failed": 0
-      },
-      "totalPassed": 438,
-      "totalSkipped": 14,
-      "totalFailed": 0
+    "schemaVersion": 1,
+    "release": "2026.10.20-r31-public-capabilities",
+    "status": "verified-local",
+    "sourceTests": {
+      "compositePassed": 570,
+      "failed": 0,
+      "warningCount": 1,
+      "evidence": [
+        {
+          "scope": "pre-change full suite",
+          "passed": 569,
+          "subtestsPassed": 7,
+          "failed": 0
+        },
+        {
+          "scope": "changed network and runtime package focus",
+          "passed": 11,
+          "failed": 0
+        }
+      ],
+      "resourceConstrainedRerun": {
+        "passed": 559,
+        "failedByMemoryError": 11,
+        "assertionFailuresBeforeMemoryExhaustion": 0,
+        "freePhysicalMemoryGbObserved": 0.66
+      }
     },
-    "python": {
-      "sharedAuditAndDoctorPassed": 25,
-      "layoutRegressionsPassed": 7,
-      "totalPassed": 32,
-      "failed": 0
+    "runtimeTests": {
+      "passed": 11,
+      "failed": 0,
+      "cliHelpStarted": true
     },
-    "native": {
-      "illustrator": "passed",
-      "syntheticOnly": true,
-      "actualPdfViewed": true,
-      "fontPt": 8,
-      "measuredLabelWidthPt": 46.53125,
-      "trackGapPt": 52.53125000000021,
-      "labelClearanceLeftPt": 3.0001754760742045,
-      "labelClearanceRightPt": 2.9998245239260086,
-      "pdfAuditPassed": true,
-      "colorAuditPassed": true,
-      "mechanicalIssues": []
-    },
-    "inheritedNativeEvidence": "release-validation-20261018-r29.json",
-    "scope": [
-      "r22/r29 common fixes consolidated",
-      "non-owner rectangle text-boundary collision",
-      "outside-top legend control and entry validation",
-      "accurate layout build count",
-      "doctor diagnostics without rendering dependencies",
-      "native character typography with explicit script semantics",
-      "measured long-label via route clearance",
-      "null vector replacement validation",
-      "portable regression fixtures and environment configuration"
+    "preservedCompatibility": [
+      "workbench",
+      "production-runtime",
+      "adobe",
+      "collaboration/scripts"
     ],
-    "limitations": [
-      "Full portable preflight/direct-pdf/localflow end-to-end suites not run: this machine lacks PyMuPDF, fontTools and pytest. Doctor now reports missing dependencies.",
-      "Fourteen private-data integration cases skipped explicitly; original assertions retained.",
-      "Final PDF physical font size matrix/semantic audit is not implemented. Native font checks cannot replace that audit.",
-      "Non-owner curved-shape boundaries remain outside the new rectangle-only check.",
-      "Uncaptured per-character native styles still have frame-level evidence only.",
-      "No software restart, dependency installation or accepted-author re-rendering was performed."
-    ]
+    "notValidatedHere": [
+      "InDesign actual placement",
+      "Illustrator or Photoshop native reopen",
+      "private author artifact visual acceptance",
+      "all unsupported figure kinds"
+    ],
+    "nodeTests": {
+      "passed": 373,
+      "skipped": 13,
+      "failed": 0,
+      "includesWorkbench": true,
+      "unicodePathRegression": true
+    }
   },
   "files": [
-    {
-      "path": "运行说明.md",
-      "sha256": "42989de63dbebf14785b15bf115f376f739d4d36a21610182150c31baaee0b07",
-      "bytes": 13474
-    },
     {
       "path": "adobe/common.jsx",
       "sha256": "b5e334bc58cf222601a4920ef29e5bf06524378b8c5aaafa74763c19754449a9",
@@ -473,9 +459,35 @@
       "path": "scripts/typesafe_call.py",
       "sha256": "87eadea5858ab36fd7167b821bb8ecda9959d14df7c0daceeea0733e6a857db4",
       "bytes": 1232
+    },
+    {
+      "path": "运行说明.md",
+      "sha256": "42989de63dbebf14785b15bf115f376f739d4d36a21610182150c31baaee0b07",
+      "bytes": 13474
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.18-r29-common-production-fixes",
-  "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged."
+  "supersedes": "2026.10.18-r30-final-tools",
+  "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged.",
+  "sourceParent": "e74b835a25d4eeff11934e83a3a4ff544e009661",
+  "productionRoute": "portable-production",
+  "compatibilityRoutes": [
+    "workbench",
+    "production-runtime",
+    "adobe",
+    "collaboration/scripts"
+  ],
+  "scope": [
+    "verified portable public capabilities",
+    "stable workbench retained unchanged",
+    "task-quality evidence gate",
+    "font descriptor completeness",
+    "network endpoint and exact terminal audit"
+  ],
+  "limitations": [
+    "private author artifacts excluded",
+    "visual acceptance remains manual",
+    "InDesign placement is a separate gate",
+    "Adobe native reopen not rerun"
+  ]
 }

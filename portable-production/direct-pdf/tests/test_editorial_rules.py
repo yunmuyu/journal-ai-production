@@ -145,7 +145,8 @@ def test_whole_scale_copies_measurements_and_keeps_final_stroke(reg):
  assert s.texts[0]['measurement']['size']==pytest.approx(6.4)
 
 def test_fractional_fit_not_legacy_font_ladder(reg,tmp_path):
- spec={'kind':'scene','nodes':[{'id':'n','text':'测试','rect':[110,10,150,40]}],
+ spec={'kind':'scene','nodes':[{'id':'n','text':'测试'}],
+       'measured_groups':[{'id':'measured','axis':'row','origin':[110,10],'nodes':['n']}],
        'width_pt':260,'height_pt':60,'policy':{'column':'single','font_sizes':[8,7,6]}}
  a=Assets()
  try:
@@ -168,6 +169,26 @@ def test_fractional_fit_reflows_exact_arrows_at_final_three_mm(reg,tmp_path):
   assert path['arrow_scale']==1
   assert not any(i['code'].startswith('arrow_terminal_') for i in audit_scene(s))
  finally:a.close()
+
+def test_fractional_rebuild_preserves_verified_fixed_source_binding(reg,tmp_path,monkeypatch):
+ import journal_pdf.render as render_module
+ from journal_pdf.scene import Scene
+ digest='b'*64
+ def build(spec,registry,size):
+  scene=Scene(registry,size);scene.template='synthetic-responsive-fixed'
+  node=scene.shape('viewport',[5,5,90,35]);node['role']='source-locked-viewport'
+  node['measurement_contract']={'mode':'fixed','fixed_size':{'purpose':'source-locked-viewport',
+    'evidence':{'constraint':'source-artwork-bounds','source_id':'source.svg','source_sha256':digest}}}
+  scene.text('viewport-text','源图视口',47.5,20,owner='viewport')
+  scene.line('fit-trigger',[[5,45],[5+ARROW_LENGTH,45]],arrow=True,exact_terminal=True,semantic_role='decorative')
+  return scene.finish(size*30,55)
+ monkeypatch.setitem(render_module.DIAGRAMS,'synthetic-responsive-fixed',build)
+ scene=compile_figure({'kind':'synthetic-responsive-fixed','policy':{'column':'single','design_font_size_pt':8}},
+                      reg,None,tmp_path,verified_sources={'source.svg':digest})
+ assert scene.layout_evidence['layout_build_count']>1
+ assert scene.verified_source_bindings=={'source.svg':digest}
+ assert scene.source_root==tmp_path
+ assert not any(i['code'].startswith('primitive_box_measurement') for i in audit_scene(scene))
 
 def test_under_6pt_requires_reflow_not_auto_double(reg,tmp_path):
  spec={'kind':'scene','nodes':[{'id':'n','text':'测试','rect':[10,10,50,40]}],
@@ -247,6 +268,83 @@ def test_primitive_raw_arrow_without_node_semantics_is_not_mechanically_covered(
  scene=primitive({'width_pt':100,'height_pt':40,
                   'paths':[{'id':'manual','points':[[5,20],[82,20]],'arrow':True}]},reg,8)
  assert any(i['code']=='arrow_endpoint_semantics_missing' for i in audit_scene(scene))
+
+def test_primitive_raw_arrow_must_reach_declared_target_port(reg):
+ from journal_pdf.layouts import primitive
+ scene=primitive({'width_pt':180,'height_pt':70,
+                  'nodes':[{'id':'origin','rect':[10,20,50,50]},
+                           {'id':'destination','rect':[120,20,170,50]}],
+                  'paths':[{'id':'manual','points':[[50,35],[125,35]],'arrow':True,
+                            'endpoint_nodes':['origin','destination']}]},reg,8)
+ assert any(i['code']=='arrow_endpoint_node_port_mismatch' for i in audit_scene(scene))
+
+def test_primitive_raw_arrow_must_leave_declared_source_port(reg):
+ from journal_pdf.layouts import primitive
+ scene=primitive({'width_pt':180,'height_pt':70,
+                  'nodes':[{'id':'origin','rect':[10,20,50,50]},
+                           {'id':'destination','rect':[120,20,170,50]}],
+                  'paths':[{'id':'manual','points':[[45,35],[120,35]],'arrow':True,
+                            'endpoint_nodes':['origin','destination']}]},reg,8)
+ assert any(i['code']=='arrow_endpoint_node_port_mismatch' and i['at_start']
+            for i in audit_scene(scene))
+
+def test_primitive_raw_arrow_cannot_claim_an_unrelated_target_node(reg):
+ from journal_pdf.layouts import primitive
+ scene=primitive({'width_pt':220,'height_pt':90,
+                  'nodes':[{'id':'origin','rect':[10,20,50,50]},
+                           {'id':'actual','rect':[120,20,170,50]},
+                           {'id':'claimed','rect':[120,60,170,85]}],
+                  'paths':[{'id':'manual','points':[[50,35],[120,35]],'arrow':True,
+                            'endpoint_nodes':['origin','claimed']}]},reg,8)
+ assert any(i['code']=='arrow_endpoint_node_port_mismatch' for i in audit_scene(scene))
+
+def test_plain_legend_sample_is_not_a_business_arrow(reg):
+ from journal_pdf.layouts import primitive
+ scene=primitive({'width_pt':120,'height_pt':50,
+                  'nodes':[{'id':'series','rect':[80,10,110,30]}],
+                  'paths':[{'id':'legend-sample','points':[[10,20],[30,20]],
+                            'endpoint_nodes':['series','series']}]},reg,8)
+ assert not any(i['code'].startswith('arrow_endpoint_') for i in audit_scene(scene))
+
+def test_primitive_connection_endpoint_audit_uses_generated_port(reg):
+ from journal_pdf.layouts import primitive
+ scene=primitive({'width_pt':180,'height_pt':70,
+                  'nodes':[{'id':'origin','rect':[10,20,50,50]},
+                           {'id':'destination','rect':[120,20,170,50]}],
+                  'connections':[{'id':'generated','from':'origin','from_port':'right',
+                                  'to':'destination','to_port':'left','arrow':True}]},reg,8)
+ assert not any(i['code']=='arrow_endpoint_node_port_mismatch' for i in audit_scene(scene))
+ scene.paths[0]['points'][-1][0]+=2
+ assert any(i['code']=='arrow_endpoint_node_port_mismatch' for i in audit_scene(scene))
+
+def test_long_elbow_arrow_keeps_flexible_terminal_length(reg):
+ from journal_pdf.layouts import primitive
+ scene=primitive({'width_pt':220,'height_pt':90,
+                  'nodes':[{'id':'origin','rect':[10,20,50,50]},
+                           {'id':'destination','rect':[170,40,215,70]}],
+                  'paths':[{'id':'elbow','points':[[50,35],[100,35],[100,55],[170,55]],
+                            'arrow':True,'endpoint_nodes':['origin','destination']}]},reg,8)
+ assert not any(i['code'].startswith('arrow_terminal_') for i in audit_scene(scene))
+ assert not any(i['code']=='arrow_endpoint_node_port_mismatch' for i in audit_scene(scene))
+
+def test_declared_junction_must_touch_shared_path(reg):
+ from journal_pdf.layouts import primitive
+ scene=primitive({'width_pt':180,'height_pt':70,
+                  'nodes':[{'id':'destination','rect':[120,6,170,36]}],
+                  'paths':[{'id':'shared','points':[[10,20],[100,20]]},
+                           {'id':'branch','points':[[50,21],[120,21]],'arrow':True,
+                            'endpoint_nodes':[None,'destination']}]},reg,8)
+ assert any(i['code']=='arrow_endpoint_node_port_mismatch' and i['at_start']
+            for i in audit_scene(scene))
+
+@pytest.mark.parametrize('endpoint_nodes',(['destination'],'destination'))
+def test_arrow_endpoint_semantics_must_be_a_two_item_list(reg,endpoint_nodes):
+ from journal_pdf.layouts import primitive
+ scene=primitive({'width_pt':180,'height_pt':70,
+                  'nodes':[{'id':'destination','rect':[120,20,170,50]}],
+                  'paths':[{'id':'manual','points':[[50,35],[120,35]],'arrow':True,
+                            'endpoint_nodes':endpoint_nodes}]},reg,8)
+ assert any(i['code']=='arrow_endpoint_semantics_invalid' for i in audit_scene(scene))
 
 def test_rich_runs_keep_explicit_math_semantics_and_true_baseline(reg):
  runs=[{'text':'D','style':'italic'},

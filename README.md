@@ -8,9 +8,9 @@
 
 ## 当前整理版本
 
-2026.10.18-r30-final-tools，整合此前未推送的 r22/r29 修复及本轮工具修订。RELEASE.json锁定正式production-runtime与Skill字节；根目录lib/adobe/scripts为研发树，candidates为未发布试验，不能全量互覆。旧r5固定快照保留回滚。
+2026.10.20-r31-public-capabilities，在 r30 基础上纳入已经由真实作图和本机完整回归验证的便携公共能力。现有 `workbench` 完整保留；普通生产仍以 `portable-production` 为主线，工作台与 Adobe 路径继续作为兼容入口。作者私有图件、机器路径、字体文件和过程证据不进入 GitHub。
 
-先读 [当前交付与审核契约](collaboration/20261013-consolidation.md) 和 [本版范围与验证边界](release-notes/2026.10.18-r30-final-tools.md)。旧交接是历史证据，不作为当前界面要求。
+先读 [当前交付与审核契约](collaboration/20261013-consolidation.md) 和 [本版范围与验证边界](release-notes/2026.10.20-r31-public-capabilities.md)。旧交接是历史证据，不作为当前界面要求。
 
 ## 机器入口
 
@@ -31,4 +31,4 @@
 
 ## 验证边界
 
-本版测试结果以 [验证记录](release-validation-20261018-r30.json) 为准。本轮未修改 Adobe 渲染器，原生实测证据继承 r29；本机缺少 PyMuPDF/fontTools，完整 direct-pdf 渲染尚未验证。PDF 物理字号矩阵解析和矩形以外曲框边界检查尚未实现，不声称覆盖所有图种。历史本机样例从外部资料包取得，不进云端CI。
+本版源码回归和发布包验收以 [验证记录](release-validation-20261020-r31.json) 为准。工作台与 Adobe 渲染器未改动，继续继承 r30 的兼容验证边界；本轮不声称覆盖所有图种，也不把代码测试替代为人工视觉终审或 InDesign 实际置入验收。

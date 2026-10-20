@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "release": "2026.10.20-r31-public-capabilities",
+  "status": "verified-local",
+  "sourceTests": {
+    "compositePassed": 570,
+    "failed": 0,
+    "warningCount": 1,
+    "evidence": [
+      {
+        "scope": "pre-change full suite",
+        "passed": 569,
+        "subtestsPassed": 7,
+        "failed": 0
+      },
+      {
+        "scope": "changed network and runtime package focus",
+        "passed": 11,
+        "failed": 0
+      }
+    ],
+    "resourceConstrainedRerun": {
+      "passed": 559,
+      "failedByMemoryError": 11,
+      "assertionFailuresBeforeMemoryExhaustion": 0,
+      "freePhysicalMemoryGbObserved": 0.66
+    }
+  },
+  "runtimeTests": {
+    "passed": 11,
+    "failed": 0,
+    "cliHelpStarted": true
+  },
+  "preservedCompatibility": [
+    "workbench",
+    "production-runtime",
+    "adobe",
+    "collaboration/scripts"
+  ],
+  "notValidatedHere": [
+    "InDesign actual placement",
+    "Illustrator or Photoshop native reopen",
+    "private author artifact visual acceptance",
+    "all unsupported figure kinds"
+  ],
+  "nodeTests": {
+    "passed": 373,
+    "skipped": 13,
+    "failed": 0,
+    "includesWorkbench": true,
+    "unicodePathRegression": true
+  }
+}

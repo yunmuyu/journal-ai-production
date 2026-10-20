@@ -9,6 +9,8 @@ from .editorial import PAD_X,PAD_Y,ARROW_LENGTH,ARROW_DEPTH,ARROW_BOUNDARY_GAP,L
 
 BRANCH_BUS_LEG = 2 * PT_PER_MM
 BRANCH_BOUNDARY_GAP = BRANCH_BUS_LEG + ARROW_BOUNDARY_GAP
+ROUTE_SOURCE_STUB = 4.5
+ROUTE_OBSTACLE_CLEARANCE = ROUTE_SOURCE_STUB - .4
 
 
 def _topological(nodes,edges):
@@ -112,15 +114,40 @@ def graph(spec,reg,size):
         row=[n for n in nodes if rank[n['id']]==r]
         lengths[r]=sum(dim[n['id']][0 if direction=='TB' else 1] for n in row)+(len(row)-1)*sibling_gap
         thick[r]=max(dim[n['id']][1 if direction=='TB' else 0] for n in row)
-    cross=max(lengths.values());along=sum(thick.values())+sum(rank_gaps.values())
+    cross=max(lengths.values())
+    cross_centers={}
+    for r in ranks:
+        secondary=(cross-lengths[r])/2
+        for n in [q for q in nodes if rank[q['id']]==r]:
+            extent=dim[n['id']][0 if direction=='TB' else 1]
+            cross_centers[n['id']]=secondary+extent/2
+            secondary+=extent+sibling_gap
+    for e in edges:
+        source_rank,target_rank=rank[e['from']],rank[e['to']]
+        if e.get('return_edge') or target_rank-source_rank!=1:continue
+        default_ports=('bottom','top') if direction=='TB' else ('right','left')
+        ss=e.get('from_port',default_ports[0]);ts=e.get('to_port',default_ports[1])
+        aligned=(ss,ts)==default_ports and abs(cross_centers[e['from']]-cross_centers[e['to']])<1e-5
+        if not aligned:
+            target_stub=ARROW_BOUNDARY_GAP if e.get('arrow',True) else ROUTE_SOURCE_STUB
+            rank_gaps[source_rank]=max(rank_gaps[source_rank],ROUTE_SOURCE_STUB+target_stub)
+    along=sum(thick.values())+sum(rank_gaps.values())
     s=Scene(reg,size);s.template='semantic-graph';placed={};primary=margin
     for r in ranks:
+        rectangle_ids=[n['id'] for n in nodes if rank[n['id']]==r and n.get('shape','rectangle')=='rectangle']
+        group_id='graph-rank-'+str(r)
+        group_axis='row' if direction=='TB' else 'column'
+        if rectangle_ids:
+            s.measurement_groups[group_id]={'axis':group_axis,'nodes':rectangle_ids}
         secondary=margin+(cross-lengths[r])/2
         for n in [q for q in nodes if rank[q['id']]==r]:
             w,h=dim[n['id']]
             if direction=='TB':x,y=secondary,primary+(thick[r]-h)/2
             else:x,y=primary+(thick[r]-w)/2,secondary
             placed[n['id']]=s.box(n['id'],n['text'],x,y,w,h,n.get('shape','rectangle'))
+            if n['id'] in rectangle_ids:
+                placed[n['id']]['measurement_contract']={'mode':'measured-group','group':group_id,
+                    'axis':group_axis,'expected_wh':[w,h]}
             secondary+=(w if direction=='TB' else h)+sibling_gap
         primary+=thick[r]+rank_gaps.get(r,0)
     width,height=(cross+2*margin,along+2*margin) if direction=='TB' else (along+2*margin,cross+2*margin)
@@ -132,27 +159,29 @@ def graph(spec,reg,size):
         source=placed[source_id];source_port=port(source,'bottom');targets=[placed[e['to']] for e in group]
         bus_y=source_port[1]+BRANCH_BUS_LEG;target_ports=[port(target,'top') for target in targets]
         identifiers=[e.get('id','edge-'+str(edge_order[id(e)]+1)) for e in group]
-        s.line(identifiers[0]+':fanout-trunk',[source_port,[source_port[0],bus_y]])
+        net_id='fanout:'+source_id
+        s.line(identifiers[0]+':fanout-trunk',[source_port,[source_port[0],bus_y]],shared_net=net_id,semantic_role='trunk')
         left=min(p[0] for p in target_ports);right=max(p[0] for p in target_ports)
-        if right-left>1e-4:s.line(identifiers[0]+':fanout-bus',[[left,bus_y],[right,bus_y]])
+        if right-left>1e-4:s.line(identifiers[0]+':fanout-bus',[[left,bus_y],[right,bus_y]],shared_net=net_id,semantic_role='bus')
         for e,target_port,ident in zip(group,target_ports,identifiers):
             s.line(ident,[[target_port[0],bus_y],target_port],arrow=True,exact_terminal=True,
-                   endpoint_nodes=[e['from'],e['to']])
+                   endpoint_nodes=[None,e['to']],shared_net=net_id,semantic_role='branch')
             route_records.append({'edge':ident,'from':e['from'],'to':e['to'],'from_port':'bottom','to_port':'top','return_edge':False,'branch_group':'fanout'})
             handled_edges.add(id(e))
     for target_id,group in merge_groups.items():
         target=placed[target_id];target_port=port(target,'top');sources=[placed[e['from']] for e in group]
         source_ports=[port(source,'bottom') for source in sources];bus_y=max(p[1] for p in source_ports)+BRANCH_BUS_LEG
         identifiers=[e.get('id','edge-'+str(edge_order[id(e)]+1)) for e in group]
+        net_id='merge:'+target_id
         for e,source_port,ident in zip(group,source_ports,identifiers):
-            s.line(ident,[source_port,[source_port[0],bus_y]])
+            s.line(ident,[source_port,[source_port[0],bus_y]],shared_net=net_id,semantic_role='merge-leg')
             handled_edges.add(id(e))
         left=min(p[0] for p in source_ports);right=max(p[0] for p in source_ports)
-        if right-left>1e-4:s.line(identifiers[0]+':merge-bus',[[left,bus_y],[right,bus_y]])
+        if right-left>1e-4:s.line(identifiers[0]+':merge-bus',[[left,bus_y],[right,bus_y]],shared_net=net_id,semantic_role='bus')
         outlet=identifiers[0]+':merge-outlet';mid=(left+right)/2
         outlet_points=[[target_port[0],bus_y],target_port] if left<=target_port[0]<=right else [[mid,bus_y],[target_port[0],bus_y],target_port]
         s.line(outlet,outlet_points,arrow=True,exact_terminal=True,
-               endpoint_nodes=[group[0]['from'],group[0]['to']])
+               endpoint_nodes=[None,group[0]['to']],shared_net=net_id,semantic_role='outlet')
         for e,ident in zip(group,identifiers):
             route_records.append({'edge':ident,'from':e['from'],'to':e['to'],'from_port':'bottom','to_port':'top','return_edge':False,'branch_group':'merge','merge_outlet':outlet})
     for idx,e in enumerate(edges):
@@ -163,22 +192,34 @@ def graph(spec,reg,size):
         ss=e.get('from_port',ss);ts=e.get('to_port',ts)
         if ss not in ('left','right','top','bottom') or ts not in ('left','right','top','bottom'):raise FigureError('graph_port','菱形/普通框只接受真实四中点端口')
         a,b=port(src,ss),port(dst,ts);vec={'left':[-1,0],'right':[1,0],'top':[0,-1],'bottom':[0,1]}
-        source_stub=4.5;target_stub=ARROW_BOUNDARY_GAP if e.get('arrow',True) else 4.5
+        source_stub=ROUTE_SOURCE_STUB;target_stub=ARROW_BOUNDARY_GAP if e.get('arrow',True) else ROUTE_SOURCE_STUB
         u=[a[i]+vec[ss][i]*source_stub for i in range(2)];v=[b[i]+vec[ts][i]*target_stub for i in range(2)]
         aligned=(abs(a[0]-b[0])<1e-5 and ss=='bottom' and ts=='top' and b[1]>a[1]) or (abs(a[1]-b[1])<1e-5 and ss=='right' and ts=='left' and b[0]>a[0])
         unrelated=[n['rect'] for name,n in placed.items() if name not in (e['from'],e['to'])]
         if aligned and not any(segment_hits(a,b,r,.5) for r in unrelated):pts=[a,b]
         else:
-            clearance=source_stub-.4
+            clearance=ROUTE_OBSTACLE_CLEARANCE
             obstacles=[[n['rect'][0]-clearance,n['rect'][1]-clearance,n['rect'][2]+clearance,n['rect'][3]+clearance] for n in placed.values()]
-            pts=[a]+_route(u,v,obstacles,xs,ys)+[b]
+            ident=e.get('id','edge-'+str(idx+1))
+            try:route=_route(u,v,obstacles,xs,ys)
+            except FigureError as error:
+                if error.code!='graph_route_blocked':raise
+                details={'edge':ident,'from':e['from'],'to':e['to'],'from_port':ss,'to_port':ts,
+                         'source_stub_pt':source_stub,'target_stub_pt':target_stub,
+                         'obstacle_clearance_pt':clearance,'start':u,'end':v,
+                         'obstacle_count':len(obstacles),'rank_gap_pt':rank_gaps.get(rank[e['from']])}
+                raise FigureError('graph_route_blocked','无避开节点的正交连线方案',**details) from error
+            pts=[a]+route+[b]
         compact=[]
         for p in pts:
             if compact and math.dist(p,compact[-1])<1e-4:continue
             if len(compact)>1 and ((abs(compact[-2][0]-compact[-1][0])<1e-4 and abs(compact[-1][0]-p[0])<1e-4) or (abs(compact[-2][1]-compact[-1][1])<1e-4 and abs(compact[-1][1]-p[1])<1e-4)):compact[-1]=p
             else:compact.append(p)
+        exact_terminal=not e.get('label') and bool(e.get('arrow',True) or e.get('both',False))
+        if exact_terminal and math.dist(compact[-2],v)>1e-4:compact.insert(-1,v)
+        if exact_terminal and e.get('both') and math.dist(compact[1],u)>1e-4:compact.insert(1,u)
         ident=e.get('id','edge-'+str(idx+1));s.line(ident,compact,arrow=e.get('arrow',True),both=e.get('both',False),dash=e.get('dash'),
-                                                   exact_terminal=not e.get('label') and bool(e.get('arrow',True) or e.get('both',False)),
+                                                   exact_terminal=exact_terminal,
                                                    endpoint_nodes=[e['from'],e['to']])
         if e.get('label'):
             m=labels[id(e)];candidates=[]
