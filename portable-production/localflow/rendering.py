@@ -11,6 +11,7 @@ from pathlib import Path
 from .core import Config, FlowError, hash_file, hash_json, json_file, safe_child, write_json, writer_lock
 from .probing import check_snapshot
 from .target_identity import TargetIdentity
+from .pdf_compat import audit_pdf_compatibility
 
 
 @contextmanager
@@ -81,6 +82,9 @@ def check_report(report: dict, pdf: Path) -> None:
             raise FlowError("render_audit", f"实际 PDF 审计未通过：{key}")
     if audit.get("axis_unit_notation", {}).get("ok") is not True:
         raise FlowError("render_audit", "实际 PDF 轴单位审计未通过")
+    if audit.get("font_descriptors", {}).get("passed") is not True:
+        raise FlowError("render_audit", "引擎报告缺少字体描述完整性审计")
+    audit_pdf_compatibility(pdf)
     if audit.get("font_profile_is_preview") is not False or report.get("font", {}).get("purpose") != "production":
         raise FlowError("preview_font", "预览字体不能进入发布候选")
 
