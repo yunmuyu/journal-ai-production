@@ -321,3 +321,5 @@ from .graph_layout import graph
 DIAGRAMS["graph"]=graph
 from .columns import columns
 DIAGRAMS["columns"]=columns
+from .grouped_chains import grouped_chains
+DIAGRAMS['grouped-chains'] = grouped_chains

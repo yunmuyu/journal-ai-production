@@ -6,6 +6,11 @@ from .fonts import position_text
 from .flow_shapes import is_flow_terminal
 from .editorial import display_content, wrap_text, PAD_X, PAD_Y, STROKE, ARROW_LENGTH, diamond_size
 
+def validate_node_dash(dash, *, id=None):
+    if dash is not None and (not isinstance(dash,list) or not dash or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or v<0 for v in dash) or not any(dash)):
+        raise FigureError('invalid_node_dash','节点虚线须为非负有限数列，且不能全为零',id=id)
+
+
 class Scene:
     def __init__(self,registry,size=8):
         self.registry=registry;self.size=size
@@ -29,8 +34,7 @@ class Scene:
         self.ident(id)
         if kind not in ('rectangle','ellipse','diamond','roundrect','terminator','inputOutput'):raise FigureError('unsupported_shape','形状未支持',kind=kind)
         if not finite(rect) or rect[2]<=rect[0] or rect[3]<=rect[1]:raise FigureError('invalid_node_rect','节点矩形无效',id=id)
-        if dash is not None and (not isinstance(dash,list) or not dash or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or v<0 for v in dash) or not any(dash)):
-            raise FigureError('invalid_node_dash','节点虚线须为非负有限数列，且不能全为零',id=id)
+        validate_node_dash(dash, id=id)
         n={'id':id,'rect':list(rect),'kind':kind,'container':container,'width':width}
         if dash is not None:n['dash']=list(dash)
         self.nodes.append(n);return n

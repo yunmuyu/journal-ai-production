@@ -45,6 +45,15 @@ prepare 的 --workers 允许1—4个进程，默认1。PDF不在线程间共享�
 
 review 的 source_checked、labels_checked 由实际读图的 Agent 显式确认；框图另需 topology_checked。它们是可追溯的核对声明，不是检测算法正确的证明。
 
+### 8 pt 设计起点与制作例外
+
+语义入口必须从 8 pt 测量紧凑完整布局，再按现行整图等比规则适配已确认栏宽；最终字号允许 6～8 pt 小数。它不是恢复旧的 8/7/6 三档 PDF 试排，也不允许直接把设计起点写成 6 pt 来跳过布局依据。低于 6 pt 仍停止并要求重排，不自动改双栏。
+
+若已有独立、明确的制作例外依据，调用方可向 `complete(..., production_policy_exceptions=[...])` 另行传入记录，或在 CLI 使用 `--production-policy-exceptions <独立记录.json>`。每条记录只接受 `reply_sha256`（该单项图件回复的 `digest_json`）、`source_sha256`、`design_font_size_pt`、`reason`、`evidence_ref`，必须逐项匹配当前图件、来源和字号。例外不能放进模型语义回复，不能由模型自行补理由授权；每次调用都须显式提供，不从上次尝试自动继承。独立调用方仍负责核对外部依据的真实性，这些记录不是密码学的用户身份认证。
+
+例外单独保存为每次尝试的 `production-policy-exceptions.json` 并绑定哈希，编译规格与结果保留出处；后续完成/复核会检查记录未变。报告区分实际 8 pt 起排、实测整图缩放、明确制作例外和无依据的低层预览参数。例外不会被记成“已检查 8 pt 起排”。底层 `render_one` / `scene` 仍可做显式 6～8 pt 预览，但不能仅因最终字号在范围内就称默认起点规则通过。
+
+
 ### 位图统计图：kind=raster-chart
 
 选 axis_ref；x_ticks/y_ticks 每项只填 ref 与原字符串 text。混合刻度可填 number/suffix，两者拼接必须逐字符等于原文，如 1.5＋G，不自动改 GHz。x_title/y_title填原文，单位斜杠规则在测量前统一执行。
@@ -96,7 +105,7 @@ prepare第一次访问原文件开始记任务墙钟。complete记录提取、�
 
 ## 后续独立入口
 
-`journal_pdf.agent_entry.run_with_agent(files, job_dir, profile, semantic_provider, workers=1, cache=...)`
+`journal_pdf.agent_entry.run_with_agent(files, job_dir, profile, semantic_provider, workers=1, cache=..., production_policy_exceptions=None)`
 
 provider收到 agent-brief.json 的精简请求，返回同一JSON。需要局部几何证据时按 full_evidence 读取，不把所有坐标发送给模型。由未来调用方控制模型、费用、隐私与重试。当前包没有替你接入API，也不需要新密钥。文件协议不随UI变化。
 

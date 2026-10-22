@@ -42,6 +42,22 @@ class LocalFlowTest(unittest.TestCase):
             "backend": "direct-pdf", "column": "single",
             "expected_outputs": [{"author_rel": "编辑/作者", "figure_number": "1"}]},
             "suggested": {"column": None}})
+        # Synthetic reviewed route is explicit; legacy candidates cannot bypass the
+        # publication gate merely because their PDF mechanical checks pass.
+        from journal_preflight.editorial_route import COMMON_CHECKS, ROUTE_CHECKS
+        digest = hash_file(self.source)
+        route = "structural_redraw"
+        figure = {"id": "figure-1", "sources": [{"id": "source-1", "sha256": digest}],
+            "decision": {"proposed": {"route": route, "column": "single"},
+                         "route": route, "column": "single", "reason": "Synthetic N1 to N2 test source.", "overrides": []},
+            "evidence": [{"id": "test-review", "source_id": "source-1", "source_sha256": digest,
+                          "method": "synthetic test", "location": "whole source", "observation": "N1 to N2 fixture topology recorded."}],
+            "checks": {key: {"status": "recorded_satisfied", "evidence_ids": ["test-review"]}
+                       for key in COMMON_CHECKS + ROUTE_CHECKS[route]}, "author_issues": []}
+        values = json.loads(self.constraints.read_text(encoding="utf-8"))
+        values["confirmed"].update(editorial_route_contract={"schema_version": "editorial-route/1", "figures": [figure]},
+            editorial_figure_id="figure-1", editorial_targets=[{"id": "figure-1", "author_rel": "编辑/作者", "figure_number": "1"}])
+        write_json(self.constraints, values)
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -110,6 +126,46 @@ class LocalFlowTest(unittest.TestCase):
         write_json(self.constraints, constraints)
         with self.assertRaisesRegex(FlowError, "原始已确认约束"):
             check_candidate(self.config, candidate["candidate_id"])
+
+    def test_real_pdf_candidate_cannot_be_reassigned_in_multi_output_batch(self) -> None:
+        import copy
+        from localflow.core import hash_json
+        values = json.loads(self.constraints.read_text(encoding="utf-8"))
+        confirmed = values["confirmed"]
+        confirmed["split"] = "multi"
+        confirmed["expected_outputs"].append({"author_rel": "编辑/作者", "figure_number": "2"})
+        second = copy.deepcopy(confirmed["editorial_route_contract"]["figures"][0])
+        second["id"] = "figure-2"
+        confirmed["editorial_route_contract"]["figures"].append(second)
+        confirmed["editorial_targets"].append({"id": "figure-2", "author_rel": "编辑/作者", "figure_number": "2"})
+        write_json(self.constraints, values)
+        pid = probe(self.config, self.manifest)["probe_id"]
+        rendered = render(self.config, self.spec, self.constraints, pid)
+        cid = rendered["candidate_id"]
+        candidate, report, artifact = check_candidate(self.config, cid)
+        record = {"candidate_id": cid, "output_sha256": candidate["output_sha256"],
+            "constraints_sha256": candidate["constraints_sha256"],
+            "source_hashes": {row["path"]: row["sha256"] for row in report["source_bindings"]},
+            "author_rel": "编辑/作者", "figure_number": "2", "reviewer": "synthetic reviewer",
+            "content": {"conclusion": "approved", "evidence": ["Synthetic source identity and full topology checked for this test."]},
+            "visual": {"conclusion": "approved", "evidence": ["Synthetic output bounds and embedded text checked for this test."]}}
+        review_file = Path(self.temp.name) / "misassigned-review.json"
+        write_json(review_file, record)
+        with self.assertRaises(FlowError) as caught:
+            review(self.config, cid, review_file)
+        self.assertEqual(caught.exception.code, "review_target_binding")
+        persisted = self.config.state_root / "reviews" / f"{cid}.json"
+        write_json(persisted, {"record": record, "record_sha256": hash_json(record)})
+        with self.assertRaises(FlowError) as caught:
+            publish(self.config, cid, "编辑/作者", "2")
+        self.assertEqual(caught.exception.code, "review_target_binding")
+        self.assertFalse(list(self.author.glob("*.pdf")))
+        # A valid identity continues to work; no broad ban on multi-output jobs.
+        record["figure_number"] = "1"
+        write_json(persisted, {"record": record, "record_sha256": hash_json(record)})
+        result = publish(self.config, cid, "编辑/作者", "1")
+        self.assertEqual(result["status"], "published-candidate")
+        self.assertEqual(Path(result["target"]).read_bytes(), artifact.read_bytes())
 
     def test_real_chain_when_target_changes(self) -> None:
         probed = probe(self.config, self.manifest)
@@ -189,7 +245,7 @@ class LocalFlowTest(unittest.TestCase):
         result = audit_delivery_pdfs(self.delivery)
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["issue_count"], 1)
-        self.assertEqual(result["issues"][0]["path"], "编辑\\作者\\作者-图1.pdf")
+        self.assertEqual(Path(result["issues"][0]["path"]), Path("编辑") / "作者" / "作者-图1.pdf")
 
     def test_image_only_page_ignores_unused_standard_font_resource(self) -> None:
         import pymupdf as fitz
