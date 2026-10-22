@@ -9,7 +9,7 @@
 - 增加竖排混合文字支持，中文保持直排，英文词整体旋转。
 - 直接 PDF 回归 520 项通过；工作台节点检查 51 项、发布包检查 3 项、引擎目录检查 2 项通过。
 
-状态：候选 PR [#10](https://github.com/yunmuyu/journal-ai-production/pull/10)，便携包已本机解压核验，等待 GitHub Actions；尚未合并或创建正式 Release。InDesign 置入、真实作者图件终审和印刷 RIP 不在本次验证范围。
+状态：候选 PR [#10](https://github.com/yunmuyu/journal-ai-production/pull/10) 的便携包检查已通过；真实图副本复核仍暂停，尚未合并或创建正式 Release。InDesign 置入、真实作者图件终审和印刷 RIP 不在本次验证范围。
 
 ## 2026.10.20-r32-production-baseline
 

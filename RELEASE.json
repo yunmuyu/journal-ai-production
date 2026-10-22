@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "2026.10.22-r33-layout-capabilities",
-  "createdAt": "2026-10-22T07:29:33.244Z",
+  "createdAt": "2026-10-22T07:31:41.021Z",
   "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
@@ -38,11 +38,19 @@
       "engineDirectory": {
         "passed": 2,
         "failed": 0
+      },
+      "githubActions": {
+        "passed": 2,
+        "failed": 0,
+        "checkedCommit": "6154941",
+        "checks": [
+          "push / portable",
+          "pull_request / portable"
+        ]
       }
     },
     "packageAcceptance": "candidate bundle built; extracted manifest verified for 161 files; CLI help and Windows doctor passed; exact ZIP SHA256 recorded separately",
     "notVerifiedThisRelease": [
-      "GitHub Actions for this candidate PR",
       "fresh-machine dependency installation",
       "real author figure visual acceptance",
       "InDesign actual placement",
