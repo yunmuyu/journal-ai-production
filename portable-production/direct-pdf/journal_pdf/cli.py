@@ -25,6 +25,7 @@ def main(argv=None):
     ac=ae.add_subparsers(dest='action',required=True)
     ap=ac.add_parser('prepare');ap.add_argument('files',nargs='+',type=Path);ap.add_argument('--job',required=True,type=Path);ap.add_argument('--workers',type=int,default=1)
     ar=ac.add_parser('complete');ar.add_argument('--job',required=True,type=Path);ar.add_argument('--reply',required=True,type=Path);ar.add_argument('--profile',required=True,type=Path);ar.add_argument('--cache',type=Path)
+    ar.add_argument('--production-policy-exceptions',type=Path,help='制作调用方单独提供的字号例外证据；不可来自语义回复自批')
     ast=ac.add_parser('status');ast.add_argument('--job',required=True,type=Path)
     av=ac.add_parser('review');av.add_argument('--job',required=True,type=Path);av.add_argument('--record',required=True,type=Path)
     args=p.parse_args(argv)
@@ -37,7 +38,8 @@ def main(argv=None):
                 record=read_json(args.record);out=review(args.job,reviewer=record['reviewer'],items=record['items'])
             else:
                 if args.reply.stat().st_size>2_000_000:raise FigureError('reply_size_limit','语义回复过大')
-                result=complete(args.job,read_json(args.reply),args.profile,cache=args.cache)
+                policy_exceptions=read_json(args.production_policy_exceptions) if args.production_policy_exceptions else None
+                result=complete(args.job,read_json(args.reply),args.profile,cache=args.cache,production_policy_exceptions=policy_exceptions)
                 out={k:result[k] for k in ('status','attempt','rendered','failures','unresolved_exceptions','declared_exclusions','timings','reused_unaffected_figures')}
             print(json.dumps(out,ensure_ascii=False,indent=2));return 2 if out.get('failures') or out.get('unresolved_exceptions') or out.get('blocked_sources') else 0
         elif args.command=='doctor':

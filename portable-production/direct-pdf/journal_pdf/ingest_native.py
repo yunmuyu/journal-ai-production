@@ -176,7 +176,15 @@ def _group_bounds(el,root,pad=1.):
 
 def svg_pages(path,folder):
     root=svg_root(path);view=[float(x) for x in root.get('viewBox','').replace(',',' ').split()]
-    if len(view)!=4:raise FigureError('svg_viewbox_required','需要显式SVG viewBox以绑定原坐标')
+    if len(view)!=4:
+        # Inventory only: no inference that an anonymous outlined SVG is a chart.
+        from .source_outline_chart import primitive_inventory
+        inventory=primitive_inventory(path)
+        return [{'id':'svg-1','kind':'svg','size':inventory['viewbox'][2:],'viewbox':inventory['viewbox'],
+                 'coordinate_unit':'svg-user-unit','preview':None,'objects':inventory['objects'],
+                 'outline_inventory':inventory,'chart_candidates':[],
+                 'warnings':[{'code':'outlined_svg_registration_required','message':'仅提供原图元证据；需显式完整登记并核对转曲原文，不自动识图'}],
+                 'counts':{'objects':len(inventory['objects']),'charts':0}}]
     ids=[q.get('id') for q in root.iter() if isinstance(q.tag,str) and q.get('id')]
     if len(ids)!=len(set(ids)):raise FigureError('svg_duplicate_ids','SVG ID重复，不能安全绑定')
     objects=[]
@@ -239,12 +247,17 @@ def svg_pages(path,folder):
             'x_ticks':ticks['x'],'y_ticks':ticks['y'],'titles':titles,'legend_id':legend.get('id') if legend is not None else None,
             'legend_rows':rows,'series_groups':[q.get('id') for q in series],'protected_path_points':protected,
             'tick_length':max(tick_lengths) if tick_lengths else None,'confidence':'native-geometry-semantic-confirmation-required'})
+    outline_inventory=None
+    if not charts:
+        from .source_outline_chart import primitive_inventory
+        try:outline_inventory=primitive_inventory(path)
+        except FigureError:pass  # Existing unsupported native SVG behavior stays unchanged.
     # Render only once for visual evidence, not N isolated conversions for N labels.
     raw=svg_pdf_bytes(root)
     with fitz.open(stream=raw,filetype='pdf') as doc:
         p=doc[0];p.get_pixmap(matrix=fitz.Matrix(min(2.,1600/p.rect.width),min(2.,1600/p.rect.width)),alpha=False).save(folder/'svg-preview.png')
     return [{'id':'svg-1','kind':'svg','size':view[2:],'viewbox':view,'coordinate_unit':'svg-user-unit','preview':'svg-preview.png',
-        'objects':objects,'chart_candidates':charts,'warnings':[] if charts else [{'code':'svg_structure_unrecognized','message':'已保留原文/对象，未假装任意SVG都是Matplotlib图'}],
+        'objects':objects,**({'outline_inventory':outline_inventory} if outline_inventory else {}),'chart_candidates':charts,'warnings':[] if charts else [{'code':'svg_structure_unrecognized','message':'已保留原文/对象，未假装任意SVG都是Matplotlib图'}],
         'counts':{'text_hints':len(objects),'charts':len(charts)},'analysis':{'svg_full_preview_conversions':1,'ocr_calls':0}}]
 
 

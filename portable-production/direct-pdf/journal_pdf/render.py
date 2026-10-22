@@ -94,6 +94,7 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
                 value.source_shape_target_declarations={node['id']:copy.deepcopy(node) for node in spec.get('nodes',[])}
         return value
     scene=build(size)
+    initial_width=scene.width
     layout_build_count=1
     limit=col*PT_PER_MM-.5
     factor=min(1.,limit/scene.width)
@@ -128,7 +129,9 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
                'width_pt':scene.width,'height_pt':scene.height,'issues':issues}]
     scene.layout_evidence.update({'fit_attempts':attempts,'column_mm':col,
         'layout_build_count':layout_build_count,'pdf_font_ladder_renders':False,
-        'priority':'default-8pt-first; no exhaustive 8/7/6 PDF rendering',
+        'initial_design_font_size_pt':size,'initial_design_width_pt':initial_width,
+        'priority':('default-8pt-first' if size==8 else 'explicit-design-size-input')+'; no exhaustive 8/7/6 PDF rendering',
+        'production_font_policy':spec.get('ingest_provenance',{}).get('production_font_policy'),
         'optimization_claim':'feasible measured template layout; not a proven global optimum'})
     if issues:raise FigureError('no_feasible_layout','布局未通过实际几何检查，不输出定稿',attempts=attempts)
     return scene

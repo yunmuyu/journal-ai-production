@@ -94,6 +94,11 @@ def check_candidate(config: Config, candidate_id: str) -> tuple[dict, dict, Path
         raise FlowError("candidate_id", "候选 ID 无效")
     folder = config.state_root / "candidates" / candidate_id
     candidate = json_file(folder / "candidate.json")
+    if candidate.get("output_format") == "jpg":
+        from .raster_candidates import check_raster_candidate
+        return check_raster_candidate(config, candidate_id)
+    if candidate.get("output_format", "pdf") != "pdf":
+        raise FlowError("artifact_format", "不支持的候选输出格式")
     report_path = safe_child(folder / "render", candidate["output_pdf"])
     engine_report_path = safe_child(folder / "render", str(Path(candidate["output_pdf"]).parent / "report.json"))
     report = json_file(engine_report_path)

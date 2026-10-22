@@ -17,6 +17,8 @@ python -m pytest -q
 
 程序支持 DOCX、PDF、SVG（含draw.io压缩或非压缩mxGraph元数据）、单帧PNG/JPG/TIFF/WebP；其他格式明确标成 unsupported。后续新增PPTX/Office解析可接相同接口，当前不宣称已经支持。输出：probe.json、可追溯原生结构、媒体、匹配候选。筛选字段见schema文件；接入约束见docs/INTEGRATION.md。
 
+另有独立的[逐图加工决策与作者问题契约 v1](docs/EDITORIAL-ROUTE-V1.md)：校验来源哈希、证据引用、显式用户修改历史及保留原文的问题台账。它只提供候选加工前的保守门禁，不自动判断图种、不认证语义，也不替代现有发布或终审流程。
+
 身份/内容配对由Agent视觉核对后另存review；文内图号不由附件名决定。未使用原生语义时保持未知，不生成假连接。已确认栏宽保留，所有版面实测及正式验收另行进行。
 
 没有扫描字体、调用Adobe、外部模型或OCR。源码以只读候选方式交付；候选代码已提交GitHub独立分支，未合并或修改生产runtime。依赖软件仍适用各自许可证。
