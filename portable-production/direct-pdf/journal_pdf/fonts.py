@@ -151,8 +151,8 @@ class FontRegistry:
             self._glyphs[k]=(adv,[b[0]/upm,-b[3]/upm,b[2]/upm,-b[1]/upm])
         return self._glyphs[k]
 
-    def measure(self, content, size=8., leading=None):
-        content=display_content(content)
+    def measure(self, content, size=8., leading=None, *, role='label'):
+        content=display_content(content,role)
         self.stats['measure_calls']+=1
         if not isinstance(size,(int,float)) or isinstance(size,bool) or not math.isfinite(size) or size<6-1e-6 or size>8+1e-6:
             raise FigureError('font_size_out_of_policy','当前候选统一字号范围为6—8pt',size=size)
@@ -199,6 +199,10 @@ class FontRegistry:
         self.db.execute('INSERT OR REPLACE INTO measurements VALUES (?,?)',(key,json.dumps(result,ensure_ascii=False)))
         return result
 
+
+    def measure_vertical(self,content,size=8.):
+        from .vertical_text import measure_vertical
+        return measure_vertical(self,content,size)
 
     def prepare_document_fonts(self,texts):
         groups={}
@@ -256,10 +260,13 @@ def draw_text(page, registry, item):
     # Contiguous glyphs of the same face/size and baseline are written as one run.
     runs=[]
     for g in m['glyphs']:
-        if runs and runs[-1]['face']==g['face'] and runs[-1]['size']==g['size'] and runs[-1]['y']==g['y'] and abs(runs[-1]['end']-g['x'])<1e-6:
-            runs[-1]['text']+=g['ch'];runs[-1]['end']+=g['advance']
-        else:runs.append({'face':g['face'],'size':g['size'],'x':g['x'],'y':g['y'],'text':g['ch'],'end':g['x']+g['advance']})
+        turn=g.get('rotation',0)
+        ax,ay={0:(g['advance'],0),90:(0,-g['advance']),180:(-g['advance'],0),270:(0,g['advance'])}[turn]
+        if runs and runs[-1]['face']==g['face'] and runs[-1]['size']==g['size'] and runs[-1]['rotation']==turn and abs(runs[-1]['end_x']-g['x'])<1e-6 and abs(runs[-1]['end_y']-g['y'])<1e-6:
+            runs[-1]['text']+=g['ch'];runs[-1]['end_x']=g['x']+ax;runs[-1]['end_y']=g['y']+ay
+        else:runs.append({'face':g['face'],'size':g['size'],'x':g['x'],'y':g['y'],'text':g['ch'],
+                          'rotation':turn,'end_x':g['x']+ax,'end_y':g['y']+ay})
     for r in runs:
         name='JFW_'+r['face']; page.insert_font(fontname=name,fontbuffer=registry.document_fonts[r['face']])
         px,py=r['x'],r['y'];rx,ry={0:(px,py),90:(py,-px),180:(-px,-py),270:(-py,px)}[rot]
-        page.insert_text((dx+rx,dy+ry),r['text'],fontname=name,fontsize=r['size'],rotate=rot,color=(0,),overlay=True)
+        page.insert_text((dx+rx,dy+ry),r['text'],fontname=name,fontsize=r['size'],rotate=(rot+r['rotation'])%360,color=(0,),overlay=True)

@@ -3,6 +3,7 @@ import math
 from .common import FigureError, contains, intersects, segment_hits, finite, digest_file, resolve_source
 from .boundary_ports import BoundaryGeometry, rectangular_path_bounds
 from .fonts import position_text
+from .flow_shapes import is_flow_terminal
 from .editorial import display_content, wrap_text, PAD_X, PAD_Y, STROKE, ARROW_LENGTH, diamond_size
 
 class Scene:
@@ -15,11 +16,12 @@ class Scene:
     def ident(self,id):
         if id in self._ids:raise FigureError('duplicate_object_id','重复对象ID',id=id)
         self._ids.add(id)
-    def text(self,id,content,x,y,align='center',rotation=0,owner=None,role='label',size=None,wrap_chars=None):
+    def text(self,id,content,x,y,align='center',rotation=0,owner=None,role='label',size=None,wrap_chars=None,vertical=False):
         self.ident(id); source_content=content;content=display_content(content,role)
         if wrap_chars is not None:
             content=wrap_text(content,wrap_chars)
-        m=self.registry.measure(content,size or self.size)
+        m=self.registry.measure(content,size or self.size,role=role) if role!='label' else self.registry.measure(content,size or self.size)
+        if vertical:m=self.registry.measure_vertical(content,size or self.size)
         p=position_text(m,x,y,align,rotation)
         t={'id':id,'content':content,'source_content':source_content,'measurement':m,'position':p,'owner':owner,'role':role,'x':x,'y':y,'align':align}
         self.texts.append(t);return t
@@ -32,11 +34,14 @@ class Scene:
         n={'id':id,'rect':list(rect),'kind':kind,'container':container,'width':width}
         if dash is not None:n['dash']=list(dash)
         self.nodes.append(n);return n
-    def box(self,id,content,x,y,w=None,h=None,kind='rectangle',padx=4.5,pady=2.7,wrap_chars=None):
-        display=display_content(content,'label')
+    def box(self,id,content,x,y,w=None,h=None,kind='rectangle',padx=4.5,pady=2.7,wrap_chars=None,flow_role=None,text_role='label',vertical_text=False):
+        terminal=is_flow_terminal(content,flow_role)
+        if terminal:kind='terminator'
+        display=display_content(content,text_role)
         if wrap_chars is not None:
             display=wrap_text(display,wrap_chars)
-        m=self.registry.measure(display,self.size)
+        m=self.registry.measure(display,self.size,role=text_role) if text_role!='label' else self.registry.measure(display,self.size)
+        if vertical_text:m=self.registry.measure_vertical(display,self.size)
         scale=self.size/8
         if kind=='diamond':
             dw,dh,_=diamond_size(m['width'],m['height'],self.size)
@@ -47,10 +52,11 @@ class Scene:
         if w is None:w=expected_w
         if h is None:h=expected_h
         node=self.shape(id,[x,y,x+w,y+h],kind)
-        if kind=='rectangle':
+        if terminal:node['flow_terminal']=True
+        if kind in ('rectangle','roundrect','terminator'):
             node['padding_pt']=[padx*scale,pady*scale]
             node['measurement_contract']={'mode':'tight','expected_wh':[expected_w,expected_h]}
-        self.text(id+':text',display,x+w/2,y+h/2,owner=id)
+        self.text(id+':text',display,x+w/2,y+h/2,owner=id,role=text_role,vertical=vertical_text)
         return self.nodes[-1]
     def line(self,id,points,arrow=False,both=False,dash=None,width=.5,exact_terminal=False,endpoint_nodes=None,
              shared_net=None,semantic_role='connection'):
@@ -159,6 +165,11 @@ def audit_scene(s:Scene):
     source_shape_contracts,shape_issues=audit_shape_targets(s)
     issues.extend(shape_issues)
     owner_text={t['owner']:t for t in s.texts if t.get('owner') in nmap}
+    for node in s.nodes:
+        text=owner_text.get(node['id'])
+        terminal=node.get('flow_terminal') or (text is not None and is_flow_terminal(text['content']))
+        if terminal and not node['container'] and node['kind']!='terminator':
+            issues.append({'code':'flow_terminal_shape','id':node['id'],'expected':'terminator','actual':node['kind']})
     def natural_wh(node,text):
         px,py=node.get('padding_pt',[PAD_X*s.size/8,PAD_Y*s.size/8])
         ink=text['position']['bbox']
@@ -169,7 +180,7 @@ def audit_scene(s:Scene):
         peers=[]
         for node_id in definition['nodes']:
             peer=nmap.get(node_id);peer_text=owner_text.get(node_id)
-            if peer is None or peer_text is None or peer.get('container') or peer.get('kind')!='rectangle':return None
+            if peer is None or peer_text is None or peer.get('container') or peer.get('kind') not in ('rectangle','roundrect','terminator'):return None
             peer_contract=peer.get('measurement_contract',{})
             if peer_contract.get('mode')!='measured-group' or peer_contract.get('group')!=contract.get('group') or peer_contract.get('axis')!=definition.get('axis'):return None
             peers.append(natural_wh(peer,peer_text))
@@ -200,13 +211,13 @@ def audit_scene(s:Scene):
             n=nmap[t['owner']];nb=n['rect'];pad=.3
             if not contains([nb[0]+pad,nb[1]+pad,nb[2]-pad,nb[3]-pad],b):
                 issues.append({'code':'text_outside_owner','id':t['id'],'bounds':b,'owner':nb})
-            if n['kind'] in ('rectangle','inputOutput') and not n['container'] and n['id'] not in source_shape_contracts:
+            if n['kind'] in ('rectangle','roundrect','terminator','inputOutput') and not n['container'] and n['id'] not in source_shape_contracts:
                 px,py=n.get('padding_pt',[PAD_X*s.size/8,PAD_Y*s.size/8])
                 margins=[b[0]-nb[0],b[1]-nb[1],nb[2]-b[2],nb[3]-b[3]]
                 if n['kind']=='inputOutput':margins[0]-=min((nb[3]-nb[1])*.25,4);margins[2]-=min((nb[3]-nb[1])*.25,4)
                 if any(v<minimum-.15 for v,minimum in zip(margins,[px,py,px,py])):
                     issues.append({'code':'node_text_padding','id':t['id'],'padding_pt':margins,'minimum_pt':[px,py,px,py]})
-                if n['kind']=='rectangle':
+                if n['kind'] in ('rectangle','roundrect','terminator'):
                     contract=n.get('measurement_contract',{'mode':'missing'})
                     mode=contract.get('mode')
                     if mode=='tight':expected=natural_wh(n,t)

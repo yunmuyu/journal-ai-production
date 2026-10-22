@@ -29,7 +29,7 @@ def compile_reply_figure(reply,source,page):
     require(isinstance(reply,dict),'semantic_schema','图件回复必须是对象')
     allowed={'id','author','source_id','page_id','kind','review','axis_ref','x_ticks','y_ticks','x_title','y_title',
              'legend_rows','mask_review','chart_ref','accept_source_text_hints','series_pairs','nodes','edges',
-             'direction','scope_refs','scope_reason','ignored_texts','ignored_ticks','policy','model','structure'}
+             'direction','scope_refs','scope_reason','ignored_texts','ignored_ticks','policy','model','structure','tree_layout','root_vertical'}
     require(not set(reply)-allowed,'semantic_unknown_fields','回复含未允许字段；不接受路径/命令/自定义坐标',fields=sorted(set(reply)-allowed))
     id=safe_name(reply['id']);author=safe_name(reply.get('author','未归属'))
     review=reply.get('review',{})
@@ -46,6 +46,8 @@ def compile_reply_figure(reply,source,page):
              'geometry_origin':'bound-native-or-detected-candidate-IDs','source_content_review':review,
              'source_file_sha256':source['sha256']}}
     kind=reply.get('kind')
+    if 'tree_layout' in reply or 'root_vertical' in reply:
+        require(kind=='diagram' and reply.get('model')=='tree','tree_options','树布局选项仅用于tree')
     if kind=='raster-chart':return _raster(reply,source,page,base)
     if kind=='svg-chart':return _svg(reply,source,page,base)
     if kind=='diagram':
@@ -238,6 +240,12 @@ def _structured(reply,source,page,base):
     require(model in allowed,'structured_model','尚未适配的语义模板',model=model)
     data=reply.get('structure',{})
     require(isinstance(data,dict) and set(data)==allowed[model],'structured_fields','语义模板缺少字段或夹带几何参数',expected=sorted(allowed[model]))
+    tree_options={}
+    if 'tree_layout' in reply or 'root_vertical' in reply:
+        require(model=='tree','tree_options','树布局选项仅用于tree')
+        require(reply.get('tree_layout','right') in ('right','bilateral'),'tree_layout','树布局须为right或bilateral')
+        require(isinstance(reply.get('root_vertical',False),bool),'tree_root_orientation','root_vertical须为布尔值')
+        tree_options={'tree_layout':reply.get('tree_layout','right'),'root_vertical':reply.get('root_vertical',False)}
     raster=page['kind']=='raster'
     objects=(page['geometry']['shapes']+page['geometry']['regions']) if raster else page['objects'];used=[]
     def resolve(v):
@@ -252,8 +260,16 @@ def _structured(reply,source,page,base):
         if set(v)<= {'refs','join'} and 'refs' in v:
             require(isinstance(v['refs'],list) and v.get('join','\n') in ('',' ','\n'),'text_join','只允许明确原文片段拼接')
             return v.get('join','\n').join(resolve({'ref':r}) for r in v['refs'])
-        require(set(v)<={'title','items','text','children'},'structured_nested_fields','分组只接受标题/成员/层级关系')
-        return {k:resolve(x) for k,x in v.items()}
+        extras={'side','wrap_chars'} if model=='tree' and tree_options.get('tree_layout')=='bilateral' else set()
+        require(set(v)<={'title','items','text','children'}|extras,'structured_nested_fields','分组只接受已支持的语义字段')
+        out={}
+        for k,x in v.items():
+            if k=='side':
+                require(x in ('left','right'),'tree_side','side须为left或right');out[k]=x
+            elif k=='wrap_chars':
+                require(isinstance(x,int) and not isinstance(x,bool) and 1<=x<=20,'tree_wrap','中文换行宽度须为1—20');out[k]=x
+            else:out[k]=resolve(x)
+        return out
     resolved={k:resolve(v) for k,v in data.items()}
     scope=reply.get('scope_refs') or (list(used) if raster else [q['id'] for q in objects if q.get('text')])
     if reply.get('scope_refs'):require(bool(reply.get('scope_reason')),'scope_reason_required','选择页面局部需记录范围依据')
@@ -263,5 +279,5 @@ def _structured(reply,source,page,base):
     require(all(q.get('reason') and q.get('ref') in scope for q in ignored),'ignored_text_evidence','忽略项需理由')
     require(set(used).isdisjoint({q['ref'] for q in ignored}) and set(used)|{q['ref'] for q in ignored}==set(scope),
         'unaccounted_source_text','选定图件文字有遗漏、重复或越界',missing=sorted(set(scope)-set(used)-{q['ref'] for q in ignored}))
-    return base|{'kind':model,**resolved,'source_scope':{'refs':scope,'reason':reply.get('scope_reason'),'ignored':ignored},
+    return base|{'kind':model,**resolved,**tree_options,'source_scope':{'refs':scope,'reason':reply.get('scope_reason'),'ignored':ignored},
         'ingest_notes':['分组/层级由Agent核对，原生文字绑定ID，位图逐节点转写；布局坐标由既有测字模板生成']}

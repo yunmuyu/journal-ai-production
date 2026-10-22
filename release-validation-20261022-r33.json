@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "release": "2026.10.22-r33-layout-capabilities",
+  "status": "verified-source",
+  "environment": {
+    "os": "Windows 11",
+    "python": "3.12.14",
+    "node": "24.18.0"
+  },
+  "freshChecks": {
+    "directPdf": {
+      "passed": 520,
+      "subtestsPassed": 7,
+      "failed": 0,
+      "warnings": 1
+    },
+    "nodeOffline": {
+      "passed": 51,
+      "failed": 0
+    },
+    "releaseBundleTests": {
+      "passed": 3,
+      "failed": 0
+    },
+    "engineDirectory": {
+      "passed": 2,
+      "failed": 0
+    },
+    "githubActions": {
+      "passed": 2,
+      "failed": 0,
+      "checkedCommit": "6154941",
+      "checks": [
+        "push / portable",
+        "pull_request / portable"
+      ]
+    }
+  },
+  "packageAcceptance": "candidate bundle built; extracted manifest verified for 161 files; CLI help and Windows doctor passed; exact ZIP SHA256 recorded separately",
+  "notVerifiedThisRelease": [
+    "fresh-machine dependency installation",
+    "real author figure visual acceptance",
+    "InDesign actual placement",
+    "print RIP",
+    "full Adobe/Photoshop automation"
+  ],
+  "productionRuntimeUpdated": false
+}

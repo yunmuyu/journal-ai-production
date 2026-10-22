@@ -144,7 +144,7 @@ def graph(spec,reg,size):
             w,h=dim[n['id']]
             if direction=='TB':x,y=secondary,primary+(thick[r]-h)/2
             else:x,y=primary+(thick[r]-w)/2,secondary
-            placed[n['id']]=s.box(n['id'],n['text'],x,y,w,h,n.get('shape','rectangle'))
+            placed[n['id']]=s.box(n['id'],n['text'],x,y,w,h,n.get('shape','rectangle'),flow_role=n.get('role'))
             if n['id'] in rectangle_ids:
                 placed[n['id']]['measurement_contract']={'mode':'measured-group','group':group_id,
                     'axis':group_axis,'expected_wh':[w,h]}
