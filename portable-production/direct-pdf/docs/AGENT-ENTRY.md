@@ -152,3 +152,24 @@ https://pymupdf.readthedocs.io/en/latest/recipes-multiprocessing.html
 
 PPTX连接读取的是原OOXML绑定和端部样式；不是按几何最近距离猜连接。官方连接结构说明：
 https://python-pptx.readthedocs.io/en/latest/dev/analysis/shp-connector.html
+
+
+### 双侧递归树（可显式启用）
+
+`kind: diagram, model: tree, tree_layout: bilateral`；structure仍为root/branches，所有文字必须使用原文ref。根分支须有side:left/right，内部节点使用text与children，children允许递归且保持原顺序。节点wrap_chars为1—20，仅对纯中文换行；英文词不强拆。root_vertical:true使根节点中文逐字竖排、英文词整体保留。普通right模板继续兼容原输入。
+
+```json
+{
+  "kind": "diagram", "model": "tree", "tree_layout": "bilateral", "root_vertical": true,
+  "structure": {
+    "root": {"ref": "root-label"},
+    "branches": [
+      {"text": {"ref": "left-label"}, "side": "left", "wrap_chars": 2,
+       "children": [{"text": {"ref": "group-label"}, "children": [{"ref": "leaf-label"}]}]},
+      {"text": {"ref": "right-label"}, "side": "right", "children": [{"ref": "other-leaf"}]}
+    ]
+  }
+}
+```
+
+先完成来源及左右归属核对，再由公共布局从外侧叶框向内计算尺寸和连接占位。最多80节点、12层。连接为树状无箭头汇总线；交叉边、环、图标及多父节点须按对应图种处理，不可套树。单栏超限或最终字号低于6pt时返回失败，不自动切双栏；仍须查看实际PDF并核验父子关系。
