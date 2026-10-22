@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.20-r32-production-baseline",
-  "createdAt": "2026-10-20T07:24:47.338Z",
-  "status": "released",
+  "id": "2026.10.22-r33-layout-capabilities",
+  "createdAt": "2026-10-22T07:29:33.244Z",
+  "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
       "min": 6,
@@ -13,35 +13,41 @@
   },
   "validation": {
     "schemaVersion": 1,
-    "release": "2026.10.20-r32-production-baseline",
+    "release": "2026.10.22-r33-layout-capabilities",
     "status": "verified-source",
     "environment": {
-      "os": "Windows",
+      "os": "Windows 11",
       "python": "3.12.14",
       "node": "24.18.0"
     },
     "freshChecks": {
-      "node": {
+      "directPdf": {
+        "passed": 520,
+        "subtestsPassed": 7,
+        "failed": 0,
+        "warnings": 1
+      },
+      "nodeOffline": {
         "passed": 51,
         "failed": 0
       },
-      "localflow": {
-        "passed": 14,
-        "subtestsPassed": 2,
+      "releaseBundleTests": {
+        "passed": 3,
         "failed": 0
       },
-      "releaseBundle": {
-        "passed": 3,
+      "engineDirectory": {
+        "passed": 2,
         "failed": 0
       }
     },
-    "packageAcceptance": "Separate release asset: release-acceptance.json, bound to ZIP SHA256",
-    "inheritedEvidence": "release-validation-20261020-r31.json; not a fresh full-suite run",
+    "packageAcceptance": "candidate bundle built; extracted manifest verified for 161 files; CLI help and Windows doctor passed; exact ZIP SHA256 recorded separately",
     "notVerifiedThisRelease": [
+      "GitHub Actions for this candidate PR",
       "fresh-machine dependency installation",
+      "real author figure visual acceptance",
       "InDesign actual placement",
       "print RIP",
-      "full Adobe/PS automation"
+      "full Adobe/Photoshop automation"
     ],
     "productionRuntimeUpdated": false
   },
@@ -448,7 +454,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.20-r31-public-capabilities",
+  "supersedes": "2026.10.20-r32-production-baseline",
   "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged.",
   "sourceParent": "dd23ecab65f37ef797249c13c32de951dfa116ac",
   "productionRoute": "portable-production",
@@ -474,8 +480,8 @@
   "portableFiles": [
     {
       "path": "AGENTS.md",
-      "sha256": "40c2dd77e99839c4c36f57ef1e5da24551346727e41b0f768b567b2cdb5e5f3b",
-      "bytes": 1536
+      "sha256": "bd086dca77140cf9afffc48e902f7fb6fbec6eea70c511e70f2380a4c02431b4",
+      "bytes": 2717
     },
     {
       "path": "CLOSEOUT-STATUS.md",
@@ -524,8 +530,8 @@
     },
     {
       "path": "direct-pdf/docs/AGENT-ENTRY.md",
-      "sha256": "f3924c6eaab8ac5176229052ee133523fa6cafc81f32a83f46421075864d02ce",
-      "bytes": 11401
+      "sha256": "dc075ab6b30e840cce735c737cfc79e104ff3c895d7af987c663b29f45aa7fa6",
+      "bytes": 12682
     },
     {
       "path": "direct-pdf/docs/BOUNDARIES.md",
@@ -534,8 +540,8 @@
     },
     {
       "path": "direct-pdf/docs/CAPABILITIES.json",
-      "sha256": "573193131b6544cf6f637f646aa6c3c6be43d91d1cb0737d301f26016ed8ef9d",
-      "bytes": 2509
+      "sha256": "67a00aef1a1f9bf4cae06220aa0533404f85b6e62c70c1de10317befa7398e80",
+      "bytes": 3032
     },
     {
       "path": "direct-pdf/docs/DEPENDENCIES.md",
@@ -644,8 +650,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/agent_spec.py",
-      "sha256": "0808edfe1533a579271af1eac419426a7f67a53039e6525f8efea84afd387c99",
-      "bytes": 20098
+      "sha256": "a327f63f76e6ed9c1a4578f653b4ed1229dda9b26b30cb6621eda50116b7fb57",
+      "bytes": 21290
     },
     {
       "path": "direct-pdf/journal_pdf/assets.py",
@@ -661,6 +667,11 @@
       "path": "direct-pdf/journal_pdf/batch.py",
       "sha256": "fb9a70adda4df97431fe1521e2499e857819f55c518e2a22316d11e8da8690ce",
       "bytes": 7197
+    },
+    {
+      "path": "direct-pdf/journal_pdf/bilateral_tree.py",
+      "sha256": "ce9f354edd6a1924143940d828ea81ae3cef714a81e12d8ba7a5d0e09a27a040",
+      "bytes": 8136
     },
     {
       "path": "direct-pdf/journal_pdf/boundary_ports.py",
@@ -698,14 +709,19 @@
       "bytes": 9293
     },
     {
+      "path": "direct-pdf/journal_pdf/flow_shapes.py",
+      "sha256": "561b2099fda75853b4eb848ea9e9dbacb2e50d31ffa53b774457613e40644804",
+      "bytes": 246
+    },
+    {
       "path": "direct-pdf/journal_pdf/font_descriptors.py",
       "sha256": "1d14f0ce0d6a52c787bc0be051ed9009632e253ee9766437794c69ac0c1100bb",
       "bytes": 8007
     },
     {
       "path": "direct-pdf/journal_pdf/fonts.py",
-      "sha256": "bb59570e1bddcc715ed0022d75d622f676755ca4ea7094b80cc099128d3ff997",
-      "bytes": 16337
+      "sha256": "5567fca2e20c6a57b60a8145d493324b8695b47bd5aad69e4f8d4a1ed81ddc32",
+      "bytes": 16794
     },
     {
       "path": "direct-pdf/journal_pdf/gallery.py",
@@ -714,8 +730,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/graph_layout.py",
-      "sha256": "910b82d3e1e7cc8994e4d29d1b9b473d2cb5a29b254be767af2d2559644a18bd",
-      "bytes": 16850
+      "sha256": "f94769337520c7a6548e3166422d666aff32cf8679dcb11af07b508504221774",
+      "bytes": 16874
     },
     {
       "path": "direct-pdf/journal_pdf/ingest_geometry.py",
@@ -734,8 +750,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/layouts.py",
-      "sha256": "81390b4f8db5a2450421b89931ca0a94cf7bec7bf9252772ee86712cbd62999c",
-      "bytes": 20383
+      "sha256": "b762d0933cfc62f98ad5207fa761b788e6ac2c67f3a6fb11f1f8aecf0f5e76c8",
+      "bytes": 21042
     },
     {
       "path": "direct-pdf/journal_pdf/pdf_fonts.py",
@@ -754,8 +770,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/scene.py",
-      "sha256": "6003b36eb357ed212d1c102ec670a214a6cdaee966580e1e1c4d1702019c2023",
-      "bytes": 21444
+      "sha256": "52869b0542b559efde5eb777568ee6048136ab9ffa07b963324f7cc8f5f5ddd3",
+      "bytes": 22535
     },
     {
       "path": "direct-pdf/journal_pdf/server.py",
@@ -811,6 +827,11 @@
       "path": "direct-pdf/journal_pdf/source_svg_groups.py",
       "sha256": "5988dfef7dffede682575fdd39f25e1c20bc6b8c892c6fc70a096dbc59f7e3b6",
       "bytes": 4514
+    },
+    {
+      "path": "direct-pdf/journal_pdf/vertical_text.py",
+      "sha256": "395c32b1fd98e7a0cfa890ad453919ff4a41a502e6f49e1c3e22423c57b8fa00",
+      "bytes": 1874
     },
     {
       "path": "direct-pdf/journal_pdf/windows_fonts.py",
@@ -878,6 +899,11 @@
       "bytes": 1437
     },
     {
+      "path": "direct-pdf/tests/test_bilateral_tree.py",
+      "sha256": "bdcc0729e4839296b1a0826652ff62b5415e9535a1857284269120eb6a88e981",
+      "bytes": 6335
+    },
+    {
       "path": "direct-pdf/tests/test_boundary_ports.py",
       "sha256": "ad7f4d51b597c7099054f628bf19fe7ebc2d8a2bc86eb626b2c6bf59fe8d399f",
       "bytes": 6773
@@ -906,6 +932,11 @@
       "path": "direct-pdf/tests/test_final_layout_regressions.py",
       "sha256": "b544f6524c2c1fc47c787faca86cb6af6c1fdcefa0e3648b8a4aa8cd6c04391d",
       "bytes": 4827
+    },
+    {
+      "path": "direct-pdf/tests/test_flow_terminal_shapes.py",
+      "sha256": "c9567e4cce19a6d52891444a0d1851fdc24f902f3d5bdb3dda282b3f0bae5602",
+      "bytes": 3801
     },
     {
       "path": "direct-pdf/tests/test_fonts.py",
@@ -1011,6 +1042,11 @@
       "path": "direct-pdf/tests/test_v012_new_raster.py",
       "sha256": "bbfe2015b019af121a42c40a096572a1850ed6abf83d9a0f31baaf04f1cb7e81",
       "bytes": 3730
+    },
+    {
+      "path": "direct-pdf/tests/test_vertical_mixed_text.py",
+      "sha256": "8cdf48b53d7a9b24b72bd36ed4c8df7265114cd94e77b833ac4650d6d71b5428",
+      "bytes": 1344
     },
     {
       "path": "localflow/__init__.py",
@@ -1139,8 +1175,8 @@
     },
     {
       "path": "README.md",
-      "sha256": "32473683d1eb28281950bc767b1dea8be5d0e99cb40c0fb97aaf5823b348ccd0",
-      "bytes": 3394
+      "sha256": "383efc6478291f7d39693b53dac1b81c41fbc7add63942dc258574a23f629ae7",
+      "bytes": 4459
     },
     {
       "path": "task_quality/__init__.py",
