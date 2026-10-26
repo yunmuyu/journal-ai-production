@@ -90,8 +90,9 @@ def prepare_mixed_body(source:Path,page_no:int,clip:list[float],*,text_replaceme
             image_proof=[]
             for xref in dict.fromkeys(row['xref'] for row in clean_images):
                 pixels=clean.xref_stream(xref)
-                gray=bytes(component for i in range(0,len(pixels),3) for component in [round(.299*pixels[i]+.587*pixels[i+1]+.114*pixels[i+2])]*3)
-                clean.update_stream(xref,gray,compress=True)
+                from .source_native_gray import grayscale_rgb_bytes,replace_rgb_image_pixels
+                gray=grayscale_rgb_bytes(pixels)
+                replace_rgb_image_pixels(clean,xref,gray)
                 image_proof.append({'native_resource_xref':xref,'original_rgb_sha256':hashlib.sha256(pixels).hexdigest(),'gray_rgb_sha256':hashlib.sha256(gray).hexdigest(),'formula':'round(.299 R+.587 G+.114 B), replicated RGB','dimensions_unchanged':True,'smask_unchanged':True})
             data=clean.tobytes(garbage=4,deflate=True,no_new_id=True)
             with fitz.open(stream=data,filetype='pdf') as gray_saved:

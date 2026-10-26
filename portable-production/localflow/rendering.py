@@ -69,6 +69,9 @@ def check_constraints(spec: dict, constraints: dict) -> None:
 
 
 def check_report(report: dict, pdf: Path) -> None:
+    if (any(a.get("mode") in ("source-vector-body", "source-mixed-body") for a in report.get("assets", []))
+            or report.get("typography_coverage", {}).get("status") == "unverified"):
+        raise FlowError("source_text_coverage", "源图路径或像素中的文字覆盖尚未验证；原生文字检查不能证明全图文字合格")
     if report.get("status") != "candidate-rendered" or report.get("mechanical_checks_passed") is not True:
         raise FlowError("render_audit", "引擎没有生成机械检查通过的候选")
     if report.get("pdf_sha256") != hash_file(pdf):
@@ -79,9 +82,14 @@ def check_report(report: dict, pdf: Path) -> None:
     for key in ("text_multiset_exact", "all_fonts_embedded", "neutral_rgb_300dpi",
         "numeric_grouping_in_actual_pdf", "editable_text_pure_black", "effective_path_strokes_05pt"):
         if audit.get(key) is not True:
+            if (key == "editable_text_pure_black" and audit.get("editable_text_declared_black_white_exact") is True
+                    and any(a.get("mode") == "registered-native-pdf-text" for a in report.get("assets", []))):
+                continue
             raise FlowError("render_audit", f"实际 PDF 审计未通过：{key}")
     if audit.get("axis_unit_notation", {}).get("ok") is not True:
         raise FlowError("render_audit", "实际 PDF 轴单位审计未通过")
+    if audit.get("editable_text_rotation_exact", True) is not True:
+        raise FlowError("render_audit", "实际 PDF 文字旋转角核对未通过")
     if audit.get("font_descriptors", {}).get("passed") is not True:
         raise FlowError("render_audit", "引擎报告缺少字体描述完整性审计")
     audit_pdf_compatibility(pdf)

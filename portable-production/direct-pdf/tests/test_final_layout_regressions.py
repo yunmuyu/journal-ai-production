@@ -31,6 +31,8 @@ class FinalLayoutRegressions(unittest.TestCase):
                         '__package__': 'journal_pdf', 'PT_PER_MM': 72 / 25.4,
                         'BoundaryGeometry': BoundaryGeometry, 'rectangular_path_bounds': rectangular_path_bounds}
         load_functions('common.py', {'FigureError', 'contains', 'intersects', 'segment_hits'}, self.context)
+        load_functions('text_geometry.py', {'oblique','polygons','texts_intersect','segment_intersects_text',
+                                           'arrow_intersects_text','rotate_point','ink_polygons','convex_intersects'}, self.context)
         load_functions('scene.py', {'audit_scene'}, self.context)
         load_functions('server.py', {'apply_changes'}, self.context)
 

@@ -56,7 +56,7 @@ def svg(tmp_path):
     p=tmp_path/'plot.svg';p.write_text('''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100pt" height="80pt" viewBox="0 0 100 80">
     <defs><path id="mark" d="M-2 -2L2 -2L2 2L-2 2Z"/></defs>
     <g id="axes_1"><g id="curve"><path d="M10 60L50 30L90 20" style="fill:none;stroke:#333333;stroke-width:1;stroke-dasharray:3,2"/><use xlink:href="#mark" x="50" y="30"/></g>
-    <g id="text_1"><text x="10" y="75">old</text></g><g id="legend"><g id="swatch"><path d="M60 10L80 10" style="stroke:#333333;stroke-width:1;stroke-dasharray:3,2"/></g></g></g></svg>''');return p
+    <g id="matplotlib.axis_1"><g id="text_1"><text x="10" y="75">old</text></g></g><g id="legend"><g id="swatch"><path d="M60 10L80 10" style="stroke:#333333;stroke-width:1;stroke-dasharray:3,2"/></g></g></g></svg>''');return p
 
 
 def test_referenced_marker_geometry_protected(svg):
@@ -72,3 +72,21 @@ def test_svg_remains_vector_and_dash_styles_survive(svg):
     assert any(p.get('dashes') not in (None,'[] 0') for p in asset.doc[0].get_drawings())
     assert len(asset.doc[0].get_drawings())>=2 # path + referenced marker
     a.close()
+
+
+@pytest.mark.parametrize('annotation',[
+    '<text x="30" y="35">0.211</text>',
+    '<!-- abrupt drop --><path d="M30 30L32 35L34 30Z"/>'])
+def test_svg_chart_blocks_unhandled_internal_labels_instead_of_deleting(svg,annotation):
+    # Given: a chart contains a data label or outlined explanatory annotation.
+    original=svg.read_text()
+    svg.write_text(original.replace('</svg>','<g id="text_99">'+annotation+'</g></svg>'))
+    before=svg.read_bytes();assets=Assets()
+    try:
+        # When / Then: chart preparation must refuse rather than silently erase it.
+        with pytest.raises(FigureError) as error:
+            assets.svg_chart(svg,'axes_1',[0,0,100,80],['curve'],'legend')
+        assert error.value.code=='svg_unhandled_source_text'
+        assert 'text_99' in error.value.details['object_ids']
+        assert svg.read_bytes()==before
+    finally:assets.close()

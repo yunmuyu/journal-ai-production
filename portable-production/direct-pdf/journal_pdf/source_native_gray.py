@@ -6,6 +6,21 @@ from io import BytesIO
 from .common import FigureError
 
 
+def grayscale_rgb_bytes(pixels: bytes) -> bytes:
+    if len(pixels)%3:raise FigureError('source_glyph_color','RGB像素字节数须为三的倍数')
+    return bytes(v for i in range(0,len(pixels),3) for v in [round(.299*pixels[i]+.587*pixels[i+1]+.114*pixels[i+2])]*3)
+
+
+def replace_rgb_image_pixels(doc, xref: int, pixels: bytes) -> None:
+    """Write decoded RGB bytes without retaining the old stream's predictors."""
+    width=int(doc.xref_get_key(xref,'Width')[1]);height=int(doc.xref_get_key(xref,'Height')[1])
+    if len(pixels)!=width*height*3:raise FigureError('source_glyph_color','RGB像素尺寸不匹配')
+    doc.xref_set_key(xref,'ColorSpace','/DeviceRGB')
+    doc.xref_set_key(xref,'BitsPerComponent','8')
+    doc.xref_set_key(xref,'DecodeParms','null')
+    doc.update_stream(xref,pixels,compress=True)
+
+
 def native_gray(data: bytes, *, allow_image_xobjects: bool=False) -> tuple[bytes, list]:
     from pypdf import PdfReader, PdfWriter
     from pypdf.generic import ArrayObject, ContentStream, FloatObject, NameObject
@@ -31,7 +46,7 @@ def native_gray(data: bytes, *, allow_image_xobjects: bool=False) -> tuple[bytes
                     size=function.get('/Size');samples=function.get_data()
                     if not isinstance(size,list) or len(size)!=1 or function.get('/BitsPerSample')!=8 or function.get('/Order',1)!=1 or list(function.get('/Decode',[]))!=[0,1,0,1,0,1] or list(function.get('/Range',[]))!=[0,1,0,1,0,1] or list(function.get('/Domain',[]))!=[0,1] or list(function.get('/Encode',[]))!=[0,size[0]-1] or len(samples)!=int(size[0])*3:
                         raise FigureError('source_glyph_sampled_function','仅验证原一维8bit RGB线性采样表')
-                    converted=bytes(component for i in range(0,len(samples),3) for component in [round(.299*samples[i]+.587*samples[i+1]+.114*samples[i+2])]*3)
+                    converted=grayscale_rgb_bytes(samples)
                     function.set_data(converted)
                     proof.append({'pattern':str(name),'function_type':0,'sample_count':int(size[0]),'original_sample_sha256':hashlib.sha256(samples).hexdigest(),'gray_sample_sha256':hashlib.sha256(converted).hexdigest(),'sample_positions_and_function_parameters_unchanged':True})
                 case 2:
