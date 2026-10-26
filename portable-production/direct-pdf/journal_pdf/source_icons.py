@@ -101,7 +101,7 @@ def write_icon(source: Path,page_no: int,clip: list[float],output: Path) -> None
 def audit_icon_paths(page, placements):
     """Match actual saved paths against source-bound placements, consuming each instance."""
     from .assets import Assets
-    icons=[row for row in placements if row['asset'].audit.get('mode') in ('source-bound-vector-icon','source-vector-body','source-svg-group','source-vector-glyph','source-mixed-body')]
+    icons=[row for row in placements if row['asset'].audit.get('mode') in ('source-bound-vector-icon','source-vector-body','source-svg-group','source-vector-glyph','source-mixed-body','registered-outlined-svg-chart')]
     actual=page.get_drawings()
     expected=[];bindings=[];image_expected=[]
     with fitz.open() as reference:
@@ -112,7 +112,9 @@ def audit_icon_paths(page, placements):
                 asset=row['asset'];receipt=asset.audit
                 if digest_file(Path(asset.source_path))!=asset.source_hash or receipt['source_sha256']!=asset.source_hash:
                     raise FigureError('source_icon_source_changed','图标原PDF与绑定来源不一致')
-                if receipt['mode']=='source-mixed-body':
+                if receipt['mode']=='registered-outlined-svg-chart':
+                    verified=placer.registered_outline_chart(Path(asset.source_path),receipt['outline_chart_registration'],swatch_id=receipt['swatch_id'])
+                elif receipt['mode']=='source-mixed-body':
                     verified=placer.source_mixed_body(Path(asset.source_path),receipt['source_page'],receipt['source_clip'],text_replacements=receipt.get('native_text_replacements',receipt.get('text_replacements')),outline_text_replacements=receipt.get('outline_text_replacements'),source_shape_replacements=receipt.get('source_shape_replacements'))
                 elif receipt['mode']=='source-vector-glyph':
                     verified=placer.source_vector_glyph(Path(asset.source_path),receipt['source_page'],receipt['source_clip'],receipt['selected_source_path_indices'],gray=receipt['grayscale'],text_replacements=receipt.get('text_replacements'))

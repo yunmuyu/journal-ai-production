@@ -190,6 +190,24 @@ class Assets:
         a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
         return a
 
+    def registered_outline_chart(self,path:Path,registration,*,swatch_id=None):
+        from .source_outline_chart import prepare_registered_svg
+        from .source_native_gray import native_gray
+        sha=digest_file(path);key=digest_json(['registered-outline-chart',sha,registration,swatch_id])
+        if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
+        root,bound,audit=prepare_registered_svg(path,registration,swatch_id=swatch_id)
+        raw=svg_pdf_bytes(root);data,gray_audit=native_gray(raw)
+        audit['grayscale']=gray_audit
+        with fitz.open(stream=data,filetype='pdf') as stable:
+            stable.set_metadata({})
+            data=stable.tobytes(garbage=4,deflate=True,no_new_id=True)
+        clip=bound['plot_clip'] if swatch_id is None else next(s['swatch_clip'] for s in bound['series'] if s['id']==swatch_id)
+        audit.update(source_page=0,source_clip=list(clip),prepared_sha256=hashlib.sha256(data).hexdigest(),
+                     outline_chart_registration=registration,swatch_id=swatch_id)
+        a=Asset(key,'pdf',str(path),sha,list(clip),data,audit)
+        a.doc=fitz.open(stream=data,filetype='pdf');self._cache[key]=a;self.stats['preparations']+=1
+        return a
+
     def svg_chart(self,path: Path,axes_id: str,plot_rect,series_ids,legend_id,gray=True):
         sha=digest_file(path); key=digest_json(['svg-chart',sha,axes_id,plot_rect,series_ids,legend_id,gray])
         if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]

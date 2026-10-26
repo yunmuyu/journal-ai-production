@@ -2,6 +2,7 @@
 No per-author drawing code. Text and topology enter through data-only specs.
 """
 from __future__ import annotations
+from .flow_shapes import is_flow_terminal
 import math, json, subprocess, shutil, re
 from pathlib import Path
 from .common import FigureError, PT_PER_MM, finite
@@ -153,6 +154,11 @@ def fanout(spec,reg,size):
 def tree(spec,reg,size):
     """Measured hierarchy. A bundled/external solver bridge can provide the
     block positions; this fallback is explicitly a deterministic tree template."""
+    layout=spec.get('tree_layout','right')
+    if layout=='bilateral':
+        from .bilateral_tree import bilateral_tree
+        return bilateral_tree(spec,reg,size)
+    if layout!='right':raise FigureError('tree_layout','树布局仅支持right或bilateral')
     s=Scene(reg,size);s.template='hierarchy-tree';p=2.;padx=4.5*size/8;padv=2.7*size/8;gapx=2*float(spec.get('bus_leg_mm',2))*PT_PER_MM;gapy=3*size/8;groupgap=16.
     branches=spec['branches'];roottext=spec['root']
     if spec.get('root_vertical'):roottext='\n'.join(roottext.replace('\n',''))
@@ -233,7 +239,7 @@ def primitive(spec,reg,size):
             if node_id not in node_specs or node_id in placed:
                 raise FigureError('measured_group_invalid','测量分组引用无效节点',group=group.get('id'),node=node_id)
             n=node_specs[node_id]
-            if 'rect' in n or 'text' not in n or n.get('container') or n.get('semantic_shape') or n.get('shape','rectangle') not in ('rectangle','roundrect'):
+            if 'rect' in n or 'text' not in n or n.get('container') or n.get('shape','rectangle') not in ('rectangle','roundrect','terminator'):
                 raise FigureError('measured_group_invalid','测量分组只接受未指定矩形的普通文字框',group=group.get('id'),node=node_id)
             display=display_content(n['text'],'label')
             if n.get('wrap_chars') is not None:display=wrap_text(display,n['wrap_chars'])
@@ -254,7 +260,8 @@ def primitive(spec,reg,size):
             if equal_width:widths=[max(widths)]*len(widths)
         else:widths=[max(widths)]*len(widths)
         for index,((n,_),w,h) in enumerate(zip(members,widths,heights)):
-            node=s.box(n['id'],n['text'],x,y,w,h,'rectangle',wrap_chars=n.get('wrap_chars'))
+            kind=n['shape'] if n.get('shape') in ('roundrect','terminator') and n.get('semantic_shape') else 'rectangle'
+            node=s.box(n['id'],n['text'],x,y,w,h,kind,wrap_chars=n.get('wrap_chars'),flow_role=n.get('role'))
             node['measurement_contract']={'mode':'measured-group','group':group.get('id'),'axis':measured_axis,'expected_wh':[w,h]}
             nodes[n['id']]=node;placed.add(n['id'])
             if axis=='row':x+=w+gap
@@ -262,11 +269,13 @@ def primitive(spec,reg,size):
     for n in spec.get('nodes',[]):
         if n['id'] in placed:continue
         if 'rect' not in n:raise FigureError('primitive_node_rect_missing','普通节点缺少矩形或测量分组',id=n['id'])
-        r=n['rect'];kind=n.get('shape','rectangle')
-        if kind=='roundrect' and not n.get('semantic_shape'):
+        r=n['rect'];terminal=not n.get('container',False) and is_flow_terminal(n.get('text',''),n.get('role'))
+        kind='terminator' if terminal else n.get('shape','rectangle')
+        if kind=='roundrect' and not n.get('semantic_shape') and not terminal:
             kind='rectangle'
         nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),dash=n.get('dash'))
-        if kind=='rectangle' and not n.get('container',False):
+        if terminal:nodes[n['id']]['flow_terminal']=True
+        if kind in ('rectangle','roundrect','terminator') and not n.get('container',False):
             nodes[n['id']]['padding_pt']=[4.5*size/8,2.7*size/8]
             fixed=n.get('fixed_size');constraints={'table-cell':'tabular-grid','code-panel':'source-code-viewport',
                 'device-glyph':'source-symbol-bounds','source-locked-viewport':'source-artwork-bounds'}
@@ -312,3 +321,5 @@ from .graph_layout import graph
 DIAGRAMS["graph"]=graph
 from .columns import columns
 DIAGRAMS["columns"]=columns
+from .grouped_chains import grouped_chains
+DIAGRAMS['grouped-chains'] = grouped_chains

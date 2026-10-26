@@ -151,3 +151,5 @@ delivery-manifest.json 保存现行三类规则版本、expectedExportNumbers/ex
 - 最终线型可声明 `strokeExpectations: [{pathName: "post-curve", widthPt: 0.5, dashPt: [3,2]}]`，单位为最终物理pt，按保存后原生对象检查。PDF strokeAudit另测Form Matrix、页面CTM、UserUnit后的物理虚线长度；非等比且无法确认的虚线不作确定长度通过。
 - U+0300～U+036F组合附标（含x+组合帽）目前在导出前报COMBINING_MARK_REQUIRES_VECTOR_ACCENT；保留可编辑基础字，用独立矢量附标。尚未实现自动数学语义推断或任意字体字形覆盖检测。
 - 最终混合PDF色彩审计支持常见有效ICCBased和Indexed图片；在掩码合成前检查原像素，仍核对实际PDF中性灰度，不删除透明蒙版来消警。复杂渐变、Pattern和未实现编码仍明确拒收。
+
+负号与减号按语义区分：负数、负值、负方向及负指数的一元负号使用 ASCII -（U+002D）；只有二元减法使用 −（U+2212）。数学公式和上标中也不得自动把一元负号改成数学减号。

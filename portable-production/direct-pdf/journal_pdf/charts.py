@@ -6,7 +6,7 @@ from .common import FigureError, resolve_source, contains, segment_hits
 from .scene import Scene
 from .fonts import position_text
 from .axis_units import normalize_axis_title, axis_title_evidence
-from .editorial import group_number, TICK_CLEARANCE, LABEL_CLEARANCE, STROKE
+from .editorial import group_number, TICK_CLEARANCE, LABEL_CLEARANCE, STROKE, PAD_X
 from PIL import Image
 import io
 
@@ -51,13 +51,25 @@ def place_bar_top_labels(groups, measure, *, ink_gap_pt, plot_rect,
                     'minimum_horizontal_gap_pt':min(separations) if separations else None}
 
 
-def tick_content(tick):
+def tick_content(tick, base_size_pt=8):
     """A numeric component plus an explicitly verified suffix, never guessed.
 
     The original spelling is retained in `text`. A scientific prefix on a
     tick is NOT silently interpreted as an axis-unit conversion.
+    `power10` supplies a verified integer exponent; only matching explicit
+    power notation is accepted, never a guessed decimal-to-log conversion.
     """
     raw=str(tick['text'])
+    if 'power10' in tick:
+        from .scientific_text import power_of_ten
+        if 'number' in tick or 'suffix' in tick:
+            raise FigureError('tick_semantics_conflict','十的幂刻度不能同时声明数值后缀')
+        runs=power_of_ten(tick['power10'],base_size_pt=base_size_pt)
+        exponent=runs[1]['text']
+        superscript=exponent.translate(str.maketrans('-0123456789','⁻⁰¹²³⁴⁵⁶⁷⁸⁹'))
+        if raw not in {'10'+superscript,'10^'+exponent,'10^'+exponent.replace('-','−')}:
+            raise FigureError('tick_power10_mismatch','刻度原文与显式确认的十的幂指数不一致',text=raw)
+        return runs
     if 'number' not in tick:
         return group_number(raw)
     number=str(tick['number']);suffix=tick.get('suffix','')
@@ -69,15 +81,25 @@ def tick_content(tick):
 
 def chart(spec,reg,size,assets,root):
     s=Scene(reg,size);s.template='chart-'+spec['source_kind'];path=resolve_source(root,spec['source'])
+    if spec['source_kind']=='registered-outline-svg':
+        from .source_outline_chart import validate_chart_spec
+        validate_chart_spec(path,spec)
     clip=spec['plot_clip'];srcw=clip[2]-clip[0];srch=clip[3]-clip[1]
-    pw=float(spec.get('plot_width_pt',180));scale=pw/srcw;ph=srch*scale
-    yms=[reg.measure(tick_content(v),size) for v in spec['y_ticks']]
-    xms=[reg.measure(tick_content(v),size) for v in spec['x_ticks']]
+    pw=float(spec.get('plot_width_pt',180));scale=pw/srcw
+    if spec['source_kind']=='registered-outline-svg':
+        frame=spec['axis_frame_source'];scale=pw/(frame[2]-frame[0]);pw=srcw*scale
+    ph=srch*scale
+    yms=[reg.measure(tick_content(v,size),size) for v in spec['y_ticks']]
+    xms=[reg.measure(tick_content(v,size),size) for v in spec['x_ticks']]
     # Mandatory formatting precedes ALL measurement and capacity decisions.
     xtitlem=reg.measure(normalize_axis_title(spec['x_title']),size)
     titlem=reg.measure(normalize_axis_title(spec['y_title']),size)
     left=max(float(spec.get('left_margin_pt',0)),max(m['width'] for m in yms)+titlem['height']+TICK_CLEARANCE+LABEL_CLEARANCE+2)
-    top=max(m['height']/2 for m in yms)+1;bottom=25.;right=3.;x0=left;y0=top
+    top=max(m['height']/2 for m in yms)+1
+    if spec.get('figure_title'):
+        tm=reg.measure(spec['figure_title'],size);tb=spec['title_source_bbox']
+        top=max(top,1+tm['height']/2-((tb[1]+tb[3])/2-clip[1])*scale)
+    bottom=25.;right=3.;x0=left;y0=top
     # SVG tick endpoints must be identified in source units, not guessed from frame.
     tick_len=float(spec.get('tick_length_source_units',0))*scale
     tick_gap=TICK_CLEARANCE+STROKE/2
@@ -96,7 +118,9 @@ def chart(spec,reg,size,assets,root):
             if xl<y_tick_edge and xr>y_tick_edge-ym['width']:
                 yy=y0+(yv['position']-clip[1])*scale
                 x_tick_edge=max(x_tick_edge,yy+ym['height']/2+corner_gap)
-    if spec['source_kind']=='svg':
+    if spec['source_kind']=='registered-outline-svg':
+        a=assets.registered_outline_chart(path,spec['outline_chart_registration'])
+    elif spec['source_kind']=='svg':
         a=assets.svg_chart(path,spec['axes_id'],clip,[v['source_group'] for v in spec['series']],spec['legend_source_id'])
     elif spec['source_kind']=='raster':
         a=assets.raster(path,clip,masks=spec.get('masks'),approved_empty_regions=spec.get('approved_empty_regions'))
@@ -115,20 +139,21 @@ def chart(spec,reg,size,assets,root):
             s.line('source-ytick-'+str(i),[[x,y],[x-tick_len,y]])
     for i,v in enumerate(spec['x_ticks']):
         pos=x0+(v['position']-clip[0])*scale
-        s.text('xtick'+str(i),tick_content(v),pos,x_tick_edge+xms[i]['height']/2,role='axis-tick')
+        s.text('xtick'+str(i),tick_content(v,size),pos,x_tick_edge+xms[i]['height']/2,role='axis-tick')
     for i,v in enumerate(spec['y_ticks']):
         pos=y0+(v['position']-clip[1])*scale
-        s.text('ytick'+str(i),tick_content(v),y_tick_edge,pos,align='right',role='axis-tick')
+        s.text('ytick'+str(i),tick_content(v,size),y_tick_edge,pos,align='right',role='axis-tick')
     xtitle_top=x_tick_edge+max(m['height'] for m in xms)+LABEL_CLEARANCE
-    s.text('xtitle',spec['x_title'],x0+pw/2,xtitle_top+xtitlem['height']/2,role='axis-title')
+    s.text('xtitle',spec['x_title'],x0+((axis[0]+axis[2])/2-clip[0])*scale if spec['source_kind']=='registered-outline-svg' else x0+pw/2,xtitle_top+xtitlem['height']/2,role='axis-title')
     # The title's rotated ink height is the unrotated width; measured centering avoids baselines guessed by eye.
-    s.text('ytitle',spec['y_title'],y_tick_edge-max(m['width'] for m in yms)-LABEL_CLEARANCE-titlem['height']/2,y0+ph/2,rotation=90,role='axis-title')
+    s.text('ytitle',spec['y_title'],y_tick_edge-max(m['width'] for m in yms)-LABEL_CLEARANCE-titlem['height']/2,y0+((axis[1]+axis[3])/2-clip[1])*scale if spec['source_kind']=='registered-outline-svg' else y0+ph/2,rotation=90,role='axis-title')
     entries=spec['series'];ids=[e['id'] for e in entries]
     if len(ids)!=len(set(ids)):raise FigureError('legend_duplicate_series','图例系列ID重复')
     labelms=[reg.measure(e['label'],size) for e in entries]
     swatches=[]
     for e in entries:
-        if spec['source_kind']=='svg':a=assets.svg_swatch(path,e['swatch_group'],e['swatch_clip'])
+        if spec['source_kind']=='registered-outline-svg':a=assets.registered_outline_chart(path,spec['outline_chart_registration'],swatch_id=e['id'])
+        elif spec['source_kind']=='svg':a=assets.svg_swatch(path,e['swatch_group'],e['swatch_clip'])
         elif spec['source_kind']=='raster':a=assets.raster(path,e['swatch_clip'],swatch=True)
         else:
             a=assets.pdf(path,spec.get('page',0),e['swatch_clip'])
@@ -137,7 +162,7 @@ def chart(spec,reg,size,assets,root):
     sampleh=max((a.rect[3]-a.rect[1])*scale for a in swatches)
     framed=spec.get('legend_frame',True)
     if not isinstance(framed,bool):raise FigureError('legend_frame_type','legend_frame必须为布尔值')
-    pad=float(spec.get('legend_padding_pt',3. if framed else 0.))
+    pad=float(spec.get('legend_padding_pt',PAD_X if spec['source_kind']=='registered-outline-svg' else (3. if framed else 0.)))
     if not math.isfinite(pad) or pad<0:raise FigureError('legend_padding','图例内边距必须非负且有限')
     sgap=3.;rowh=max(max(m['height'] for m in labelms),sampleh)+3
     lw=2*pad+samplew+sgap+max(m['width'] for m in labelms);lh=2*pad+len(entries)*rowh-3
@@ -149,6 +174,15 @@ def chart(spec,reg,size,assets,root):
             raise FigureError('legend_move_requires_mask_review','位图图例外移需要原区域无数据背景的核对证据')
         lx=x0;ly=y0-lh-LABEL_CLEARANCE
     elif placement=='above':lx=x0+pw-lw;ly=y0;raise FigureError('legend_above_not_enabled','本版未自动增加上方图例区域，请使用图内安全位置或scene')
+    elif placement=='registered-source-region':
+        if spec['source_kind']!='registered-outline-svg':raise FigureError('legend_source_binding','该位置需原图元登记')
+        region=spec['legend_safe_region'];original=spec['legend_original_region']
+        lx=x0+(original[0]-clip[0])*scale;ly=y0+(original[1]-clip[1])*scale
+        capacity=[lx,ly,x0+(region[2]-clip[0])*scale,y0+(original[3]-clip[1])*scale]
+        # Only the approved width may grow. Never silently move or heighten the legend.
+        if not contains(capacity,[lx,ly,lx+lw,ly+lh]):
+            raise FigureError('legend_source_region_capacity','8pt实测图例超出原高度或明确允许的宽度；不自动迁移或降字号',required=[lw,lh],capacity=capacity)
+        lw=max(lw,(original[2]-original[0])*scale);lh=(original[3]-original[1])*scale
     elif placement=='source-region':
         region=spec['legend_safe_region'];lx=x0+(region[2]-clip[0])*scale-lw-1;ly=y0+(region[1]-clip[1])*scale+1
     else:raise FigureError('legend_placement','未知图例位置')
@@ -163,6 +197,11 @@ def chart(spec,reg,size,assets,root):
             pts=[[x0+(x-clip[0])*scale,y0+(y-clip[1])*scale] for x,y in line]
             if any(segment_hits(a,b,legendbox,3*scale) for a,b in zip(pts,pts[1:])):
                 raise FigureError('legend_curve_collision','图例与原始曲线路径重叠')
+    if spec['source_kind']=='registered-outline-svg':
+        for box in spec['protected_ink_boxes']:
+            mapped=[x0+(box[0]-clip[0])*scale,y0+(box[1]-clip[1])*scale,x0+(box[2]-clip[0])*scale,y0+(box[3]-clip[1])*scale]
+            if mapped[0]<legendbox[2] and mapped[2]>legendbox[0] and mapped[1]<legendbox[3] and mapped[3]>legendbox[1]:
+                raise FigureError('legend_curve_collision','登记图例与原系列墨迹可能重叠')
     occupancy_evidence=None
     if spec['source_kind']=='raster' and placement!='outside-top' and spec.get('verify_legend_background',False):
         gap=float(spec.get('legend_clearance_pt',3.))
@@ -188,6 +227,10 @@ def chart(spec,reg,size,assets,root):
         w=(sw.rect[2]-sw.rect[0])*scale;h=(sw.rect[3]-sw.rect[1])*scale
         s.embed('swatch:'+e['id'],sw,[lx+pad+(samplew-w)/2,cy-h/2,lx+pad+(samplew+w)/2,cy+h/2],role='legend-swatch')
         s.text('legend:'+e['id'],e['label'],lx+pad+samplew+sgap,cy,align='left',owner='legend-frame' if framed else None,role='legend-label')
+    if spec.get('figure_title'):
+        box=spec['title_source_bbox']
+        s.text('figure-title',spec['figure_title'],x0+((box[0]+box[2])/2-clip[0])*scale,
+               y0+((box[1]+box[3])/2-clip[1])*scale,role='figure-title')
     s.layout_evidence={'plot_width_pt':pw,'plot_height_pt':ph,'source_crop':clip,'scale':scale,'legend_placement':placement,
                       'axis_mapping':'original image/SVG positions, not inferred numeric spacing',
                       'legend_bindings':[{'series_id':e['id'],'source_group':e.get('source_group'),'swatch':e.get('swatch_group',e.get('swatch_clip')),'label':e['label']} for e in entries]}

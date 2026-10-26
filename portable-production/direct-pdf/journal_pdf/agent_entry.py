@@ -103,7 +103,7 @@ def prepare(files:list[Path],job_dir:Path,*,workers:int=1):
             'coordinates':'Select candidate IDs. Unknown/missing candidate => report exception, never invent pixels.',
             'review':'Check original visual; outline comments and CV detections are only candidates.',
             'fonts':'Do not inspect system font folders. Renderer uses previously configured profile.',
-            'defaults':'8pt, single<=80mm; existing fractional whole-artwork and 6pt lower limit apply.',
+            'defaults':'Start at 8pt, single<=80mm; measured fractional whole-artwork fit may reduce to >=6pt. A semantic reply cannot authorize a smaller design size.',
             'response':'One JSON reply: protocol,job_id,request_sha256,figures,exceptions. See docs/AGENT-ENTRY.md.'},
         'sources':request_sources,'model_provider':'existing-conversation-or-agent','standalone_provider_required':False}
     request_sha=digest_json(request);request['request_sha256']=request_sha;atomic_json(job/'agent-request.json',request)
@@ -153,6 +153,11 @@ def _verify(job,state):
         if digest_file(p)!=sha:raise FigureError('evidence_changed','候选对象证据或预览发生变化',file=name)
     for r in state['sources']:
         if digest_file(resolve_source(job/'input',r['snapshot']))!=r['sha256']:raise FigureError('source_changed','输入快照已改变',source_id=r['id'])
+    for attempt in state.get('attempts',[]):
+        if attempt.get('production_policy_exceptions_sha256'):
+            path=job/f"attempt-{attempt['number']:02d}"/'production-policy-exceptions.json'
+            if not path.is_file() or digest_file(path)!=attempt['production_policy_exceptions_sha256']:
+                raise FigureError('production_policy_exception_changed','已记录的制作字号例外依据发生变化',attempt=attempt['number'])
 
 
 def _exceptions(reply, source_ids):
@@ -174,7 +179,7 @@ def _exceptions(reply, source_ids):
     return result
 
 
-def complete(job_dir:Path,reply:dict,profile:Path,*,cache:Path|None=None):
+def complete(job_dir:Path,reply:dict,profile:Path,*,cache:Path|None=None,production_policy_exceptions:list[dict]|None=None):
     """One return from Agent compiles all figures, renders, audits and summarizes.
 Failed figures are isolated; at most three semantic attempts; source snapshots never change.
 """
@@ -196,13 +201,23 @@ Failed figures are isolated; at most three semantic attempts; source snapshots n
             raise FigureError('figure_schema','每项图件必须含字符串ID，不能把字符串或数字当作图件对象')
         keys=[(q.get('author','未归属').casefold(),q['id'].casefold()) for q in figures]
         exception_rows=_exceptions(reply,{r['id'] for r in state['sources']})
+        # This separate caller argument is not part of the model's semantic reply.
+        # The records are evidence claims, not cryptographic user authentication.
+        policy_rows=[] if production_policy_exceptions is None else production_policy_exceptions
+        if not isinstance(policy_rows,list) or len(policy_rows)>80 or not all(isinstance(q,dict) and isinstance(q.get('reply_sha256'),str) for q in policy_rows):
+            raise FigureError('production_policy_exception_schema','制作字号例外须为最多80项的独立记录列表')
+        policy_by_reply={q['reply_sha256']:q for q in policy_rows}
+        if len(policy_by_reply)!=len(policy_rows) or not set(policy_by_reply)<={digest_json(fig) for fig in figures}:
+            raise FigureError('production_policy_exception_binding','制作字号例外重复或未绑定本次图件语义回复')
         # Profile resolution before starting an attempt avoids leaving a phantom running state.
         try:profile_sha=digest_file(Path(profile))
         except OSError as e:raise FigureError('font_profile_missing','已配置字体方案不可读',path=str(profile)) from e
         if len(keys)!=len(set(keys)):raise FigureError('figure_id_collision','输出文件名重复（含Windows大小写冲突）')
         attempt=len(state['attempts'])+1;adir=job/f'attempt-{attempt:02d}';adir.mkdir();out=adir/'output';out.mkdir();(adir/'specs').mkdir()
         atomic_json(adir/'agent-reply.json',reply)
-        state['status']='running';state['attempts'].append({'number':attempt,'started_at':utc(),'status':'running'})
+        atomic_json(adir/'production-policy-exceptions.json',policy_rows)
+        policy_sha=digest_file(adir/'production-policy-exceptions.json')
+        state['status']='running';state['attempts'].append({'number':attempt,'started_at':utc(),'status':'running','production_policy_exceptions_sha256':policy_sha})
         atomic_json(job/'job.json',state)
         request_sources={r['id']:r for r in state['sources']};success=[];failures=[];compiled=[];reg=None;assets=None
         compilation_ms=0.;render_ms=0.;font_init_ms=0.;reused=0
@@ -215,7 +230,7 @@ Failed figures are isolated; at most three semantic attempts; source snapshots n
                     if src is None:raise FigureError('source_id_invalid','源文件ID不存在')
                     ev=read_json(job/'evidence'/src['id']/'evidence.json');pages=[p for p in ev['pages'] if p['id']==fig.get('page_id')]
                     if len(pages)!=1:raise FigureError('page_id_invalid','源页面ID无效')
-                    try:spec=compile_reply_figure(fig,src,pages[0])
+                    try:spec=compile_reply_figure(fig,src,pages[0],production_policy_exception=policy_by_reply.get(digest_json(fig)))
                     finally:compilation_ms+=(time.perf_counter()-ft)*1000
                     if reg is None:
                         fi=time.perf_counter();reg=FontRegistry(Path(profile),cache);assets=Assets();font_init_ms+=(time.perf_counter()-fi)*1000
@@ -262,7 +277,8 @@ Failed figures are isolated; at most three semantic attempts; source snapshots n
                 'source_extraction':state['timing'],'scope':'existing-support input through mechanical PDF audit; not publication or visual acceptance'}
             font_summary=reg.summary() if reg else None
             report={'protocol':PROTOCOL,'job_id':state['job_id'],'status':'awaiting-visual-review' if success and not failures and not unresolved else 'partial-or-blocked',
-                'attempt':attempt,'ready_for_publication':False,'expected_reply_figures':len(figures),'rendered':len(success),
+                'attempt':attempt,'ready_for_publication':False,'production_policy_exceptions':policy_rows,
+                'production_policy_exceptions_sha256':policy_sha,'expected_reply_figures':len(figures),'rendered':len(success),
                 'results':success,'failures':failures,'agent_exceptions':exception_rows,'unresolved_exceptions':unresolved,'declared_exclusions':exclusions,'summary_pdf':summary,
                 'summary_sha256':digest_file(out/summary) if summary else None,
                 'font_cache':font_summary,'timings':timings,'reused_unaffected_figures':reused,
@@ -326,13 +342,13 @@ def review(job_dir:Path,*,reviewer:str,items:list[dict]):
         return record
 
 
-def run_with_agent(files,job_dir,profile,semantic_provider,*,workers=1,cache=None):
+def run_with_agent(files,job_dir,profile,semantic_provider,*,workers=1,cache=None,production_policy_exceptions=None):
     """Future standalone/provider adapter: callback gets a request, returns the same JSON.
 Caller owns provider credentials, budget, privacy and model time. No hidden model calls.
 """
     prep=prepare(files,job_dir,workers=workers);request=read_json(Path(prep['brief']))
     response=semantic_provider(request)
-    return complete(job_dir,response,profile,cache=cache)
+    return complete(job_dir,response,profile,cache=cache,production_policy_exceptions=production_policy_exceptions)
 
 
 def compact_request(request):

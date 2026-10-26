@@ -74,5 +74,21 @@
     "unaccounted_sources_blocked": true,
     "native_arrow_direction_guard": true,
     "summary_and_mechanical_report_hash_bound": true
+  },
+  "bilateral_tree": {
+    "activation": "kind:tree, tree_layout:bilateral",
+    "measurement": "leaf-to-root recursive subtree spans and measured column widths",
+    "root_branch_sides": "required explicit left/right; no source-side guessing",
+    "max_nodes": 80,
+    "max_depth": 12,
+    "supports_recursive_children": true,
+    "root_vertical": true,
+    "cjk_wrap_chars": [
+      1,
+      20
+    ],
+    "legacy_right_layout_unchanged": true,
+    "general_graph_solver": false,
+    "automatic_double_column": false
   }
 }
