@@ -1,8 +1,8 @@
 # 期刊 AI 生产工作台
 
-用于期刊图件的来源核对、保留原图加工、公共排版、PDF 检查、候选复核与受保护交付。当前正式基线为 **2026.10.20-r32-production-baseline**，基于十月实际制作所用的公共能力整理。
+用于期刊图件的来源核对、保留原图加工、公共排版、PDF 检查、候选复核与受保护交付。当前正式基线为 **2026.10.26-r36-figure-audit**，整合已合入的 r33—r35 能力及本轮通过回归的换字、来源审核和排版修复。密集数值箭头标注仍是未通过试验，不在本版启用。
 
-[下载正式版](https://github.com/yunmuyu/journal-ai-production/releases/latest) · [安装、升级与回滚](docs/RELEASE-GUIDE.md) · [更新日志](CHANGELOG.md) · [本版验证与边界](release-notes/2026.10.20-r32-production-baseline.md)
+[下载正式版](https://github.com/yunmuyu/journal-ai-production/releases/latest) · [安装、升级与回滚](docs/RELEASE-GUIDE.md) · [更新日志](CHANGELOG.md) · [本版验证与边界](release-notes/2026.10.26-r36-figure-audit.md)
 
 ## 选择入口
 
