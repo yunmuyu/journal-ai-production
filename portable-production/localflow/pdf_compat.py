@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import math
 import re
+from dataclasses import asdict
 from pathlib import Path
 
 import pymupdf as fitz
 
 from .core import FlowError
+from .pdf_render import audit_pdf_render
 
 
 def _descriptor_xref(doc: fitz.Document, font_xref: int, subtype: str) -> int:
@@ -31,6 +33,9 @@ def _descriptor_xref(doc: fitz.Document, font_xref: int, subtype: str) -> int:
 
 
 def audit_pdf_compatibility(path: Path) -> dict:
+    render_check = audit_pdf_render(path)
+    if not render_check.passed:
+        raise FlowError("pdf_render", f"PDF 实际渲染失败：{render_check.error}")
     descriptors: dict[int, dict] = {}
     type3_fonts: set[int] = set()
     page_count = 0
@@ -91,6 +96,7 @@ def audit_pdf_compatibility(path: Path) -> dict:
         "page_count": page_count,
         "font_descriptors": list(descriptors.values()),
         "type3_font_count": len(type3_fonts),
+        "render_check": asdict(render_check),
     }
 
 
