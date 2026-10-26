@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.20-r32-production-baseline",
-  "createdAt": "2026-10-20T07:24:47.338Z",
-  "status": "released",
+  "id": "2026.10.26-pdf-render-audit-candidate",
+  "createdAt": "2026-10-26T01:20:38.6216033Z",
+  "status": "candidate",
   "constraints": {
     "fontSizePt": {
       "min": 6,
@@ -13,35 +13,27 @@
   },
   "validation": {
     "schemaVersion": 1,
-    "release": "2026.10.20-r32-production-baseline",
-    "status": "verified-source",
-    "environment": {
-      "os": "Windows",
-      "python": "3.12.14",
-      "node": "24.18.0"
-    },
+    "release": "2026.10.26-pdf-render-audit-candidate",
+    "status": "candidate-affected-tests-verified",
+    "sourceCommit": "e6885b1dcc0d1cc7174ec9c22af5f1296324b317",
     "freshChecks": {
-      "node": {
-        "passed": 51,
-        "failed": 0
+      "nativeSyntheticPreview": {
+        "visualChecked": true,
+        "pages": 2,
+        "renderPassed": true
       },
       "localflow": {
-        "passed": 14,
         "subtestsPassed": 2,
-        "failed": 0
-      },
-      "releaseBundle": {
-        "passed": 3,
-        "failed": 0
+        "failed": 0,
+        "passed": 18
       }
     },
-    "packageAcceptance": "Separate release asset: release-acceptance.json, bound to ZIP SHA256",
-    "inheritedEvidence": "release-validation-20261020-r31.json; not a fresh full-suite run",
+    "inheritedEvidence": "r32 baseline only; not a fresh full-engine run",
     "notVerifiedThisRelease": [
-      "fresh-machine dependency installation",
-      "InDesign actual placement",
-      "print RIP",
-      "full Adobe/PS automation"
+      "full figure engine suite",
+      "fresh-machine installation",
+      "manuscript acceptance",
+      "print RIP"
     ],
     "productionRuntimeUpdated": false
   },
@@ -1039,8 +1031,8 @@
     },
     {
       "path": "localflow/pdf_compat.py",
-      "sha256": "3c19ab4af116bd57b5d51826efb89292ac629435b1a726fdf72fdfeb6eda76f6",
-      "bytes": 4758
+      "sha256": "475b3d15208eff2973f6b3d8345acc520b169b2cdcd826154fb6580f9dfc01ce",
+      "bytes": 5038
     },
     {
       "path": "localflow/probing.py",
@@ -1216,6 +1208,16 @@
       "path": "tests-task/test_raster_metadata.py",
       "sha256": "412229965628621a84ebb1da98dc001c8e68e6f97fce4457b0ce18c11e41983c",
       "bytes": 2358
+    },
+    {
+      "path": "localflow/pdf_render.py",
+      "sha256": "a5088edeeced4c78e769155cb1850ccb19269d75342e96d5682754cab05e0094",
+      "bytes": 3278
+    },
+    {
+      "path": "localflow/PDF-RENDER-GATE.md",
+      "sha256": "8b4d260fb28b720df8320d9df7ad02a11f03314f4c0f878929ab294bda1cac51",
+      "bytes": 1953
     }
   ]
 }

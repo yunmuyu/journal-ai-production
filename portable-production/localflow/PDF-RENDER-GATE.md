@@ -30,6 +30,6 @@ against the old implementation. All 18 localflow tests and two subtests pass wit
 an explicitly configured font profile. A private failing issue PDF was rejected
 on its first page; this confirms detection, not the origin of the corrupt export.
 
-This source change is a candidate. Installed runtime, release manifests and
-historical releases remain unchanged. Decodability does not replace visual,
+This source change is a candidate with its own candidate bundle manifest.
+Installed runtime and historical releases remain unchanged. Decodability does not replace visual,
 source-content, semantic or print review.
