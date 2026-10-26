@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.22-r34-bounded-figure-candidate",
-  "createdAt": "2026-10-22T11:23:11.212Z",
-  "status": "release-candidate",
+  "id": "2026.10.26-r35-consolidated",
+  "createdAt": "2026-10-26T01:51:43.9254759Z",
+  "status": "integration-candidate",
   "constraints": {
     "fontSizePt": {
       "min": 6,
@@ -12,69 +12,8 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "schemaVersion": 1,
-    "release": "2026.10.22-r34-bounded-figure-candidate",
-    "status": "candidate-source-verified",
-    "environment": {
-      "os": "Linux",
-      "python": "3.12.14",
-      "node": "24.19.0"
-    },
-    "codeEvidence": {
-      "localCommit": "a244c5f04892729b77ccf3b1259304be2346e4c5",
-      "remoteCodeCommit": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
-      "sourceTree": "c59627ab88c2b6b25c7de3561bad9451bd5dec92",
-      "note": "The new candidate commit changes release metadata only. Program bytes are identical to the tested code snapshot."
-    },
-    "freshChecks": {
-      "pythonCombined": {
-        "passed": 969,
-        "failed": 0,
-        "skipped": 0,
-        "warnings": 2,
-        "seconds": 313.35,
-        "command": "python -m pytest portable-production/direct-pdf/tests portable-production/preflight/tests portable-production/tests-local -q --durations=15",
-        "fontCoverage": "authorized real production profile; no fonts distributed"
-      },
-      "nodeOffline": {
-        "passed": 51,
-        "failed": 0
-      },
-      "releaseBundleTests": {
-        "passed": 3,
-        "failed": 0
-      },
-      "engineDirectory": {
-        "passed": 2,
-        "failed": 0
-      }
-    },
-    "githubActions": {
-      "status": "pending-for-new-candidate-commit",
-      "priorDraftCommit": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
-      "priorConclusion": "failure",
-      "priorFailure": "existing r33 portableFiles hashes differ from new source; this candidate seal repair must pass fresh exact-head CI"
-    },
-    "packageAcceptance": {
-      "isolatedBuild": "passed",
-      "extractedManifestVerifiedFiles": 184,
-      "byteIdenticalRepeatBuild": "passed",
-      "extractedCliSmoke": [
-        "journal_pdf --help passed",
-        "localflow --help passed"
-      ],
-      "scope": "Packaging integrity and CLI startup only; no customer acceptance or fresh-machine installation."
-    },
-    "notVerifiedThisRelease": [
-      "unattended ZIP/DOCX embedded-Visio to fully source-bound semantic intake",
-      "customer whole-job visual acceptance",
-      "InDesign placement and issue/page metadata",
-      "printing or PDF/X certification",
-      "fresh-machine dependency installation",
-      "approval identity authentication",
-      "multiple state roots writing one delivery root"
-    ],
-    "deployment": "Not installed, merged, tagged or formally released. Historical releases and assets remain unchanged."
+    "status": "pending",
+    "scope": "Integrated sources; tests and visual review not yet completed"
   },
   "files": [
     {
@@ -509,893 +448,903 @@
   "portableFiles": [
     {
       "path": "AGENTS.md",
-      "sha256": "bd086dca77140cf9afffc48e902f7fb6fbec6eea70c511e70f2380a4c02431b4",
-      "bytes": 2717
+      "sha256": "f481d7ff4331fa58ec56ebfbe46fe2f5c429c021841298c68ad2980e03047272",
+      "bytes": 4892
     },
     {
       "path": "CLOSEOUT-STATUS.md",
       "sha256": "e04c2d115c4e6f2bd5c4e795236dce46b42170885eb210b890775e9a43b39074",
-      "bytes": 3507
+      "bytes": 0
     },
     {
       "path": "config.example.json",
       "sha256": "d0a6bd1644c4ec622edb5f615b58ea48902b62ac055c4b58a56294d18c0b216b",
-      "bytes": 198
+      "bytes": 0
     },
     {
       "path": "dependencies.lock.txt",
       "sha256": "bcfabdcdd3e43f4e65a613aa65b68e336a0d77ded1a517a4b6fc9555c66f5c71",
-      "bytes": 412
+      "bytes": 0
     },
     {
       "path": "direct-pdf/AGENT.md",
       "sha256": "75e1a5dd4ac52a7fbf42e428349da30cc9e727e0d70b3f31c9b1f57bf548528d",
-      "bytes": 1484
+      "bytes": 0
     },
     {
       "path": "direct-pdf/bridge/run-agent-entry.mjs",
       "sha256": "00908fc4f95c12b7dae414d5c9ce55f864934fe5a379d889f946c6ef23530a78",
-      "bytes": 822
+      "bytes": 0
     },
     {
       "path": "direct-pdf/bridge/run-direct-pdf.mjs",
       "sha256": "88e801c0fd26461d506088e5ae6b6ab8f30f88a48635ae2ea4c3b1702087d248",
-      "bytes": 1351
+      "bytes": 0
     },
     {
       "path": "direct-pdf/bridge/solve-existing.mjs",
       "sha256": "b202b28f3aa90c069793249e86e1449d4bcbab9b0696d126ce71ecc96cabdc9c",
-      "bytes": 1334
+      "bytes": 0
     },
     {
       "path": "direct-pdf/config/fonts.preview-linux.json",
       "sha256": "95e2d08100e87dd6521c75a5d36a46c1ce3ccb1eda43904a9870181bf6619775",
-      "bytes": 911
+      "bytes": 0
     },
     {
       "path": "direct-pdf/config/fonts.production-windows.example.json",
       "sha256": "d7b574b7fb7ad0cf80f5a0436d46e2e71b205eefc936452a8ad747ec56633d2a",
-      "bytes": 804
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/AGENT-ENTRY.md",
       "sha256": "b509f9185196d720030dda185776745e7dad58ca94321f56c40994495decc765",
-      "bytes": 14215
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/BOUNDARIES.md",
       "sha256": "cc94ab9ddf9cbda88f103612f0ca2d51ff1169664ee38d99acb632e55b0645ad",
-      "bytes": 3777
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/CAPABILITIES.json",
       "sha256": "67a00aef1a1f9bf4cae06220aa0533404f85b6e62c70c1de10317befa7398e80",
-      "bytes": 3032
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/DEPENDENCIES.md",
       "sha256": "3d26b0060eaa3b40858567febf20c1bb1e7c7c85a0d6230847c6d9581e17b27a",
-      "bytes": 1623
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/DEVELOPMENT-STATUS.md",
       "sha256": "6137e405778a4a1fa4343c31d35b81e515937eeecb51060cc92a9156bca9fae6",
-      "bytes": 2160
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/FIRST-PASS-SPEED.md",
       "sha256": "c9c489dfb7304c3b2a43ce6c3791f73c7891d4d29eb1346ae8aaa66a2003f555",
-      "bytes": 4162
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/FONT-CACHE.md",
       "sha256": "d1f8c7d43c460c533a6fcd944a7d00a3f5111380a00327b1ea6c4e6512d33d6a",
-      "bytes": 1957
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/GROUPED-CHAINS.md",
       "sha256": "7279cb636f6a4f2ab5443608a955190873fe0ba44826a280f42ed08cbf18f00c",
-      "bytes": 4970
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/HELDOUT-PILOT.md",
       "sha256": "2aa63a2516b2dc347746c77897aa190a42c293abce102f6ad4807eb13265fa26",
-      "bytes": 1419
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/INPUT-SPEC.md",
       "sha256": "7703e7517fdbf49c85ea8a4625f1a01f624c71f49ea4ccbb6abdbe1af2b6595e",
-      "bytes": 2627
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/INTEGRATION.md",
       "sha256": "a3fa0f15494e419e973e49e6ed723c32ae301474812716ee88a9cbcf3d9f115e",
-      "bytes": 1979
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/KNOWN-FAILURE-COVERAGE.md",
       "sha256": "915562b9d3668a651b50fe4bdcc35ef1924bf3c5b1f4f5bc8b2271dbe1685ed7",
-      "bytes": 5744
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/NEW-v0.1.2.1.md",
       "sha256": "6a9dee352afe5ac87851a3a4453a97601867a38bf0cc95f9fdea6a98ad005331",
-      "bytes": 2857
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/NEW-v0.1.2.md",
       "sha256": "32225f3d6a9eaab771b265fc83484fee30b2ebf3ace6142cdd668a961d7be3da",
-      "bytes": 967
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/NEW-v0.2.0rc1.md",
       "sha256": "4737d679920299cae12da07fa40f6c328abeb0cfe59cd19fec2a0166791fad02",
-      "bytes": 981
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/REGISTERED-OUTLINE-CHART.md",
       "sha256": "dcb1b8fe601d170db73127f67d225842610ce878c38ce07cf14caabd835fdcac",
-      "bytes": 5069
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/RULE-COVERAGE.md",
       "sha256": "aa6686cf2cf671559b0cec35068fda418bf7c88c973d510698e4edc64825b1a2",
-      "bytes": 9700
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/RULE-SOURCES.json",
       "sha256": "d1d828737a5793e268d1ff9cda800a7bad1d237477a7190fec510451ba3c87ad",
-      "bytes": 1811
+      "bytes": 0
     },
     {
       "path": "direct-pdf/docs/TEST-RESULTS.md",
       "sha256": "a660a7241131fefa94985fe0db58f8c8b4ed9e95614fbefa48eaaa3a2e54f0a9",
-      "bytes": 263
+      "bytes": 0
     },
     {
       "path": "direct-pdf/examples/assets/README.txt",
       "sha256": "08e3f68273158d7651fdcbb1b84ca7549bdfe29654b8f3b8672fb2def3db5445",
-      "bytes": 85
+      "bytes": 0
     },
     {
       "path": "direct-pdf/examples/batch.json",
       "sha256": "8d5431801a3269012cc34fc6dc587b1203dfd415f7d9d58c76548937b0a91791",
-      "bytes": 265
+      "bytes": 0
     },
     {
       "path": "direct-pdf/examples/specs/demo-composite-type.json",
       "sha256": "8269865830d149af637a26c93382e3ecbfc21a69448a720af2a8e300f22092e0",
-      "bytes": 1183
+      "bytes": 0
     },
     {
       "path": "direct-pdf/examples/specs/demo-hierarchy.json",
       "sha256": "5e5ca1e6f21b6a4a3abf16332f8f8c754b0143a750972882faff5af3af29cdb3",
-      "bytes": 617
+      "bytes": 0
     },
     {
       "path": "direct-pdf/examples/specs/demo-network.json",
       "sha256": "cebb2f0611aa367a243bf504926d37b79a103afb22f05bbb2d1357d0cce7837e",
-      "bytes": 862
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/__init__.py",
       "sha256": "500186b87d07e8976d37fd1662c8f21bdc5029d9b058dc2350be823ff6306830",
-      "bytes": 106
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/__main__.py",
       "sha256": "307299fda7b77d22c64cb51430ec75e5f59d78e9c948786afb3b2544fe45e4b7",
-      "bytes": 79
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/agent_entry.py",
       "sha256": "acc8bb7d82f518ad76f23fa1071f64c36e9e74f76431039574251cb68c425145",
-      "bytes": 29709
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/agent_spec.py",
       "sha256": "790b6f008216e4065694568fc335db16db847958b96483c0d677de45c53d0998",
-      "bytes": 30864
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/assets.py",
       "sha256": "6a67e5b0076ad210743754ee58b58f877a92e0f7169cafd5a8c1a057d72670a1",
-      "bytes": 21591
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/axis_units.py",
       "sha256": "a071f2165ea1d4c7a2f60fc1c15fd7199319141830901b106658cd080c1d4a20",
-      "bytes": 5275
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/batch.py",
       "sha256": "fb9a70adda4df97431fe1521e2499e857819f55c518e2a22316d11e8da8690ce",
-      "bytes": 7197
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/bilateral_tree.py",
       "sha256": "ce9f354edd6a1924143940d828ea81ae3cef714a81e12d8ba7a5d0e09a27a040",
-      "bytes": 8136
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/boundary_ports.py",
       "sha256": "5f0b61d681080c775f664c32f8f2ff2dfea1f2a570fbb9af800d40fa2c116889",
-      "bytes": 6623
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/charts.py",
       "sha256": "842071b5fa89e9e132d3de3dc1d4888b5ee296f55aeeda7b39e49b00739a86bc",
-      "bytes": 18766
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/cli.py",
       "sha256": "612f83a46846e9712772cd268d66e9c22a64af2ae8d35efdc304a7fa0fc22cb3",
-      "bytes": 6211
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/columns.py",
       "sha256": "c367f8566db16a99715521318c280d8c3e9346389e542714d6faeef69be8a668",
-      "bytes": 15069
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/common.py",
       "sha256": "a302ebf16cce6e7da02e456e6c94b22d5601a29600ed54aaf575f0feb6f7e81f",
-      "bytes": 3853
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/doctor.py",
       "sha256": "7675749e0c8a4169bb21a99ca407ae598441b515f5908481a453195571722504",
-      "bytes": 1058
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/editorial.py",
       "sha256": "1d0e1545298e228a560172d25f0636006b1b4baeb190f2738af6960f885537f3",
-      "bytes": 9293
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/flow_shapes.py",
       "sha256": "561b2099fda75853b4eb848ea9e9dbacb2e50d31ffa53b774457613e40644804",
-      "bytes": 246
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/font_descriptors.py",
       "sha256": "1d14f0ce0d6a52c787bc0be051ed9009632e253ee9766437794c69ac0c1100bb",
-      "bytes": 8007
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/fonts.py",
       "sha256": "5567fca2e20c6a57b60a8145d493324b8695b47bd5aad69e4f8d4a1ed81ddc32",
-      "bytes": 16794
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/gallery.py",
       "sha256": "2e5238fda760c78f0597d4234bfdea7d3f8f322790edb95d3ba15671fe0e3106",
-      "bytes": 10264
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/graph_layout.py",
       "sha256": "f94769337520c7a6548e3166422d666aff32cf8679dcb11af07b508504221774",
-      "bytes": 16874
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/grouped_chains.py",
       "sha256": "3ef52ef23761fc9ccb95923cec8d269da7bf2ba9372cae0e57bfd2e171211d60",
-      "bytes": 13443
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/ingest_geometry.py",
       "sha256": "cea448a0c0f0703410f5bdc715135e119d17025bfcfd5042d8421ee444baa65d",
-      "bytes": 14115
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/ingest_native.py",
       "sha256": "f826644cb01d3125e9b12c5f22176e7fdc92e2e636ee89efa1f1f8d05efc9291",
-      "bytes": 17298
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/inspect.py",
       "sha256": "0beb92c45807a8cf4e98f9abd3acdd30b9c34466193fb26de583f6bdbdb27a33",
-      "bytes": 2723
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/layouts.py",
       "sha256": "eec468d8bf135bc7a63e39bf14931a390c6ef62705a866bb6c012a9b434def2a",
-      "bytes": 21129
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/pdf_fonts.py",
       "sha256": "fbf3c2640befb50daba54e0123f4896d3e83adf64f510fb645a68974c8e9b5c1",
-      "bytes": 1438
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/raster_preprocess.py",
       "sha256": "a44f02decbd73424461f046caf08925e6397cd043e74397cbfbff67160f02aeb",
-      "bytes": 16386
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/render.py",
       "sha256": "6f26a0b80125a010e19f1e3bfe5d68408f768465adee877273ab49bf99298401",
-      "bytes": 22436
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/rules_registry.py",
       "sha256": "38f9739c44a31b09e094151ddf3e0ee3730ae01eda751bbadca62b2193915925",
-      "bytes": 5453
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/scene.py",
       "sha256": "a5d5521c5168dd7a1b5d5b2658b2044081fa130199b624663ff7a9ebebe15613",
-      "bytes": 22611
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/scientific_text.py",
       "sha256": "b629b494883973b3d847897235380dbeefffa97c2453af0aab81c58aa2422b25",
-      "bytes": 2206
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/server.py",
       "sha256": "7ddfa8ba4718dfb4a2d3e3ea7d296f7041a901b85f98410492136f66e01206f2",
-      "bytes": 8926
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_icon_text.py",
       "sha256": "d25b0897eacbd58ada0b85d589d71ad1c2047b1ef5581e67835c9f95f7223354",
-      "bytes": 5040
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_icons.py",
       "sha256": "1fed8f3e0ffa62531737be3d200b9779bf1b7c2eecbdb1916c7a74a36f5c7c33",
-      "bytes": 12806
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_mixed_body.py",
       "sha256": "0bcdb53568857350342adf11b4c8f49dbe9d110761dacd170b1d41dfc1848232",
-      "bytes": 10800
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_native_gray.py",
       "sha256": "2075c97d856fbcb51b85c28f8f0a9eeb40af132e05e513d8c1dba4dfe5376453",
-      "bytes": 3980
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_native_paths.py",
       "sha256": "8030d16ccc88157f3e880d7e8dc8bf1aa17f96070cd93531208a9f442999d55c",
-      "bytes": 8635
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_outline_chart.py",
       "sha256": "544b964a6c66213fa76d785b7127fc7218e7c64c166027ee506c3ae53ada1260",
-      "bytes": 19139
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_outline_text.py",
       "sha256": "329ed116eb4417a6374eeff41240650a98ab0382a80dc1c2e7b057266f92623f",
-      "bytes": 509
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_path_ports.py",
       "sha256": "cd330c46c11422740911d462a67b4ec1b9b1f13f2dfac59389e3092f82f0f76d",
-      "bytes": 4684
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_registered_paints.py",
       "sha256": "172cea54cf8bb1a69b4b666bf3cf6eb6d7ca4062c3d7d226400ff6c3cce8f5d4",
-      "bytes": 6545
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_shape_targets.py",
       "sha256": "5361c87d951620c3225750612fae300cb5f6531ab2352545cd2dfa2e84d85f33",
-      "bytes": 5472
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/source_svg_groups.py",
       "sha256": "5988dfef7dffede682575fdd39f25e1c20bc6b8c892c6fc70a096dbc59f7e3b6",
-      "bytes": 4514
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/vertical_text.py",
       "sha256": "395c32b1fd98e7a0cfa890ad453919ff4a41a502e6f49e1c3e22423c57b8fa00",
-      "bytes": 1874
+      "bytes": 0
     },
     {
       "path": "direct-pdf/journal_pdf/windows_fonts.py",
       "sha256": "32ccdbf593f15061f551461f51a11a7b3bb04933985f5147b79d27146d454b76",
-      "bytes": 1390
+      "bytes": 0
     },
     {
       "path": "direct-pdf/pyproject.toml",
       "sha256": "6249475ae7b1fb2f1a92a7751399826724ff85c6a9a420323aa460b5bc274ccb",
-      "bytes": 664
+      "bytes": 0
     },
     {
       "path": "direct-pdf/README.md",
       "sha256": "d14f7f53abce9d80d786876fbc1232884f8c7248a79f40044fe8a6733f72c4ab",
-      "bytes": 5132
+      "bytes": 0
     },
     {
       "path": "direct-pdf/RELEASE-CANDIDATE.json",
       "sha256": "43362b61ea6423598f739d87f8e46adef63b940b546caa184fe638ffa9c3385b",
-      "bytes": 7570
+      "bytes": 0
     },
     {
       "path": "direct-pdf/requirements-dev.txt",
       "sha256": "ebc319f05921f7d8d196fb93e7e47ffabc2cdda3dbd7e261d76a8fbc5ea099c8",
-      "bytes": 34
+      "bytes": 0
     },
     {
       "path": "direct-pdf/requirements.txt",
       "sha256": "bcceacb5d5a72db5283cabb12c3a5f66e406961e3a8593cc7d345938acdc8cbc",
-      "bytes": 156
+      "bytes": 0
     },
     {
       "path": "direct-pdf/schemas/agent-reply.schema.json",
       "sha256": "872826cf07547c6530db2c1fe57018c1cbc122ba9c5c2d5d30ab5901aa5a65ea",
-      "bytes": 2496
+      "bytes": 0
     },
     {
       "path": "direct-pdf/schemas/boundary-endpoint.schema.json",
       "sha256": "ea2c25b9a2a84a42036bb5372525ae0cf57a657963041e591edd667fec7d1564",
-      "bytes": 1897
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/conftest.py",
       "sha256": "3d319e026de6cb9d239b6bd775925912b9d4bb886b7019b4589b2ca85db8272a",
-      "bytes": 1199
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_agent_integrity.py",
       "sha256": "2132f2302d44ce06d1caf786d618957517ac18af3ef1b34e197e4395981f1da8",
-      "bytes": 10328
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_assets.py",
       "sha256": "f536aeedd660ae6e1fce459288f561b8a376a5d7e8b9287569e16a7757fc5b40",
-      "bytes": 3243
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_axis_units.py",
       "sha256": "e0d50f6c9c3df390a1fa767a23f0b08bc2ecde8371116fde1214737aaf215c85",
-      "bytes": 3282
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_bar_top_labels.py",
       "sha256": "38a2993111c3349905b30f264e2e798f6dca0148344a8ca1197f16f97794c635",
-      "bytes": 1437
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_bilateral_tree.py",
       "sha256": "bdcc0729e4839296b1a0826652ff62b5415e9535a1857284269120eb6a88e981",
-      "bytes": 6335
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_boundary_ports.py",
       "sha256": "ad7f4d51b597c7099054f628bf19fe7ebc2d8a2bc86eb626b2c6bf59fe8d399f",
-      "bytes": 6773
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_columns_layout.py",
       "sha256": "2b13f05ed7c34c9ca0494d7c0c995f9e43c12995c3e7e134a61ecefb5bda1f00",
-      "bytes": 6360
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_columns_relations.py",
       "sha256": "27ae0f1ca792dfef4e6143ea86fe4657c84dc3abdc0514607b09797ebd3d7f4f",
-      "bytes": 6938
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_editorial_rules.py",
       "sha256": "4cabe23408f0f85eccb71e6c444943b82c9a372a28263913892c4c728c984a51",
-      "bytes": 19450
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_export_crop_padding.py",
       "sha256": "2153c47258456adba3a4197bf1d73f778f21e4d2605f8ed2ea16080195175e55",
-      "bytes": 2497
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_final_layout_regressions.py",
       "sha256": "b544f6524c2c1fc47c787faca86cb6af6c1fdcefa0e3648b8a4aa8cd6c04391d",
-      "bytes": 4827
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_flow_terminal_shapes.py",
       "sha256": "c9567e4cce19a6d52891444a0d1851fdc24f902f3d5bdb3dda282b3f0bae5602",
-      "bytes": 3801
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_fonts.py",
       "sha256": "1a0106d15c42ae08c21682a5cbb2580d370a4ad9bfd04bad5487d726b05cf2b0",
-      "bytes": 3389
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_graph_route_clearance.py",
       "sha256": "85f5eaf3ee2e4a8b3f4595b480b15b9f072feb99f7437c4f8fbb54967da58443",
-      "bytes": 1995
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_graph_text_refs.py",
       "sha256": "93e153762428bb3c9e4e120e3ac1fca4e380050b92b09e2f1e753589e045179a",
-      "bytes": 3646
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_grouped_chains.py",
       "sha256": "34c55992cfae16786bf90de290e865be7529a689531f2a873700ea50a2650c29",
-      "bytes": 14479
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_ingest_v020.py",
       "sha256": "30134f20499a0303bf2803450c71b0da5d6188a373fab8793970febdc2b7382d",
-      "bytes": 19936
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_measured_group_gaps.py",
       "sha256": "c2bcdca43b76a8983f8ff9b57cd942589d6c7abccaefc213b5122a0e4447a674",
-      "bytes": 3146
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_measured_primitive_contracts.py",
       "sha256": "b5669b8e6402726cfa7b4eb071087e49c5d65e6be2ebd817418d1102d2eb2c42",
-      "bytes": 8108
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_native_crop_contracts.py",
       "sha256": "45d3f91cd4a57ad94183afe41e1b0e4577e2cddfea0f98f038e39d47a22f8223",
-      "bytes": 2456
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_native_glyph_contracts.py",
       "sha256": "ac23e4fd177a2ec45fc78cac99b48659364575c14af4a6f009e76bc17399bd32",
-      "bytes": 2914
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_network_endpoints.py",
       "sha256": "3ec9e23f819d59fde230da95fc66e5210f36af48298962e2fcd4731fe79a0272",
-      "bytes": 744
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_node_dash.py",
       "sha256": "d95483f1232d4db84703d3785ba0bf86f9a3c22da5112732b8c179f7d00342e5",
-      "bytes": 1286
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_numeric_range_connector.py",
       "sha256": "60ed8d246da905facb8d8389b4e53efffdede94841005b15bd3cdc9f43bf55e6",
-      "bytes": 1346
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_page_external_ports.py",
       "sha256": "64b51b5c0287cbfb792b8acbb77cd78006f7d4e5d6b3c0ec79a8ccadec7d7687",
-      "bytes": 3304
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_pdf_font_names.py",
       "sha256": "fa8a4d0ee5bf9dfa35c189b04f0c2e4f26ac92e3028562e1b19dcf14c7e62f24",
-      "bytes": 2649
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_pipeline.py",
       "sha256": "0e3ebd289e5def0899e74a70c65bb1d03b39acb30e907ec0b9c9f80fae6b1b5f",
-      "bytes": 6936
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_production_font_policy.py",
       "sha256": "66e7af10b607ea6d253791254ebce2d81c1296f684b58b4fdcc50e5f9e929320",
-      "bytes": 13085
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_raster_preprocess.py",
       "sha256": "1c004bf28861ba37e012d5efe4db94d8c7e3ac84431b31f6a90db2b122a00efc",
-      "bytes": 13974
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_scene_assets.py",
       "sha256": "f635bc6f28cf2dbed0f5129d12161a86aa208f114cca4e9c9e9529db9af08bfe",
-      "bytes": 3264
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_scientific_text.py",
       "sha256": "3c83fe6ab22d136e4e2bdb3ea32f4274a544cdc09de0cc9c538fe842549adef1",
-      "bytes": 9997
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_source_icons.py",
       "sha256": "58f659d3c72ec2a8db450e1aaf031fbf75209d745dc53ad90dc9e2eba7f202b0",
-      "bytes": 7338
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_source_mixed_body.py",
       "sha256": "367da5b8a2cc06c93ded8097909f845eb407b4a5360117ba986293888e84c704",
-      "bytes": 7162
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_source_outline_chart.py",
       "sha256": "b4aff58ee1e6d09a86ed5a4ea48ebc882d95995db82a8badea7e13295fff05f6",
-      "bytes": 14669
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_source_outline_text.py",
       "sha256": "a072d647efa5f304962f89dd95a283dca17f95be4a46acdcdbe49d87930c6c98",
-      "bytes": 3894
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_source_shape_replacements.py",
       "sha256": "14ac5d048abdfea404000653ba9fd78b9c273461e10b0a3135a3838c992a8b0a",
-      "bytes": 7335
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_source_vector_body.py",
       "sha256": "4be067a55d04ca57b7291705a9bedee19c5a2e076d463503d9faf7fcf23a9c8e",
-      "bytes": 12730
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_v012_new_raster.py",
       "sha256": "bbfe2015b019af121a42c40a096572a1850ed6abf83d9a0f31baaf04f1cb7e81",
-      "bytes": 3730
+      "bytes": 0
     },
     {
       "path": "direct-pdf/tests/test_vertical_mixed_text.py",
       "sha256": "8cdf48b53d7a9b24b72bd36ed4c8df7265114cd94e77b833ac4650d6d71b5428",
-      "bytes": 1344
+      "bytes": 0
     },
     {
       "path": "localflow/__init__.py",
       "sha256": "3e6d8e985ecb7d14e81b78509d9074514bacf96889db3ae15350c8d65ceecc8e",
-      "bytes": 54
+      "bytes": 0
     },
     {
       "path": "localflow/__main__.py",
       "sha256": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
-      "bytes": 48
+      "bytes": 0
     },
     {
       "path": "localflow/catalog.py",
       "sha256": "51b25948c68aec6faa450d84374af4e811787450ee06390457232c9ec03ab7ef",
-      "bytes": 2786
+      "bytes": 0
     },
     {
       "path": "localflow/cli.py",
       "sha256": "2c2e690facf1b3c2f57fb294bea58a53608ed25235486d8fea416849837b84ce",
-      "bytes": 7492
+      "bytes": 0
     },
     {
       "path": "localflow/core.py",
       "sha256": "75a7ab75615344e4cb9f39823d7a9f49baeb5b06bebda030992231544e1c4663",
-      "bytes": 5514
+      "bytes": 0
     },
     {
       "path": "localflow/editorial_gate.py",
       "sha256": "8eafcd0ec8ac1170b7b5129e1ed634a30eebaf3f32626a33d6d1fb6d6a16327c",
-      "bytes": 6089
+      "bytes": 0
     },
     {
       "path": "localflow/EDITORIAL-GATE.md",
       "sha256": "3261a303895da8415c700b4ba3a0fb35bb8e33ed1669f2747c57c6cd55bfadef",
-      "bytes": 2098
+      "bytes": 0
     },
     {
       "path": "localflow/NATIVE-JPG.md",
       "sha256": "86949b7d6e2e51b5d94bfa47e425475eb9c03ccda1c4639ef10be605b1724c29",
-      "bytes": 6063
+      "bytes": 0
     },
     {
       "path": "localflow/pdf_compat.py",
       "sha256": "3c19ab4af116bd57b5d51826efb89292ac629435b1a726fdf72fdfeb6eda76f6",
-      "bytes": 4758
+      "bytes": 0
+    },
+    {
+      "path": "localflow/pdf_render.py",
+      "sha256": "a5088edeeced4c78e769155cb1850ccb19269d75342e96d5682754cab05e0094",
+      "bytes": 0
+    },
+    {
+      "path": "localflow/PDF-RENDER-GATE.md",
+      "sha256": "8b4d260fb28b720df8320d9df7ad02a11f03314f4c0f878929ab294bda1cac51",
+      "bytes": 0
     },
     {
       "path": "localflow/probing.py",
       "sha256": "7621e36de520d052a7b3e6a8ad19001990b9d7fbd0d4418c3a4ba2c9aa92cea1",
-      "bytes": 4592
+      "bytes": 0
     },
     {
       "path": "localflow/publishing.py",
       "sha256": "16fb7f42a2647cc492b3ec3309f7b03f791ffd0251fedc88dce618beea8f1f40",
-      "bytes": 23578
+      "bytes": 0
     },
     {
       "path": "localflow/raster_candidates.py",
       "sha256": "cb8f59206d58c779bafe401fc4265801c3d249e923533092afe4ef0d0a1214a9",
-      "bytes": 27562
+      "bytes": 0
     },
     {
       "path": "localflow/README.md",
       "sha256": "71552ffee867bd6ed45f1d4881288b8fecfde32899c38684df01c7d90b11051f",
-      "bytes": 3875
+      "bytes": 0
     },
     {
       "path": "localflow/rendering.py",
       "sha256": "2d178ef019ecaa57cb7cbed39c0d8842f20b0e1ebcba18a1de2dcc0a1e9a1bd8",
-      "bytes": 11753
+      "bytes": 0
     },
     {
       "path": "localflow/routing.py",
       "sha256": "da1626e107cf461f6e7a488f3e3657282fc408c4e67cc5981923c97679a9aeaf",
-      "bytes": 2255
+      "bytes": 0
     },
     {
       "path": "localflow/target_identity.py",
       "sha256": "d3d7f0975668a24c43c17139c13c673b9285c4fa4c4cdbbbc5d1d474d5fcf4be",
-      "bytes": 2593
+      "bytes": 0
     },
     {
       "path": "preflight/docs/AGENT-CONTRACT.md",
       "sha256": "9948efc73d1f8fd3e70d8f658be75704f579b69afc95f2e6381f4b14da0c5d60",
-      "bytes": 1817
+      "bytes": 0
     },
     {
       "path": "preflight/docs/EDITORIAL-ROUTE-V1.md",
       "sha256": "f0bc04b8b727aa90c1a04a6397c84bb9a3bd129c748a824cc888b535338c1864",
-      "bytes": 9663
+      "bytes": 0
     },
     {
       "path": "preflight/docs/INTEGRATION.md",
       "sha256": "fd2af5049ba78ef5f08b750f1faa6c1db06e0242f9f57b33774c23eeef61abe5",
-      "bytes": 4490
+      "bytes": 0
     },
     {
       "path": "preflight/journal_preflight/__init__.py",
       "sha256": "aeafb352fe5af7dd68ed66a0848376836e130859e799314284df7ffa76b66c83",
-      "bytes": 113
+      "bytes": 0
     },
     {
       "path": "preflight/journal_preflight/__main__.py",
       "sha256": "e4698e7a49074d6b8d5dad3d0eb13770cfec1dac2350b71ce6cfb9233dafe9ac",
-      "bytes": 1628
+      "bytes": 0
     },
     {
       "path": "preflight/journal_preflight/editorial_route.py",
       "sha256": "4459c12bbd61b14564a9828e9202b5ba04dd19dc6cf33ed2567fab8c35f73677",
-      "bytes": 15593
+      "bytes": 0
     },
     {
       "path": "preflight/journal_preflight/probe.py",
       "sha256": "78300f858d0f755a64308eaeb32d7297d4047edbd23bcce7f0e0b0ebbc5a8623",
-      "bytes": 19171
+      "bytes": 0
     },
     {
       "path": "preflight/journal_preflight/routing.py",
       "sha256": "360c7acc14d31c6f6ab694b021744784be536cdd74c9f7296aee193c82cccb26",
-      "bytes": 9790
+      "bytes": 0
     },
     {
       "path": "preflight/preflight-v2.schema.json",
       "sha256": "cb9b0039c525e025bc95dbaf48e266b10af4b0853146ead9470934e9c91b8d8a",
-      "bytes": 2085
+      "bytes": 0
     },
     {
       "path": "preflight/pyproject.toml",
       "sha256": "950d00ef7f7021cd5ffea6ea92297ced6b67845a655db38059e2fcbead164801",
-      "bytes": 534
+      "bytes": 0
     },
     {
       "path": "preflight/README.md",
       "sha256": "7ceb4b3a86623c4fcd5522c00765d903fbd43d6bc5550a15f60dd19be619736c",
-      "bytes": 2295
+      "bytes": 0
     },
     {
       "path": "preflight/RELEASE-CANDIDATE.json",
       "sha256": "21b1ba7c53028c565c11e4397996faf84d4014b35b8bdb6265d43c9cec2b791e",
-      "bytes": 1698
+      "bytes": 0
     },
     {
       "path": "preflight/tests/test_docx_unsupported_objects.py",
       "sha256": "a129f6ddd295499fd0c25ffe01f2b117f38a579375b41158c8ebf255dc3aeb0c",
-      "bytes": 7570
+      "bytes": 0
     },
     {
       "path": "preflight/tests/test_editorial_route.py",
       "sha256": "def13391d3a11d9e894884e6c3ecf1fdabaeeb58afc89e8d850a0aea1c5c3032",
-      "bytes": 16188
+      "bytes": 0
     },
     {
       "path": "preflight/tests/test_preflight.py",
       "sha256": "1792ec2c0145c6759b4ce0ab8b281da134dbefa48e2e88d2c8e43f1a283ad1c9",
-      "bytes": 11817
+      "bytes": 0
     },
     {
       "path": "quality-recipes/diagram-relations.mjs",
       "sha256": "f9a211d6e8602824b8648ce256f2bda7725a774b5d47c596f15a6a10c0f736dd",
-      "bytes": 4590
+      "bytes": 0
     },
     {
       "path": "quality-recipes/README.md",
       "sha256": "21d74eec8bcdd91b4a854733f7e32b847e061f4d12dafd5bb0a7099501c3ddb9",
-      "bytes": 1459
+      "bytes": 0
     },
     {
       "path": "README.md",
-      "sha256": "383efc6478291f7d39693b53dac1b81c41fbc7add63942dc258574a23f629ae7",
-      "bytes": 4459
+      "sha256": "eaf6303176606dbd0e87679e3a3f2b0d0cfd31f0920147db77652aea646107c8",
+      "bytes": 3351
     },
     {
       "path": "task_quality/__init__.py",
       "sha256": "53934c957a499cff5fd6bfabbe1da5b15cf18d7f631f0b3d88df78e2f5006741",
-      "bytes": 91
+      "bytes": 0
     },
     {
       "path": "task_quality/__main__.py",
       "sha256": "e075313ec138b369698e81328ec4664189377a1421e5e205f4f4ff06eb92d754",
-      "bytes": 1688
+      "bytes": 0
     },
     {
       "path": "task_quality/checks.py",
       "sha256": "f69adb5a5894c1d217d5f1daf0d7d435fb75c8d51f7eab9eb9f2aff16bb98a3a",
-      "bytes": 10148
+      "bytes": 0
     },
     {
       "path": "task_quality/contract.example.json",
       "sha256": "06a55f9d10eddd0f31536fd15eefc07d719d425e5eccf79ad6e29431cd2f9bfe",
-      "bytes": 2334
+      "bytes": 0
     },
     {
       "path": "task_quality/gate.py",
       "sha256": "85d275f2c1b7ae61103665e7c4b3773db728a25f493359861bfc85d219530d61",
-      "bytes": 7322
+      "bytes": 0
     },
     {
       "path": "task_quality/models.py",
       "sha256": "5c9871943b749455201354ecc2bdd397c892113ce5bdf4da84feaaf70c1519e0",
-      "bytes": 8314
+      "bytes": 0
     },
     {
       "path": "task_quality/README.md",
       "sha256": "bdf1de6f711c3973c6baf0b5471ab487bcfc3934a9e520c4c4d4210ed1f5aa12",
-      "bytes": 9019
+      "bytes": 0
     },
     {
       "path": "task_quality/storage.py",
       "sha256": "b042f80cc02fafad3b0a8a7299ede318543b04c0f5a81e18d9b340322a26ab33",
-      "bytes": 8201
+      "bytes": 0
     },
     {
       "path": "task-quality-workflow.md",
       "sha256": "139e60df5e27e45bc10775e9e2b8698a96c8690d97353ab7defab856aa1489be",
-      "bytes": 7228
+      "bytes": 0
     },
     {
       "path": "tests-local/test_editorial_gate.py",
       "sha256": "01f1e8ef610d97671489cbb92c716362088bedd8013b1fcb633e1c1bea6bade3",
-      "bytes": 5743
+      "bytes": 0
     },
     {
       "path": "tests-local/test_engine_directory.py",
       "sha256": "b6d19bdb501b5543e3ff4c592fe61ff5f41a58d231bb8627e2df9ab627432d92",
-      "bytes": 1171
+      "bytes": 0
     },
     {
       "path": "tests-local/test_localflow.py",
       "sha256": "4174826d07dc4faa5b5080361c492774224b3f6fe661ea34247a5c5e5d43488f",
-      "bytes": 15416
+      "bytes": 0
     },
     {
       "path": "tests-local/test_native_jpg_publishing.py",
       "sha256": "8e30945c9dcc2a3bad655e4809471f9bf7770875becb1dd14e082b24db6985fe",
-      "bytes": 27802
+      "bytes": 0
     },
     {
       "path": "tests-local/test_publication_font_gate.py",
       "sha256": "62cfe531aa0fa404e3baf6ec000e39387c967737b4fcc8ff2ee5c0d55bfcc5d6",
-      "bytes": 11862
+      "bytes": 0
     },
     {
       "path": "tests-task/case_helpers.py",
       "sha256": "4c2294786c38825dc98db595c4e89a2af9ba877a28c4c66cb7069ca5325fb27d",
-      "bytes": 3570
+      "bytes": 0
     },
     {
       "path": "tests-task/test_artifact_set.py",
       "sha256": "c222ea564955eaacecb9f5f12d02eaa10e1138e330ad98e28eefe8fc05a934bb",
-      "bytes": 1339
+      "bytes": 0
     },
     {
       "path": "tests-task/test_gate.py",
       "sha256": "84a8b5a17942b9d5492a57cdf42e2dc0df2cbdb59a2a315f3f8ceef8d1848f2b",
-      "bytes": 12371
+      "bytes": 0
     },
     {
       "path": "tests-task/test_raster_metadata.py",
       "sha256": "412229965628621a84ebb1da98dc001c8e68e6f97fce4457b0ce18c11e41983c",
-      "bytes": 2358
+      "bytes": 0
     }
   ]
 }
