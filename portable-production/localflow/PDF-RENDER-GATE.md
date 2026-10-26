@@ -23,6 +23,14 @@ JSON contains `passed`, `page_count`, `rendered_pages`, `error`. Nonzero exit me
 failure. Existing localflow rendering, publishing and acceptance callers obtain
 the check through `audit_pdf_compatibility`; no separate copy is maintained.
 
+The additive `diagnostic_kind` field distinguishes the reproduced outline Last
+pointer diagnostic (`pdf_structure`) from other or mixed decoder diagnostics
+(`pdf_decoder`); an empty value denotes no diagnostic classification. Compatibility
+errors carry the same category instead of describing every warning as an actual
+page-render failure. All categories still block publication and return nonzero.
+Complete raster coverage alone cannot prove harmlessness: corrupt embedded fonts
+may be substituted while producing a pixmap. The gate does not repair PDF bytes.
+
 Regression fixtures are generated locally: valid vector pages, corrupt Flate
 content, corrupt embedded library-provided font and a missing file. No manuscript,
 commercial font or private PDF is committed. The content-corruption test failed

@@ -10,6 +10,7 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Literal
 
 import pymupdf as fitz
 
@@ -20,6 +21,7 @@ class RenderCheck:
     page_count: int
     rendered_pages: int
     error: str = ""
+    diagnostic_kind: Literal["", "pdf_structure", "pdf_decoder"] = ""
 
 
 def _render_worker(path: Path) -> RenderCheck:
@@ -42,7 +44,12 @@ def _render_worker(path: Path) -> RenderCheck:
                 rendered += 1
                 diagnostics = fitz.TOOLS.mupdf_warnings()
                 if diagnostics:
-                    return RenderCheck(False, count, rendered, diagnostics)
+                    # Classify only the reproduced outline diagnostic. Mixed or
+                    # unknown warnings remain decoder failures, never approvals.
+                    structure_only = all(line == "Bad or missing last pointer in outline tree, repairing"
+                                         for line in diagnostics.splitlines())
+                    return RenderCheck(False, count, rendered, diagnostics,
+                                       "pdf_structure" if structure_only else "pdf_decoder")
     except (OSError, RuntimeError, ValueError) as exc:
         return RenderCheck(False, count, rendered, str(exc))
     return RenderCheck(True, count, rendered)
@@ -63,10 +70,11 @@ def audit_pdf_render(path: Path) -> RenderCheck:
         return RenderCheck(False, 0, 0, f"invalid render report: {exc}")
     if result.returncode != 0 or result.stderr.strip():
         return RenderCheck(False, report.page_count, report.rendered_pages,
-                           report.error or result.stderr or "render process failed")
+                           report.error or result.stderr or "render process failed",
+                           report.diagnostic_kind if not result.stderr.strip() else "")
     if not report.passed or report.page_count < 1 or report.rendered_pages != report.page_count:
         return RenderCheck(False, report.page_count, report.rendered_pages,
-                           report.error or "incomplete render")
+                           report.error or "incomplete render", report.diagnostic_kind)
     return report
 
 

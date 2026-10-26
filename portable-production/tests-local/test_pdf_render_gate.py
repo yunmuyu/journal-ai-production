@@ -68,3 +68,33 @@ def test_rejects_missing_pdf_without_false_success(tmp_path: Path) -> None:
     # Then
     assert not report.passed
     assert report.rendered_pages == 0
+
+
+@pytest.mark.parametrize("corrupt_content", [False, True])
+def test_classifies_outline_diagnostics_without_allowing_repaired_pages(
+    tmp_path: Path, corrupt_content: bool,
+) -> None:
+    # Given: a vector page whose outline Last points to a child, not a sibling.
+    path = tmp_path / "outline.pdf"
+    with fitz.open() as doc:
+        page = doc.new_page(width=150, height=100)
+        page.draw_rect(fitz.Rect(10, 10, 60, 60))
+        doc.set_toc([[1, "Parent", 1], [2, "Child", 1]])
+        outline = int(doc.xref_get_key(doc.pdf_catalog(), "Outlines")[1].split()[0])
+        first = int(doc.xref_get_key(outline, "First")[1].split()[0])
+        doc.xref_set_key(outline, "Last", doc.xref_get_key(first, "First")[1])
+        if corrupt_content:
+            stream = page.get_contents()[0]
+            doc.update_stream(stream, b"not a zlib stream", compress=False)
+            doc.xref_set_key(stream, "Filter", "/FlateDecode")
+        doc.save(path)
+    # When: the public wrapper must preserve the worker's diagnostic category.
+    report = audit_pdf_render(path)
+    # Then: both are blocked; mixed decoder errors must not become structure-only.
+    assert not report.passed
+    assert report.rendered_pages == report.page_count == 1
+    expected = "pdf_decoder" if corrupt_content else "pdf_structure"
+    assert report.diagnostic_kind == expected
+    with pytest.raises(FlowError) as error:
+        audit_pdf_compatibility(path)
+    assert error.value.code == expected
