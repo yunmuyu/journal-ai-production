@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "2026.10.26-r35-consolidated",
   "createdAt": "2026-10-26T01:51:43.9254759Z",
-  "status": "integration-candidate",
+  "status": "validated-source-release",
   "constraints": {
     "fontSizePt": {
       "min": 6,
@@ -12,8 +12,16 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "status": "pending",
-    "scope": "Integrated sources; tests and visual review not yet completed"
+    "notVerified": [
+      "Windows symlink creation without privilege",
+      "Real issue final PDF quality",
+      "Unattended batch publication"
+    ],
+    "visual": "Four synthetic PDF families rendered and visually inspected",
+    "deployed": false,
+    "linux": "filesystem-safety: 11 passed; offline-checks passed",
+    "status": "passed-with-explicit-platform-limits",
+    "windows": "964 passed before collision fix; affected 3 collision cases passed after fix; 8 symlink fixture setups blocked by OS privilege"
   },
   "files": [
     {
@@ -1218,8 +1226,8 @@
     },
     {
       "path": "preflight/README.md",
-      "sha256": "7ceb4b3a86623c4fcd5522c00765d903fbd43d6bc5550a15f60dd19be619736c",
-      "bytes": 2295
+      "sha256": "80f9bc37594a3767fbe659fad457e2d9001b840bdf8665dbafb153f79621aecc",
+      "bytes": 2469
     },
     {
       "path": "preflight/RELEASE-CANDIDATE.json",
