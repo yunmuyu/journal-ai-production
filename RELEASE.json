@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "2026.10.26-r35-consolidated",
-  "createdAt": "2026-10-26T01:51:43.9254759Z",
+  "createdAt": "2026-10-26T02:31:06.216Z",
   "status": "validated-source-release",
   "constraints": {
     "fontSizePt": {
@@ -24,6 +24,11 @@
     "windows": "Final integrated suite: 965 passed, 8 fixture setup failures (WinError1314 symlink privilege), 9 subtests passed; no assertion failures"
   },
   "files": [
+    {
+      "path": "运行说明.md",
+      "sha256": "42989de63dbebf14785b15bf115f376f739d4d36a21610182150c31baaee0b07",
+      "bytes": 13474
+    },
     {
       "path": "adobe/common.jsx",
       "sha256": "b5e334bc58cf222601a4920ef29e5bf06524378b8c5aaafa74763c19754449a9",
@@ -331,8 +336,8 @@
     },
     {
       "path": "references/editorial-profile.md",
-      "sha256": "367adeb1c789d7721326f611ccc1c3522c9e83342dbfb025fab83ad26652b1d3",
-      "bytes": 23747
+      "sha256": "000edde97438b1208c3c0cacde05e077dd1d39ef3579db542578b5b7e26e6dbb",
+      "bytes": 20692
     },
     {
       "path": "references/legacy-provenance.json",
@@ -418,11 +423,6 @@
       "path": "scripts/typesafe_call.py",
       "sha256": "87eadea5858ab36fd7167b821bb8ecda9959d14df7c0daceeea0733e6a857db4",
       "bytes": 1232
-    },
-    {
-      "path": "运行说明.md",
-      "sha256": "42989de63dbebf14785b15bf115f376f739d4d36a21610182150c31baaee0b07",
-      "bytes": 13474
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
@@ -1328,6 +1328,11 @@
       "path": "tests-local/test_native_jpg_publishing.py",
       "sha256": "c7f7d8dd618eabe62bcee4592d92feb5b7a110034bc43fce2b9e8b8ed3aab5d3",
       "bytes": 27828
+    },
+    {
+      "path": "tests-local/test_pdf_render_gate.py",
+      "sha256": "06ac6278e7fa136dc53fced8ef87fb8039d3e8965809223d0c58339563a59bfb",
+      "bytes": 2875
     },
     {
       "path": "tests-local/test_publication_font_gate.py",
