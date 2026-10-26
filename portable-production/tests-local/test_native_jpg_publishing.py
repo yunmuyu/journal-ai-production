@@ -147,7 +147,7 @@ def test_cross_format_and_casefold_collisions_fail_closed(tmp_path, suffix):
         publish(job[0], cid, 'editor/author', '1')
     assert exc.value.code in ('format_conflict', 'filename_collision')
     assert other.read_bytes() == b'protected collision'
-    assert not (other.parent / 'author-图1.jpg').exists()
+    assert 'author-图1.jpg' not in {entry.name for entry in other.parent.iterdir()}
 
 
 def test_dangling_output_symlink_is_not_replaced(tmp_path):

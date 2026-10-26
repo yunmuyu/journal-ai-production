@@ -40,7 +40,10 @@ def target_for_artifact(folder: Path, figure_number: str, *, output_format: str 
         pdf_name = target_basename.rsplit(".", 1)[0] + ".pdf"
         TargetIdentity(author, pdf_name).basename(folder.name, figure_number)
         name = target_basename
-    return safe_child(folder, name, existing=False)
+    safe_child(folder, name, existing=False)
+    # Preserve requested spelling after containment/link checks: Windows resolve
+    # canonicalizes an existing differently-cased filename and hides collisions.
+    return folder.resolve() / name
 
 
 def artifact_format(candidate: dict, artifact: Path) -> str:
