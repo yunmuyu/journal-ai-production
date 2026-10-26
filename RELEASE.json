@@ -17,11 +17,11 @@
       "Real issue final PDF quality",
       "Unattended batch publication"
     ],
-    "visual": "Four synthetic PDF families rendered and visually inspected",
+    "visual": "Four synthetic PDF families passed shared decoder gate and visual review; negative exponents rerendered with ASCII unary signs after rejecting old preview",
     "deployed": false,
     "linux": "filesystem-safety: 11 passed; offline-checks passed",
     "status": "passed-with-explicit-platform-limits",
-    "windows": "964 passed before collision fix; affected 3 collision cases passed after fix; 8 symlink fixture setups blocked by OS privilege"
+    "windows": "Final integrated suite: 965 passed, 8 fixture setup failures (WinError1314 symlink privilege), 9 subtests passed; no assertion failures"
   },
   "files": [
     {
