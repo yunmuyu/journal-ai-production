@@ -69,14 +69,17 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
         if kind=='scene':
             if spec.get('assets') and assets is None:raise FigureError('scene_assets_unavailable','场景素材需要Assets实例')
             for item in spec.get('assets',[]):
-                if sum(item.get(flag) is True for flag in ('source_icon','source_vector_body','source_vector_glyph','source_svg_group','source_mixed_body'))>1:raise FigureError('source_asset_mode_conflict','每个源资产只能明确一种保真准备模式')
+                if sum(item.get(flag) is True for flag in ('source_icon','source_vector_body','source_vector_glyph','source_svg_group','source_mixed_body','source_registered_pdf_text'))>1:raise FigureError('source_asset_mode_conflict','每个源资产只能明确一种保真准备模式')
                 if 'source_shape_replacements' in item and item.get('source_mixed_body') is not True:raise FigureError('source_shape_mode','shape替换仅接受显式源混合图体')
                 path=resolve_source(root,item['path']);source_kind=item['source_kind'];clip=item['clip']
                 if source_kind=='raster':asset=assets.raster(path,clip,gray=item.get('gray',True))
                 elif source_kind=='pdf':
                     if 'source_path_indices' in item and item.get('source_vector_glyph') is not True:raise FigureError('source_icon_selection_unavailable','源路径重放未通过真实像素验证，禁止使用')
                     if item.get('source_vector_body') is True and item.get('source_icon') is True:raise FigureError('source_asset_mode_conflict','源图体与源图标不可同时声明')
-                    if item.get('source_mixed_body') is True:asset=assets.source_mixed_body(path,item.get('page',0),clip,text_replacements=item.get('text_replacements'),outline_text_replacements=item.get('outline_text_replacements'),source_shape_replacements=item.get('source_shape_replacements'))
+                    if item.get('source_registered_pdf_text') is True:
+                        registration=item['text_registration']
+                        asset=assets.registered_pdf_text(path,item.get('page',0),clip,resolve_source(root,registration['svg_path']),registration,text_replacements=item.get('text_replacements'),grayscale=item.get('grayscale',False))
+                    elif item.get('source_mixed_body') is True:asset=assets.source_mixed_body(path,item.get('page',0),clip,text_replacements=item.get('text_replacements'),outline_text_replacements=item.get('outline_text_replacements'),source_shape_replacements=item.get('source_shape_replacements'))
                     elif item.get('source_vector_glyph') is True:asset=assets.source_vector_glyph(path,item.get('page',0),clip,item['source_path_indices'],gray=item.get('gray',True),text_replacements=item.get('text_replacements'))
                     elif item.get('source_vector_body') is True:asset=assets.source_vector_body(path,item.get('page',0),clip,text_replacements=item.get('text_replacements'))
                     elif item.get('source_icon') is True:asset=assets.source_icon(path,item.get('page',0),clip,text_replacements=item.get('text_replacements'))
@@ -86,12 +89,24 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
                 else:raise FigureError('scene_asset_kind','场景素材只接受已验证的raster/pdf或显式原SVG组入口',kind=source_kind)
                 for replacement in asset.audit.get('text_replacements',[]):
                     target=next((t for t in value.texts if t['id']==replacement['target_text_id']),None)
-                    if target is None or ''.join(target['measurement']['text'].splitlines())!=replacement.get('target_text',replacement['source_text']):
+                    from .quantity_spacing import normalize_quantity_spacing
+                    expected=replacement.get('target_text',replacement['source_text'])
+                    allowed={expected,normalize_quantity_spacing(expected,target.get('role','label') if target else 'label')}
+                    if target is None or ''.join(target['measurement']['text'].splitlines()) not in allowed:
                         raise FigureError('source_icon_replacement_missing','原图清字后必须有同文可编辑目标',asset=item['id'])
+                    if 'source_gray' in replacement and target.get('gray',0)!=replacement['source_gray']:
+                        raise FigureError('source_text_color','登记文字须保持原黑白对比')
                 value.embed(item['id'],asset,item['target'],item.get('role','source-mixed-body' if item.get('source_mixed_body') is True else 'source-vector-glyph' if item.get('source_vector_glyph') is True else 'source-vector-body' if item.get('source_vector_body') is True else 'source-svg-group' if item.get('source_svg_group') is True else 'icon'))
             if any(row['asset'].audit.get('source_shape_bindings') for row in value.assets):
                 import copy
                 value.source_shape_target_declarations={node['id']:copy.deepcopy(node) for node in spec.get('nodes',[])}
+            white_bound={q['target_text_id'] for a in value.assets if a['asset'].audit.get('mode')=='registered-native-pdf-text'
+                         for q in a['asset'].audit['text_replacements'] if q['source_gray']==1}
+            if 'source_text_bindings' in spec:
+                from .source_text_bindings import bind_source_text
+                white_bound.update(bind_source_text(value,spec['source_text_bindings'],root))
+            if any(t.get('gray',0)==1 and t['id'] not in white_bound for t in value.texts):
+                raise FigureError('source_text_color','白字仅用于已核对原白字的完整PDF文字登记')
         return value
     scene=build(size)
     initial_width=scene.width
@@ -163,11 +178,21 @@ def pdf_audit(path:Path,scene,reg):
     if not ink:raise FigureError('empty_pdf','最终PDF没有可见内容')
     from .axis_units import audit_axis_titles
     axis_units=audit_axis_titles(scene,p.get_text())
+    from .quantity_spacing import audit_quantity_spacing
+    quantity_spacing=audit_quantity_spacing(scene,p.get_text())
     numeric_expected=collections.Counter(t['measurement']['text'] for t in scene.texts if t['role'] in ('axis-tick','numeric-value','number'))
     numeric_actual=collections.Counter(line.strip() for line in p.get_text().splitlines())
     numeric_missing=dict(numeric_expected-numeric_actual)
     trace=p.get_texttrace()
+    from .text_geometry import audit_pdf_rotations
+    rotation_audit=audit_pdf_rotations(scene.texts,trace)
+    from .pdf_font_styles import audit_pdf_font_styles
+    font_style_audit=audit_pdf_font_styles(scene.texts,trace,reg.postscript_names,p.cropbox_position)
     black_ok=all(all(abs(v)<1e-8 for v in t['color']) for t in trace)
+    expected_colors=collections.Counter((ord(g['ch']),t.get('gray',0)) for t in scene.texts for g in t['measurement']['glyphs'] if not g['ch'].isspace())
+    actual_colors=collections.Counter((c[0],round(t['color'][0])) for t in trace for c in t['chars'] if not chr(c[0]).isspace())
+    declared_colors_ok=(actual_colors==expected_colors and all(all(abs(v-t['color'][0])<1e-8 for v in t['color']) and min(abs(t['color'][0]),abs(t['color'][0]-1))<1e-8 for t in trace))
+    text_color_ok=black_ok or (any(t.get('gray',0)==1 for t in scene.texts) and declared_colors_ok)
     from .source_icons import audit_icon_paths
     icon_audit=audit_icon_paths(p,scene.assets)
     stroke_bad=icon_audit['stroke_violations']
@@ -180,8 +205,10 @@ def pdf_audit(path:Path,scene,reg):
             'font_descriptors':descriptors,
             'neutral_rgb_300dpi':color_ok,'nonneutral_pixels':off,'max_channel_difference':max(i for i,v in enumerate(hist) if v),
             'image_resource_count':len(p.get_images()),'vector_drawing_count':len(p.get_drawings()),
-            'axis_unit_notation':axis_units,'numeric_grouping_in_actual_pdf':not numeric_missing,'numeric_missing':numeric_missing,
-            'editable_text_pure_black':black_ok,'effective_path_strokes_05pt':not stroke_bad,
+            'axis_unit_notation':axis_units,'quantity_unit_spacing':quantity_spacing,'numeric_grouping_in_actual_pdf':not numeric_missing,'numeric_missing':numeric_missing,
+            'editable_text_pure_black':black_ok,'editable_text_declared_black_white_exact':declared_colors_ok,'effective_path_strokes_05pt':not stroke_bad,
+            'editable_text_rotation_exact':rotation_audit['ok'],'text_rotation':rotation_audit,
+            'editable_text_font_styles_exact':font_style_audit['ok'],'text_font_styles':font_style_audit,
             'audited_stroke_count':icon_audit['audited_stroke_count'],'stroke_violations':stroke_bad,
             'source_path_ownership':icon_audit,
             'source_image_ownership':icon_audit['image_ownership'],
@@ -196,7 +223,7 @@ def pdf_audit(path:Path,scene,reg):
             'stroke_scope':'Visible PDF stroke paths only; raster curves, fills and glyph outlines are not stroke-width checks',
             'not_pdfx_certified':True,'font_profile_is_preview':reg.is_preview,
             'requires_semantic_visual_review':True,'requires_indesign_placement_test':True}
-    if not content_ok or not color_ok or not result['all_fonts_embedded'] or numeric_missing or not black_ok or stroke_bad or not axis_units['ok']:
+    if not content_ok or not color_ok or not result['all_fonts_embedded'] or numeric_missing or not text_color_ok or not rotation_audit['ok'] or not font_style_audit['ok'] or stroke_bad or not axis_units['ok'] or not quantity_spacing['ok']:
         raise FigureError('actual_pdf_audit_failed','实际PDF检查失败',audit=result)
     d.close();return result,img
 
@@ -223,6 +250,8 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         asset=a['asset']
         if allowed.get(str(Path(asset.source_path).resolve()))!=asset.source_hash:
             raise FigureError('unbound_asset','版位引用的素材没有在来源清单中绑定',asset=a['id'])
+        if asset.audit.get('mode')=='registered-native-pdf-text' and allowed.get(asset.audit['svg_path'])!=asset.audit['text_registration']['svg_sha256']:
+            raise FigureError('unbound_asset','完整文字登记的伴随SVG须在来源清单中绑定',asset=a['id'])
     layout_finished=time.perf_counter()
     folder=output_root/author/id;folder.mkdir(parents=True,exist_ok=True)
     pdf=folder/(id+'.pdf');preview=folder/(id+'.png');report=folder/'report.json'
@@ -275,9 +304,18 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         for b in bindings:
             if digest_file(resolve_source(source_root,b['path']))!=b['sha256']:
                 raise FigureError('source_changed_during_render','输出前发现源文件变化')
+        unverified_assets=[{'id':a['id'],'mode':a['mode'],'source_sha256':a.get('source_sha256')}
+                           for a in asset_reports if a.get('mode') in ('source-vector-body','source-mixed-body')]
+        typography_coverage={'status':'unverified' if unverified_assets else 'declared-scene-checked',
+                             'unverified_assets':unverified_assets,
+                             'scope':'Native PDF text checks do not inspect text retained as source paths or image pixels.'}
+        if unverified_assets:
+            warnings.append({'code':'source_text_coverage','message':'原图路径或像素中的文字尚未逐项核对；原生文字替换通过不等于全图字号、字体与布局合格。'})
         result={'schema_version':1,'engine_version':__version__,'engine_signature':engine_signature(),
                 'editorial_ruleset':RULESET,'editorial_coverage':'partial-see-RULE-COVERAGE.md','id':id,'author':author,'kind':spec['kind'],
-                'status':'candidate-rendered','mechanical_checks_passed':True,'ready_for_publication':False,
+                'status':'candidate-unverified-source-text' if unverified_assets else 'candidate-rendered',
+                'mechanical_checks_passed':True,'overall_checks_passed':not unverified_assets,
+                'typography_coverage':typography_coverage,'ready_for_publication':False,
                 'backend':'direct-pdf','required_artifact':'pdf','ai_required':False,
                 'editable_policy':spec.get('policy',{}),'spec_hash':digest_json(spec),'source_bindings':bindings,'font':reg.summary(),
                 'layout':scene.export(),'assets':asset_reports,'pdf_audit':audit,'warnings':warnings,
@@ -290,6 +328,9 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
                 'preview':str(preview.relative_to(output_root))}
         os.replace(tmp,pdf);os.replace(preview_tmp,preview);atomic_json(report,result)
         atomic_json(folder/'figure.spec.json',spec)
+        if unverified_assets:
+            raise FigureError('source_text_coverage','已保存诊断预览，但源图路径或像素中的文字覆盖尚未验证，不能进入合格候选。',
+                              typography_coverage=typography_coverage,output_pdf=result['output_pdf'])
         return result
     finally:
         import shutil;shutil.rmtree(tempdir,ignore_errors=True)

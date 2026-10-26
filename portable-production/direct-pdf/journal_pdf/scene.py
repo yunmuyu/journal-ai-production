@@ -5,6 +5,7 @@ from .boundary_ports import BoundaryGeometry, rectangular_path_bounds
 from .fonts import position_text
 from .flow_shapes import is_flow_terminal
 from .editorial import display_content, wrap_text, PAD_X, PAD_Y, STROKE, ARROW_LENGTH, diamond_size
+from .text_geometry import oblique,polygons,texts_intersect,segment_intersects_text,arrow_intersects_text
 
 def validate_node_dash(dash, *, id=None):
     if dash is not None and (not isinstance(dash,list) or not dash or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or v<0 for v in dash) or not any(dash)):
@@ -21,14 +22,17 @@ class Scene:
     def ident(self,id):
         if id in self._ids:raise FigureError('duplicate_object_id','重复对象ID',id=id)
         self._ids.add(id)
-    def text(self,id,content,x,y,align='center',rotation=0,owner=None,role='label',size=None,wrap_chars=None,vertical=False):
+    def text(self,id,content,x,y,align='center',rotation=0,owner=None,role='label',size=None,wrap_chars=None,vertical=False,gray=0):
+        if isinstance(gray,bool) or gray not in (0,1):raise FigureError('text_gray','文字仅支持显式黑0或白1')
         self.ident(id); source_content=content;content=display_content(content,role)
         if wrap_chars is not None:
             content=wrap_text(content,wrap_chars)
         m=self.registry.measure(content,size or self.size,role=role) if role!='label' else self.registry.measure(content,size or self.size)
         if vertical:m=self.registry.measure_vertical(content,size or self.size)
         p=position_text(m,x,y,align,rotation)
-        t={'id':id,'content':content,'source_content':source_content,'measurement':m,'position':p,'owner':owner,'role':role,'x':x,'y':y,'align':align}
+        if p['rotation']%90:
+            p=position_text(m,x,y,align,p['rotation'],rotated_ink=self.registry.rotated_ink_bounds(m,p['rotation']))
+        t={'id':id,'content':content,'source_content':source_content,'measurement':m,'position':p,'owner':owner,'role':role,'x':x,'y':y,'align':align,'gray':gray}
         self.texts.append(t);return t
     def shape(self,id,rect,kind='rectangle',container=False,width=.5,dash=None):
         self.ident(id)
@@ -254,7 +258,7 @@ def audit_scene(s:Scene):
                 if max(vals)>1.00001:issues.append({'code':'text_crosses_shape_boundary','id':t['id']})
     for i,a in enumerate(s.texts):
         for b in s.texts[i+1:]:
-            if intersects(a['position']['bbox'],b['position']['bbox'],.05):
+            if (texts_intersect(a,b) if oblique(a) or oblique(b) else intersects(a['position']['bbox'],b['position']['bbox'],.05)):
                 issues.append({'code':'text_overlap','ids':[a['id'],b['id']]})
     for n in s.nodes:
         x,y,r,b=n['rect'];w=n['width']/2
@@ -263,7 +267,7 @@ def audit_scene(s:Scene):
             corners=[[x,y],[r,y],[r,b],[x,b],[x,y]]
             for t in s.texts:
                 if t['owner']==n['id']:continue
-                if any(segment_hits(a,b,t['position']['bbox'],w+.1) for a,b in zip(corners,corners[1:])):
+                if any(segment_intersects_text(a,b,t,w+.1) if oblique(t) else segment_hits(a,b,t['position']['bbox'],w+.1) for a,b in zip(corners,corners[1:])):
                     issues.append({'code':'text_shape_collision','text':t['id'],'shape':n['id']})
     s.layout_evidence['source_path_ports']=[]
     s.layout_evidence['page_external_ports']=[]
@@ -302,7 +306,7 @@ def audit_scene(s:Scene):
                 else:
                     issues.append({'code':'arrow_endpoint_declaration_invalid','id':p['id'],'at_start':start})
         for t in s.texts:
-            if any(segment_hits(a,b,t['position']['bbox'],protection) for a,b in zip(pts,pts[1:])):
+            if any(segment_intersects_text(a,b,t,protection) if oblique(t) else segment_hits(a,b,t['position']['bbox'],protection) for a,b in zip(pts,pts[1:])):
                 issues.append({'code':'text_path_collision','text':t['id'],'path':p['id']})
         for a in pts:
             if not contains(page,[a[0]-protection,a[1]-protection,a[0]+protection,a[1]+protection],.02):
@@ -321,7 +325,7 @@ def audit_scene(s:Scene):
                 box=[min(q[0] for q in vertices),min(q[1] for q in vertices),max(q[0] for q in vertices),max(q[1] for q in vertices)]
                 if not contains(page,box):issues.append({'code':'arrow_outside_page','id':p['id']})
                 for t in s.texts:
-                    if intersects(box,t['position']['bbox']):issues.append({'code':'arrow_text_collision','path':p['id'],'text':t['id']})
+                    if arrow_intersects_text(vertices,t) if oblique(t) else intersects(box,t['position']['bbox']):issues.append({'code':'arrow_text_collision','path':p['id'],'text':t['id']})
             except FigureError as e:issues.append(e.as_dict()|{'id':p['id']})
     excluded_roles={'legend-swatch','decorative'}
     for i,p in enumerate(s.paths):

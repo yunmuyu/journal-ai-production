@@ -35,6 +35,10 @@ def _descriptor_xref(doc: fitz.Document, font_xref: int, subtype: str) -> int:
 def audit_pdf_compatibility(path: Path) -> dict:
     render_check = audit_pdf_render(path)
     if not render_check.passed:
+        if render_check.diagnostic_kind:
+            label = "PDF 结构诊断未通过" if render_check.diagnostic_kind == "pdf_structure" else "PDF 渲染时的解码诊断未通过"
+            raise FlowError(render_check.diagnostic_kind,
+                            f"{label}（已渲染 {render_check.rendered_pages}/{render_check.page_count} 页）：{render_check.error}")
         raise FlowError("pdf_render", f"PDF 实际渲染失败：{render_check.error}")
     descriptors: dict[int, dict] = {}
     type3_fonts: set[int] = set()

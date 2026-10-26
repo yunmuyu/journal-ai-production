@@ -47,6 +47,13 @@ def setup_job(tmp_path, *, target_basename=None, source_is_target=False, width_m
             'observation': 'Generated test border, line and text all belong to this same source.'}],
         'checks': {name: {'status': 'recorded_satisfied', 'evidence_ids': ['review-1']}
             for name in COMMON_CHECKS + ROUTE_CHECKS[route]}, 'author_issues': []}
+    figure['text_review'] = {'requirement': 'preserve_native', 'categories': ['other'],
+        'reason': 'Generated Synthetic A / B 1.0 lettering is deliberately retained as pixels for this grayscale test.',
+        'evidence_ids': ['review-1']}
+    figure['source_review'] = {'source_snapshot': {'source': digest}, 'structure': 'ui',
+        'text_requirement': 'preserve_native', 'data_preservation': 'required', 'topology': 'not_applicable',
+        'evidence': [{'source_id':'source','source_sha256':digest,'location':'whole synthetic image',
+                      'observation':'Generated image capture, including its test lettering, is retained as pixels.'}]}
     output = {'author_rel': 'editor/author', 'figure_number': '1'}
     if target_basename is not None:
         output['target_basename'] = target_basename
@@ -380,6 +387,11 @@ def test_context_source_is_bound_without_guessing_image_pair(tmp_path):
     fig['evidence'].append({'id': 'context-1', 'source_id': 'context', 'source_sha256': hash_file(context),
         'method': 'synthetic fixture', 'location': 'Figure 1 caption', 'observation': 'Context explicitly paired with this image only.'})
     fig['checks']['source_identity']['evidence_ids'].append('context-1')
+    fig['text_review']['evidence_ids'].append('context-1')
+    fig['text_review']['reason'] += ' The synthetic caption is context only and requests no lettering replacement.'
+    fig['source_review']['source_snapshot']['context'] = hash_file(context)
+    fig['source_review']['evidence'].append({'source_id':'context','source_sha256':hash_file(context),
+        'location':'caption context','observation':'Synthetic caption context requests no replacement lettering.'})
     write_json(constraints_path, constraints)
     job = (config, source, spec_path, constraints_path, pid)
     cid, _, report, _ = approved(job)

@@ -140,6 +140,17 @@ class Assets:
         a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
         return a
 
+    def registered_pdf_text(self,path:Path,page_no:int,clip,svg_path:Path,registration,*,text_replacements=None,grayscale=False):
+        from .source_pdf_text import prepare_registered_text
+        sha=digest_file(path);key=digest_json(['registered-native-pdf-text-v1',sha,digest_file(svg_path),page_no,clip,registration,text_replacements,grayscale])
+        if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
+        prepared=prepare_registered_text(path,page_no,clip,svg_path,registration,text_replacements=text_replacements,grayscale=grayscale)
+        import json
+        audit=json.loads(prepared.receipt_json);doc=fitz.open(stream=prepared.data,filetype='pdf')
+        a=Asset(key,'pdf',str(path),sha,list(doc[0].rect),prepared.data,audit)
+        a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
+        return a
+
     def source_vector_body(self,path:Path,page_no:int,clip,*,text_replacements=None):
         """Explicit original nontext vector body with source-bound glyph replacements."""
         from .source_icons import prepare_icon
@@ -220,6 +231,18 @@ class Assets:
             if ident.startswith('axes_') and ident!=axes_id:
                 par=e.getparent()
                 if par is not None:par.remove(e)
+        # Only axes labels and the identified legend have replacement text in
+        # this route. Other Matplotlib text includes data/annotation content;
+        # deleting it while auditing only curve paths produces false success.
+        unhandled=[]
+        for e in root.findall('.//s:g',NS):
+            if not e.get('id','').startswith('text_'):continue
+            ancestors=[a.get('id','') for a in e.iterancestors()]
+            if legend_id not in ancestors and not any(a.startswith('matplotlib.axis_') for a in ancestors):
+                unhandled.append(e.get('id'))
+        if unhandled:
+            raise FigureError('svg_unhandled_source_text',
+                '图内数据标注或说明尚无文字保留方案；拒绝删除后生成候选',object_ids=unhandled)
         removed=[]
         for e in list(root.findall('.//s:g',NS)):
             ident=e.get('id','')

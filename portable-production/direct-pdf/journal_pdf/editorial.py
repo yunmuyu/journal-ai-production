@@ -119,6 +119,9 @@ def normalize_chinese_punctuation(value):
 def display_content(content, role='label'):
     if role in _LITERAL_ROLES:
         return copy.deepcopy(content)
+    from .quantity_spacing import normalize_quantity_spacing
+    if isinstance(content,(str,list)):
+        content=normalize_quantity_spacing(content,role)
     if role == 'axis-title':
         from .axis_units import normalize_axis_title
         return normalize_numeric_range_connectors(normalize_axis_title(content))

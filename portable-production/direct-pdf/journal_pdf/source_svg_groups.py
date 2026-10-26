@@ -22,10 +22,10 @@ def isolate_svg_group(source: Path, group_id: str, *, gray: bool = True):
     selected = element(root, group_id)
     if ET.QName(selected).localname != 'g':
         raise FigureError('source_svg_group_kind', '原SVG对象必须为明确的组')
-    before = geometry_signature(root, [group_id])
     ancestors = list(reversed([node for node in selected.iterancestors() if node is not root]))
     inherited = [dict(node.attrib) for node in ancestors]
     all_defs(root)
+    before = geometry_signature(root, [group_id])
     isolated = ET.Element(root.tag, nsmap=root.nsmap, attrib=dict(root.attrib))
     for child in root:
         if isinstance(child.tag, str) and ET.QName(child).localname in ('defs', 'style'):
@@ -91,4 +91,3 @@ def prepare_svg_group(source: Path, group_id: str, clip: list[float], *, text_re
                    isolated_svg_sha256=hashlib.sha256(ET.tostring(isolated)).hexdigest(),
                    isolated_pdf_sha256=hashlib.sha256(pdf).hexdigest())
     return PreparedIcon(prepared.data, json.dumps(receipt, ensure_ascii=False))
-

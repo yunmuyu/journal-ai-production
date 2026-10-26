@@ -101,7 +101,7 @@ def write_icon(source: Path,page_no: int,clip: list[float],output: Path) -> None
 def audit_icon_paths(page, placements):
     """Match actual saved paths against source-bound placements, consuming each instance."""
     from .assets import Assets
-    icons=[row for row in placements if row['asset'].audit.get('mode') in ('source-bound-vector-icon','source-vector-body','source-svg-group','source-vector-glyph','source-mixed-body','registered-outlined-svg-chart')]
+    icons=[row for row in placements if row['asset'].audit.get('mode') in ('source-bound-vector-icon','source-vector-body','source-svg-group','source-vector-glyph','source-mixed-body','registered-outlined-svg-chart','registered-native-pdf-text')]
     actual=page.get_drawings()
     expected=[];bindings=[];image_expected=[]
     with fitz.open() as reference:
@@ -112,7 +112,10 @@ def audit_icon_paths(page, placements):
                 asset=row['asset'];receipt=asset.audit
                 if digest_file(Path(asset.source_path))!=asset.source_hash or receipt['source_sha256']!=asset.source_hash:
                     raise FigureError('source_icon_source_changed','图标原PDF与绑定来源不一致')
-                if receipt['mode']=='registered-outlined-svg-chart':
+                if receipt['mode']=='registered-native-pdf-text':
+                    replacements=[{k:v for k,v in q.items() if k not in ('source_gray','source_color')} for q in receipt['text_replacements']]
+                    verified=placer.registered_pdf_text(Path(asset.source_path),receipt['source_page'],receipt['source_clip'],Path(receipt['svg_path']),receipt['text_registration'],text_replacements=replacements,grayscale=receipt['grayscale'])
+                elif receipt['mode']=='registered-outlined-svg-chart':
                     verified=placer.registered_outline_chart(Path(asset.source_path),receipt['outline_chart_registration'],swatch_id=receipt['swatch_id'])
                 elif receipt['mode']=='source-mixed-body':
                     verified=placer.source_mixed_body(Path(asset.source_path),receipt['source_page'],receipt['source_clip'],text_replacements=receipt.get('native_text_replacements',receipt.get('text_replacements')),outline_text_replacements=receipt.get('outline_text_replacements'),source_shape_replacements=receipt.get('source_shape_replacements'))
@@ -134,7 +137,10 @@ def audit_icon_paths(page, placements):
             # Save/reopen the reference using the same final serialization as production.
             with fitz.open(stream=reference.tobytes(garbage=4,deflate=True),filetype='pdf') as saved:
                 expected=[path_record(row) for row in saved[0].get_drawings()]
-                if any(row['asset'].audit.get('mode')=='source-mixed-body' for row in icons):
+                if any(row['asset'].audit.get('mode')=='registered-native-pdf-text' for row in icons):
+                    from .source_pdf_text import image_records,consume_images
+                    image_expected=image_records(saved,saved[0])
+                elif any(row['asset'].audit.get('mode')=='source-mixed-body' for row in icons):
                     from .source_mixed_body import image_records
                     image_expected=image_records(saved,saved[0])
         finally:
@@ -142,7 +148,10 @@ def audit_icon_paths(page, placements):
     used=consume_paths(expected,[path_record(row) for row in actual])
     image_used=set()
     if image_expected:
-        from .source_mixed_body import image_records,consume_images
+        if any(row['asset'].audit.get('mode')=='registered-native-pdf-text' for row in icons):
+            from .source_pdf_text import image_records,consume_images
+        else:
+            from .source_mixed_body import image_records,consume_images
         image_actual=image_records(page.parent,page)
         image_used=consume_images(image_expected,image_actual)
         consume_images(image_actual,image_expected)

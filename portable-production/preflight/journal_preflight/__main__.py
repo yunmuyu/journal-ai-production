@@ -15,6 +15,7 @@ def main():
     p=sub.add_parser('probe');p.add_argument('manifest');p.add_argument('--out',required=True)
     p=sub.add_parser('route');p.add_argument('probe');p.add_argument('review');p.add_argument('--manifest',required=True);p.add_argument('--out',required=True)
     p=sub.add_parser('bridge');p.add_argument('legacy');p.add_argument('report');p.add_argument('--out',required=True)
+    p=sub.add_parser('suggest-route');p.add_argument('source_review');p.add_argument('--cases',required=True);p.add_argument('--user-override');p.add_argument('--out',required=True)
     a=ap.parse_args()
     if a.command=='probe':
         root=Path(a.out)
@@ -22,5 +23,9 @@ def main():
         r=scan(load(a.manifest),root);print(json.dumps({'assets':r['asset_count'],'seconds':r['program_seconds'],'output':str(root/'probe.json')}))
     elif a.command=='route':
         r=apply_review(load(a.probe),load(a.review),load(a.manifest));save(a.out,r);print(json.dumps({'figures':len(r['figures']),'output':a.out,'published':False}))
+    elif a.command=='suggest-route':
+        from .route_suggestion import suggest_route
+        r=suggest_route(load(a.source_review),load(a.cases),user_override=load(a.user_override) if a.user_override else None)
+        save(a.out,r);print(json.dumps({'candidate_route':r['candidate_route'],'blocking':r['blocking'],'ready_for_processing':False}))
     else:save(a.out,bridge_legacy(load(a.legacy),load(a.report)))
 if __name__=='__main__':main()

@@ -159,7 +159,9 @@ def tree(spec,reg,size):
         from .bilateral_tree import bilateral_tree
         return bilateral_tree(spec,reg,size)
     if layout!='right':raise FigureError('tree_layout','树布局仅支持right或bilateral')
-    s=Scene(reg,size);s.template='hierarchy-tree';p=2.;padx=4.5*size/8;padv=2.7*size/8;gapx=2*float(spec.get('bus_leg_mm',2))*PT_PER_MM;gapy=3*size/8;groupgap=16.
+    s=Scene(reg,size);s.template='hierarchy-tree';p=2.;padx=4.5*size/8;padv=2.7*size/8;gapx=2*float(spec.get('bus_leg_mm',2))*PT_PER_MM;gapy=COMPACT_GAP*size/8
+    # Whitespace is measured between visible box edges, including half strokes.
+    groupgap=2*(gapy-STROKE)+STROKE
     branches=spec['branches'];roottext=spec['root']
     if spec.get('root_vertical'):roottext='\n'.join(roottext.replace('\n',''))
     rootm=reg.measure(roottext,size);mainms=metrics(reg,size,[b['text'] for b in branches]);leafms=metrics(reg,size,[t for b in branches for t in b['children']])
@@ -192,7 +194,8 @@ def tree(spec,reg,size):
     s.line('root-stem',[port(root,'right'),[bus,rootcy]])
     if len(centers)>1:s.line('root-bus',[[bus,min(centers)],[bus,max(centers)]])
     for i,cy in enumerate(centers):s.line('root-branch'+str(i),[[bus,cy],[mx,cy]])
-    s.layout_evidence={'algorithm':'deterministic measured hierarchy','font_size_kept':size,'whole_artwork_scale':1}
+    s.layout_evidence={'algorithm':'deterministic measured hierarchy','font_size_kept':size,'whole_artwork_scale':1,
+                       'sibling_clearance_pt':gapy-STROKE,'group_clearance_pt':groupgap-STROKE,'group_to_sibling_clearance_ratio':2}
     return s.finish(lx+lw+p,height+2*p)
 
 
@@ -295,7 +298,7 @@ def primitive(spec,reg,size):
                 nodes[n['id']]['measurement_contract']={'mode':'tight','expected_wh':[
                     measurement['width']+9*size/8,measurement['height']+5.4*size/8]}
         if 'text' in n:s.text(n['id']+':text',n['text'],(r[0]+r[2])/2,(r[1]+r[3])/2,owner=n['id'],wrap_chars=n.get('wrap_chars'))
-    for t in spec.get('texts',[]):s.text(t['id'],t['text'],t['x'],t['y'],t.get('align','center'),t.get('rotation',0),t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'))
+    for t in spec.get('texts',[]):s.text(t['id'],t['text'],t['x'],t['y'],t.get('align','center'),t.get('rotation',0),t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'),gray=t.get('gray',0))
     node_groups=spec.get('node_groups',[])
     if not isinstance(node_groups,list):
         raise FigureError('node_group_invalid','node_groups须为明确成员清单')

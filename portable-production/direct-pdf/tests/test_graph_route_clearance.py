@@ -43,3 +43,14 @@ def test_route_blocked_reports_edge_ports_and_constraints(reg,monkeypatch):
  assert caught.value.details['source_stub_pt']>0
  assert caught.value.details['target_stub_pt']>0
  assert caught.value.details['obstacle_count']==len(offset_rank_spec()['nodes'])
+
+@pytest.mark.parametrize('direction',['TB','LR'])
+def test_skipped_rank_edge_reserves_target_approach_corridor(reg,direction):
+ # Given: a normal chain and a shortcut to its final node.
+ spec={'direction':direction,'nodes':[{'id':x,'text':x} for x in 'ABCD'],
+       'edges':[{'id':a+b,'from':a,'to':b} for a,b in [('A','B'),('B','C'),('C','D'),('A','D')]]}
+ # When: routing without deleting the shortcut or changing its endpoints.
+ scene=graph(spec,reg,8)
+ # Then: every edge is preserved with collision-free geometry.
+ assert {e['edge'] for e in scene.layout_evidence['edge_bindings']}=={'AB','BC','CD','AD'}
+ assert not audit_scene(scene)
