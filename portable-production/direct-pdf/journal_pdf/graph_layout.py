@@ -4,7 +4,7 @@ A bounded orthogonal route planner; feasibility, NOT a claim of global optimalit
 from __future__ import annotations
 import heapq,math
 from .common import FigureError,segment_hits,intersects,PT_PER_MM
-from .scene import Scene,port
+from .scene import Scene,port,_collinear_overlap_length
 from .editorial import PAD_X,PAD_Y,ARROW_LENGTH,ARROW_DEPTH,ARROW_BOUNDARY_GAP,LABEL_CLEARANCE,diamond_size,display_content
 
 BRANCH_BUS_LEG = 2 * PT_PER_MM
@@ -33,7 +33,7 @@ def _topological(nodes,edges):
     return rank
 
 
-def _route(start,end,obstacles,xs,ys):
+def _route(start,end,obstacles,xs,ys,occupied=()):
     """Rectilinear visibility grid: limits enforce predictable running time."""
     xs=sorted(set([round(float(x),5) for x in [*xs,start[0],end[0]]]));ys=sorted(set([round(float(y),5) for y in [*ys,start[1],end[1]]]))
     if len(xs)*len(ys)>22000:raise FigureError('route_budget','路由网格超过候选上限；需分组或专用布局')
@@ -48,6 +48,7 @@ def _route(start,end,obstacles,xs,ys):
             if not (0<=ii<len(xs) and 0<=jj<len(ys)):continue
             a,b=[xs[i],ys[j]],[xs[ii],ys[jj]]
             if any(segment_hits(a,b,r,.3) for r in obstacles):continue
+            if any(_collinear_overlap_length(a,b,c,d)>.15 for c,d in occupied):continue
             c=cost+math.dist(a,b)+(5 if d>=0 and d!=nd else 0)
             nk=(ii,jj,nd)
             if c<dist.get(nk,math.inf):dist[nk]=c;prev[nk]=key;heapq.heappush(heap,(c,ii,jj,nd))
@@ -129,6 +130,12 @@ def graph(spec,reg,size):
             secondary+=extent+sibling_gap
     for e in edges:
         source_rank,target_rank=rank[e['from']],rank[e['to']]
+        if not e.get('return_edge') and target_rank-source_rank>1:
+            # A shortcut still approaches through the last rank corridor. Without
+            # this space its arrow stub can lie inside the preceding node.
+            target_stub=ARROW_BOUNDARY_GAP if e.get('arrow',True) else ROUTE_SOURCE_STUB
+            rank_gaps[source_rank]=max(rank_gaps[source_rank],ROUTE_SOURCE_STUB+target_stub)
+            rank_gaps[target_rank-1]=max(rank_gaps[target_rank-1],ROUTE_SOURCE_STUB+target_stub)
         if e.get('return_edge') or target_rank-source_rank!=1:continue
         default_ports=('bottom','top') if direction=='TB' else ('right','left')
         ss=e.get('from_port',default_ports[0]);ts=e.get('to_port',default_ports[1])
@@ -192,12 +199,25 @@ def graph(spec,reg,size):
                endpoint_nodes=[None,group[0]['to']],shared_net=net_id,semantic_role='outlet')
         for e,ident in zip(group,identifiers):
             route_records.append({'edge':ident,'from':e['from'],'to':e['to'],'from_port':branch_source_port,'to_port':branch_target_port,'return_edge':False,'branch_group':'merge','merge_outlet':outlet})
+    used_ports={ident:set() for ident in ids}
+    defaults=('bottom','top') if direction=='TB' else ('right','left')
+    for edge in edges:
+        if rank[edge['to']]-rank[edge['from']]<=1 or edge.get('return_edge'):
+            used_ports[edge['from']].add(edge.get('from_port',defaults[0]))
+            used_ports[edge['to']].add(edge.get('to_port',defaults[1]))
     for idx,e in enumerate(edges):
         if id(e) in handled_edges:continue
         src,dst=placed[e['from']],placed[e['to']]
         if e.get('return_edge'):ss,ts=('left','left') if direction=='TB' else ('top','top')
         else:ss,ts=('bottom','top') if direction=='TB' else ('right','left')
+        if not e.get('return_edge') and rank[e['to']]-rank[e['from']]>1:
+            # An unassigned shortcut may use free side midpoints instead of
+            # sharing the adjacent chain's entry/exit shaft.
+            sides=('left','right') if direction=='TB' else ('top','bottom')
+            if not e.get('from_port'):ss=next((p for p in sides if p not in used_ports[e['from']]),ss)
+            if not e.get('to_port'):ts=next((p for p in sides if p not in used_ports[e['to']]),ts)
         ss=e.get('from_port',ss);ts=e.get('to_port',ts)
+        used_ports[e['from']].add(ss);used_ports[e['to']].add(ts)
         if ss not in ('left','right','top','bottom') or ts not in ('left','right','top','bottom'):raise FigureError('graph_port','菱形/普通框只接受真实四中点端口')
         a,b=port(src,ss),port(dst,ts);vec={'left':[-1,0],'right':[1,0],'top':[0,-1],'bottom':[0,1]}
         source_stub=ROUTE_SOURCE_STUB;target_stub=ARROW_BOUNDARY_GAP if e.get('arrow',True) else ROUTE_SOURCE_STUB
@@ -209,7 +229,10 @@ def graph(spec,reg,size):
             clearance=ROUTE_OBSTACLE_CLEARANCE
             obstacles=[[n['rect'][0]-clearance,n['rect'][1]-clearance,n['rect'][2]+clearance,n['rect'][3]+clearance] for n in placed.values()]
             ident=e.get('id','edge-'+str(idx+1))
-            try:route=_route(u,v,obstacles,xs,ys)
+            occupied=[(a,b) for path in s.paths for a,b in zip(path['points'],path['points'][1:])]
+            route_xs=xs+[p[0]+offset for pair in occupied for p in pair for offset in (-2.,2.)]
+            route_ys=ys+[p[1]+offset for pair in occupied for p in pair for offset in (-2.,2.)]
+            try:route=_route(u,v,obstacles,route_xs,route_ys,occupied)
             except FigureError as error:
                 if error.code!='graph_route_blocked':raise
                 details={'edge':ident,'from':e['from'],'to':e['to'],'from_port':ss,'to_port':ts,
@@ -234,14 +257,21 @@ def graph(spec,reg,size):
             segments=list(zip(compact,compact[1:]))
             if e.get('return_edge'):segments.sort(key=lambda pair:math.dist(*pair),reverse=True)
             for p,q in segments:
-                cx,cy=(p[0]+q[0])/2,(p[1]+q[1])/2
-                if abs(p[0]-q[0])<1e-5:candidates +=[(cx+m['width']/2+3.3,cy),(cx-m['width']/2-3.3,cy)]
-                else:candidates +=[(cx,cy-m['height']/2-3.3),(cx,cy+m['height']/2+3.3)]
+                for fraction in (.5,.25,.75):
+                    cx,cy=p[0]+(q[0]-p[0])*fraction,p[1]+(q[1]-p[1])*fraction
+                    if abs(p[0]-q[0])<1e-5:candidates +=[(cx+m['width']/2+3.3,cy),(cx-m['width']/2-3.3,cy)]
+                    else:candidates +=[(cx,cy-m['height']/2-3.3),(cx,cy+m['height']/2+3.3)]
             chosen=None
             for x,y in candidates:
                 box=[x-m['width']/2,y-m['height']/2,x+m['width']/2,y+m['height']/2]
                 if box[0]<.5 or box[1]<.5 or box[2]>width-.5 or box[3]>height-.5:continue
                 if any(intersects(box,n['rect'],.5) for n in placed.values()):continue
+                borders=[]
+                for n in s.nodes:
+                    if n.get('container'):
+                        l,t,r,b=n['rect'];corners=[(l,t),(r,t),(r,b),(l,b),(l,t)]
+                        borders.extend(zip(corners,corners[1:]))
+                if any(segment_hits(a,b,box,.4) for a,b in borders):continue
                 if any(intersects(box,t['position']['bbox'],.5) for t in s.texts):continue
                 if any(segment_hits(a,b,box,.3) for pp in s.paths for a,b in zip(pp['points'],pp['points'][1:])):continue
                 chosen=(x,y);break
