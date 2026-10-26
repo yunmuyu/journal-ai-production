@@ -13,6 +13,11 @@ ROUTE_SOURCE_STUB = 4.5
 ROUTE_OBSTACLE_CLEARANCE = ROUTE_SOURCE_STUB - .4
 
 
+def _branch_point(cross,along,direction):
+    """Map a branch bus's cross/flow coordinates into the scene axes."""
+    return [cross,along] if direction=='TB' else [along,cross]
+
+
 def _topological(nodes,edges):
     ids=[n['id'] for n in nodes];deg={i:0 for i in ids};nxt={i:[] for i in ids}
     for e in edges:
@@ -155,35 +160,38 @@ def graph(spec,reg,size):
     for n in placed.values():
         x,y,r,b=n['rect'];xs +=[x-6,r+6,(x+r)/2];ys +=[y-6,b+6,(y+b)/2]
     route_records=[];handled_edges=set();edge_order={id(e):idx for idx,e in enumerate(edges)}
+    branch_source_port,branch_target_port=('bottom','top') if direction=='TB' else ('right','left')
+    flow_axis,cross_axis=(1,0) if direction=='TB' else (0,1)
     for source_id,group in fanout_groups.items():
-        source=placed[source_id];source_port=port(source,'bottom');targets=[placed[e['to']] for e in group]
-        bus_y=source_port[1]+BRANCH_BUS_LEG;target_ports=[port(target,'top') for target in targets]
+        source=placed[source_id];source_port=port(source,branch_source_port);targets=[placed[e['to']] for e in group]
+        bus=source_port[flow_axis]+BRANCH_BUS_LEG;target_ports=[port(target,branch_target_port) for target in targets]
         identifiers=[e.get('id','edge-'+str(edge_order[id(e)]+1)) for e in group]
         net_id='fanout:'+source_id
-        s.line(identifiers[0]+':fanout-trunk',[source_port,[source_port[0],bus_y]],shared_net=net_id,semantic_role='trunk')
-        left=min(p[0] for p in target_ports);right=max(p[0] for p in target_ports)
-        if right-left>1e-4:s.line(identifiers[0]+':fanout-bus',[[left,bus_y],[right,bus_y]],shared_net=net_id,semantic_role='bus')
+        s.line(identifiers[0]+':fanout-trunk',[source_port,_branch_point(source_port[cross_axis],bus,direction)],shared_net=net_id,semantic_role='trunk')
+        left=min(p[cross_axis] for p in target_ports);right=max(p[cross_axis] for p in target_ports)
+        if right-left>1e-4:s.line(identifiers[0]+':fanout-bus',[_branch_point(left,bus,direction),_branch_point(right,bus,direction)],shared_net=net_id,semantic_role='bus')
         for e,target_port,ident in zip(group,target_ports,identifiers):
-            s.line(ident,[[target_port[0],bus_y],target_port],arrow=True,exact_terminal=True,
+            s.line(ident,[_branch_point(target_port[cross_axis],bus,direction),target_port],arrow=True,exact_terminal=True,
                    endpoint_nodes=[None,e['to']],shared_net=net_id,semantic_role='branch')
-            route_records.append({'edge':ident,'from':e['from'],'to':e['to'],'from_port':'bottom','to_port':'top','return_edge':False,'branch_group':'fanout'})
+            route_records.append({'edge':ident,'from':e['from'],'to':e['to'],'from_port':branch_source_port,'to_port':branch_target_port,'return_edge':False,'branch_group':'fanout'})
             handled_edges.add(id(e))
     for target_id,group in merge_groups.items():
-        target=placed[target_id];target_port=port(target,'top');sources=[placed[e['from']] for e in group]
-        source_ports=[port(source,'bottom') for source in sources];bus_y=max(p[1] for p in source_ports)+BRANCH_BUS_LEG
+        target=placed[target_id];target_port=port(target,branch_target_port);sources=[placed[e['from']] for e in group]
+        source_ports=[port(source,branch_source_port) for source in sources];bus=max(p[flow_axis] for p in source_ports)+BRANCH_BUS_LEG
         identifiers=[e.get('id','edge-'+str(edge_order[id(e)]+1)) for e in group]
         net_id='merge:'+target_id
         for e,source_port,ident in zip(group,source_ports,identifiers):
-            s.line(ident,[source_port,[source_port[0],bus_y]],shared_net=net_id,semantic_role='merge-leg')
+            s.line(ident,[source_port,_branch_point(source_port[cross_axis],bus,direction)],shared_net=net_id,semantic_role='merge-leg')
             handled_edges.add(id(e))
-        left=min(p[0] for p in source_ports);right=max(p[0] for p in source_ports)
-        if right-left>1e-4:s.line(identifiers[0]+':merge-bus',[[left,bus_y],[right,bus_y]],shared_net=net_id,semantic_role='bus')
+        left=min(p[cross_axis] for p in source_ports);right=max(p[cross_axis] for p in source_ports)
+        if right-left>1e-4:s.line(identifiers[0]+':merge-bus',[_branch_point(left,bus,direction),_branch_point(right,bus,direction)],shared_net=net_id,semantic_role='bus')
         outlet=identifiers[0]+':merge-outlet';mid=(left+right)/2
-        outlet_points=[[target_port[0],bus_y],target_port] if left<=target_port[0]<=right else [[mid,bus_y],[target_port[0],bus_y],target_port]
+        target_cross=target_port[cross_axis]
+        outlet_points=[_branch_point(target_cross,bus,direction),target_port] if left<=target_cross<=right else [_branch_point(mid,bus,direction),_branch_point(target_cross,bus,direction),target_port]
         s.line(outlet,outlet_points,arrow=True,exact_terminal=True,
                endpoint_nodes=[None,group[0]['to']],shared_net=net_id,semantic_role='outlet')
         for e,ident in zip(group,identifiers):
-            route_records.append({'edge':ident,'from':e['from'],'to':e['to'],'from_port':'bottom','to_port':'top','return_edge':False,'branch_group':'merge','merge_outlet':outlet})
+            route_records.append({'edge':ident,'from':e['from'],'to':e['to'],'from_port':branch_source_port,'to_port':branch_target_port,'return_edge':False,'branch_group':'merge','merge_outlet':outlet})
     for idx,e in enumerate(edges):
         if id(e) in handled_edges:continue
         src,dst=placed[e['from']],placed[e['to']]

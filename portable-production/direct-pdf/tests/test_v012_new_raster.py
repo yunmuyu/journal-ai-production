@@ -64,6 +64,80 @@ def test_corner_avoidance_keeps_8pt_and_source_x_anchors(reg,tmp_path):
   assert tick['x']==pytest.approx(plot[0]+(50-48)*175/406)
  finally:a.close()
 
+def test_dense_x_ticks_reflow_without_losing_labels_or_source_anchors(reg,tmp_path):
+ # Given: numeric labels overlap horizontally, but their rotated ink fits.
+ spec=_synthetic(tmp_path)
+ spec['x_ticks']=[{'text':f'0.{i:02d}','position':50+20*i} for i in range(8)]
+ assets=Assets()
+ try:
+  # When: the ordinary public chart compiler lays out the complete figure.
+  scene=compile_figure(spec,reg,assets,tmp_path)
+  # Then: every original label and anchor remains, at 8pt, with a clear title.
+  ticks=[t for t in scene.texts if t['id'].startswith('xtick')]
+  assert len(ticks)==len(spec['x_ticks'])
+  assert [t['source_content'] for t in ticks]==[t['text'] for t in spec['x_ticks']]
+  assert {t['position']['rotation'] for t in ticks}=={90}
+  assert scene.size==8
+  plot=scene.assets[0]['rect']
+  assert [t['x'] for t in ticks]==pytest.approx([plot[0]+(v['position']-48)*175/406 for v in spec['x_ticks']])
+  title=next(t for t in scene.texts if t['id']=='xtitle')
+  assert title['position']['bbox'][1]>max(t['position']['bbox'][3] for t in ticks)
+ finally:assets.close()
+
+
+def test_x_ticks_too_dense_even_when_rotated_remain_blocked(reg,tmp_path):
+ # Given: even 90-degree labels cannot fit between these original anchors.
+ spec=_synthetic(tmp_path)
+ spec['x_ticks']=[{'text':f'0.{i:02d}','position':50+2*i} for i in range(8)]
+ assets=Assets()
+ try:
+  # When / Then: the collision gate still refuses the layout.
+  with pytest.raises(FigureError) as error:compile_figure(spec,reg,assets,tmp_path)
+  assert error.value.code=='no_feasible_layout'
+ finally:assets.close()
+
+
+def test_explicit_no_legend_preserves_plot_and_axes_without_invented_objects(reg,tmp_path):
+ # Given: a verified source viewport with explicitly no legend.
+ spec=_synthetic(tmp_path)
+ spec['series']=[]
+ for key in ('masks','approved_empty_regions','legend_safe_region','legend_placement','legend_frame'):
+  spec.pop(key,None)
+ assets=Assets()
+ try:
+  # When: the shared chart compiler performs ordinary measured axis replacement.
+  scene=compile_figure(spec,reg,assets,tmp_path)
+  # Then: all axis labels remain, and no legend or extra masks are fabricated.
+  assert len(scene.assets)==1 and scene.assets[0]['id']=='plot'
+  assert not any(t['role']=='legend-label' for t in scene.texts)
+  assert not any(n['id']=='legend-frame' for n in scene.nodes)
+  assert {t['id'] for t in scene.texts}=={'xtick0','xtick1','ytick0','ytick1','xtitle','ytitle'}
+  assert scene.layout_evidence['legend_placement']=='none'
+  assert scene.layout_evidence['legend_bindings']==[]
+  assert scene.layout_evidence['legend_background_audit'] is None
+  assert scene.assets[0]['asset'].audit.get('masks',[])==[]
+ finally:assets.close()
+
+
+def test_right_endpoint_tick_expands_canvas_without_moving_source_anchor(reg,tmp_path):
+ # Given: the last numeric label extends beyond the old fixed right margin.
+ spec=_synthetic(tmp_path)
+ spec['series']=[]
+ spec['x_ticks']=[{'text':'0','position':50},{'text':'1000.00','position':450}]
+ assets=Assets()
+ try:
+  # When: the standard chart compiler fits the complete measured content.
+  scene=compile_figure(spec,reg,assets,tmp_path)
+  # Then: the long right label fits; its data anchor and 8pt size are unchanged.
+  last=next(t for t in scene.texts if t['id']=='xtick1')
+  plot=scene.assets[0]['rect']
+  assert last['x']==pytest.approx(plot[0]+(450-48)*175/406)
+  assert last['position']['bbox'][2]<scene.width
+  assert last['measurement']['text']=='1 000.00'
+  assert scene.size==8
+ finally:assets.close()
+
+
 def test_legacy_size_list_does_not_run_multiple_layouts(reg,tmp_path,monkeypatch):
  import journal_pdf.render as module
  spec=_synthetic(tmp_path);spec['policy']={'column':'single','font_sizes':[8,7,6]}

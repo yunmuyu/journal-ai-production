@@ -140,7 +140,7 @@ provider收到 agent-brief.json 的精简请求，返回同一JSON。需要局�
   "mask_review":{"approved_empty_background":true,"reason":"实际核对结论；不得直接照抄占位句"}
 }
 ```
-必须补全原图所有应保留的刻度和图例；数组长度不代表默认只有两项。无图例、外向刻线等当前不支持的输入返回明确异常，不猜位置，不删掉后继续。
+必须补全原图所有应保留的刻度和图例；数组长度不代表默认只有两项。确认原图无图例时，显式填写 `legend_rows: []`、`no_legend: true` 和 `review.legend_absence_reason`。若程序检出了图例候选，必须在 `ignored_legends` 中逐项填写 `ref` 和具体 `reason`；仅声明无图例不能跳过这些候选。此路径不生成图例或图例遮罩，仍要求全部刻度核对和内向刻线确认。外向刻线等当前不支持的输入返回明确异常，不猜位置，不删掉后继续。
 
 Matplotlib类SVG一项：
 ```json

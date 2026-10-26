@@ -47,7 +47,7 @@ def validate_production_policy_exception(record,reply_sha256,source_sha256,size)
 def compile_reply_figure(reply,source,page,*,production_policy_exception=None):
     require(isinstance(reply,dict),'semantic_schema','图件回复必须是对象')
     allowed={'id','author','source_id','page_id','kind','review','axis_ref','x_ticks','y_ticks','x_title','y_title',
-             'legend_rows','mask_review','chart_ref','accept_source_text_hints','series_pairs','nodes','edges',
+             'legend_rows','no_legend','ignored_legends','mask_review','chart_ref','accept_source_text_hints','series_pairs','nodes','edges',
              'outline_chart','direction','scope_refs','scope_reason','ignored_texts','ignored_ticks','policy','model','structure','tree_layout','root_vertical'}
     require(not set(reply)-allowed,'semantic_unknown_fields','回复含未允许字段；不接受路径/命令/自定义坐标',fields=sorted(set(reply)-allowed))
     id=safe_name(reply['id']);author=safe_name(reply.get('author','未归属'))
@@ -114,7 +114,23 @@ def _raster(reply,source,page,base):
     g=page['geometry'];axis=lookup(g['axes'],reply.get('axis_ref'),'axis')
     xt=_ticks(reply.get('x_ticks'),axis['x_ticks']);yt=_ticks(reply.get('y_ticks'),axis['y_ticks'])
     selected=reply.get('legend_rows',[])
-    require(1<=len(selected)<=30,'legend_count','本路线需1—30项图例；无图例需另行适配')
+    no_legend=reply.get('no_legend',False)
+    require(isinstance(no_legend,bool),'legend_absence_schema','no_legend须为布尔值')
+    if no_legend:
+        reason=reply['review'].get('legend_absence_reason')
+        require(not selected and isinstance(reason,str) and bool(reason.strip()),
+            'legend_absence_review','无图例须明确声明、给出实图依据，且不能同时选中图例')
+        ignored_legends=reply.get('ignored_legends',[])
+        candidates={r['id'] for r in g['legend_rows']}
+        require(isinstance(ignored_legends,list) and all(isinstance(r,dict) and set(r)=={'ref','reason'}
+            and r['ref'] in candidates and isinstance(r['reason'],str) and bool(r['reason'].strip()) for r in ignored_legends),
+            'ignored_legend_evidence','图例误检需绑定候选ID及具体理由')
+        require(len(ignored_legends)==len(candidates) and {r['ref'] for r in ignored_legends}==candidates,
+            'unaccounted_legend_candidates','无图例声明仍须逐项解释检测到的图例候选')
+        base['ingest_provenance']['legend_absence_review']={'reason':reason,'ignored_candidates':ignored_legends}
+    else:
+        require(not reply.get('ignored_legends'),'ignored_legend_evidence','忽略图例候选仅用于明确无图例路线')
+        require(1<=len(selected)<=30,'legend_count','需1—30项图例；无图例须明确声明并核对候选')
     entries=[];rects=[];sids=[]
     for row in selected:
         require(not set(row)-{'ref','label','series_id'},'legend_schema','图例只填候选ID、系列ID与原文')
@@ -122,7 +138,7 @@ def _raster(reply,source,page,base):
         entries.append({'id':sid,'label':content(row['label']),'swatch_clip':q['swatch_clip']});rects.append(q['rect'])
     require(len(sids)==len(set(sids)) and len({r['ref'] for r in selected})==len(selected),'legend_binding_duplicate','系列或图例候选重复')
     mask_review=reply.get('mask_review',{})
-    require(mask_review.get('approved_empty_background') is True and bool(mask_review.get('reason')),
+    require(no_legend or (mask_review.get('approved_empty_background') is True and bool(mask_review.get('reason'))),
         'mask_semantics_required','原图例清除需逐图确认其背景没有数据；候选矩形不是授权')
     all_ticks=axis['x_ticks']+axis['y_ticks'];all_ids={t['id'] for t in all_ticks}
     expected={t['id'] for t in all_ticks if t.get('label_candidate')}
@@ -135,6 +151,12 @@ def _raster(reply,source,page,base):
     require(not (expected-selected_ids-ignored_ids),'unaccounted_tick_candidates','带标签的刻度候选遗漏，需补全或说明误检依据',
         object_ids=sorted(expected-selected_ids-ignored_ids))
     base['ingest_provenance']['ignored_tick_candidates']=ignored
+    if no_legend:
+        return base|{'kind':'chart','source_kind':'raster','source':source['snapshot'],'plot_clip':axis['plot_clip'],
+            'axis_frame_source':axis['frame'],'x_ticks':xt,'y_ticks':yt,'x_title':content(reply['x_title']),'y_title':content(reply['y_title']),
+            'series':[],'legend_placement':'none','legend_frame':False,'plot_width_pt':180,
+            'tick_length_source_units':0,'tick_source_evidence':{'mode':'geometry-candidate-confirmed','axis_id':axis['id'],
+                'note':'No legend or masks; inward ticks independently confirmed by reviewer'}}
     r=union_rect(rects);pad=3;f=axis['frame'];mask=[max(f[0]+2,r[0]-pad),max(f[1]+2,r[1]-pad),min(f[2]-2,r[2]+pad),min(f[3]-2,r[3]+pad)]
     require(contains(mask,r),'legend_mask_clip','图例候选接近轴线，禁止裁掉或涂抹坐标轴')
     # The exact approved mask is derived from selected evidence, not an arbitrary Agent rectangle.
