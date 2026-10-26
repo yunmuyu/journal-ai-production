@@ -156,8 +156,37 @@ def _issues(rows, snapshot):
     return blocking
 
 
+def _text_review(value, evidence, snapshot, route):
+    """Validate recorded text needs, not the image or truth of a review."""
+    if value is None:
+        return False
+    _object(value, ("requirement", "categories", "reason", "evidence_ids"), where="text_review")
+    _choice(value["requirement"], ("none", "preserve_native", "replace", "unknown"),
+            "text_review.requirement")
+    categories = _rows(value["categories"], "text_review.categories")
+    for category in categories:
+        _choice(category, ("axis_title", "tick_label", "legend", "data_annotation", "ui_text", "other"),
+                "text_review.category")
+    _require(len(set(categories)) == len(categories), "text_review: duplicate category")
+    requirement = value["requirement"]
+    _require(requirement != "none" or not categories, "text_review: none contradicts text categories")
+    _require(requirement not in ("replace", "preserve_native") or bool(categories),
+             "text_review: text treatment requires categories")
+    _text(value["reason"], "text_review.reason")
+    refs = _rows(value["evidence_ids"], "text_review.evidence_ids", nonempty=True)
+    for ref in refs:
+        _text(ref, "text_review evidence reference")
+        _require(ref in evidence, "text_review: unknown evidence reference")
+    _require(len(set(refs)) == len(refs), "text_review: duplicate evidence reference")
+    _require({evidence[ref]["source_id"] for ref in refs} == set(snapshot),
+             "text_review: review must cover every source")
+    return requirement != "unknown" and not (
+        requirement == "replace" and route == "raster_grayscale_single_column")
+
+
 def _figure(figure):
-    _object(figure, ("id", "sources", "decision", "evidence", "checks", "author_issues"), where="figure")
+    _object(figure, ("id", "sources", "decision", "evidence", "checks", "author_issues"),
+            ("text_review", "source_review"), where="figure")
     sources = _unique(_rows(figure["sources"], "sources", nonempty=True), "sources")
     for source in sources.values():
         _object(source, ("id", "sha256"), where="source")
@@ -184,7 +213,20 @@ def _figure(figure):
             if name == "source_identity":
                 _require({evidence[ref]["source_id"] for ref in refs} == set(snapshot),
                          "check: source identity must cover every source")
-    return snapshot, _issues(figure["author_issues"], snapshot)
+    text_ready = _text_review(figure.get("text_review"), evidence, snapshot, figure["decision"]["route"])
+    structure_ready = False
+    if figure.get("source_review") is not None:
+        from .route_suggestion import suggest_route
+        review = figure['source_review']
+        proposal = suggest_route(review, [])
+        _require(review['source_snapshot'] == snapshot, 'source_review: figure snapshot mismatch')
+        _require(review['text_requirement'] == (figure.get('text_review') or {}).get('requirement'),
+                 'source_review: text requirement contradicts text_review')
+        # Only test recorded fact/route compatibility here. A suggestion is not
+        # approval and its absent case comparison is not a satisfied review.
+        structure_ready = proposal['proposed_route'] != 'unresolved' and (
+            proposal['proposed_route'] == figure['decision']['route'])
+    return snapshot, _issues(figure["author_issues"], snapshot), text_ready, structure_ready
 
 
 def _check_history(manifest, previous):
@@ -235,9 +277,9 @@ def validate_manifest(manifest, input_manifest=None, *, previous=None):
     _object(manifest, ("schema_version", "figures"), where="manifest")
     _require(manifest["schema_version"] == SCHEMA_VERSION, "manifest: unsupported schema version")
     figures = _unique(_rows(manifest["figures"], "figures", nonempty=True), "figures")
-    snapshots, issues, expected = {}, {}, {}
+    snapshots, issues, expected, text_ready, structure_ready = {}, {}, {}, {}, {}
     for key, figure in figures.items():
-        snapshots[key], issues[key] = _figure(figure)
+        snapshots[key], issues[key], text_ready[key], structure_ready[key] = _figure(figure)
         for source_id, digest in snapshots[key].items():
             _require(source_id not in expected or expected[source_id] == digest,
                      "manifest: conflicting hashes for shared source ID")
@@ -257,6 +299,10 @@ def validate_manifest(manifest, input_manifest=None, *, previous=None):
              "Live source hashes must match every source bound to this figure.")
         gate("route_resolved", decision["route"] != "unresolved", "An explicit supported route is required.")
         gate("column_resolved", decision["column"] != "unresolved", "An explicit column decision is required.")
+        gate("text_treatment", text_ready[key],
+             "Requires source-bound text-needs review; missing/unknown needs or replacement on a grayscale-only route block processing. Recorded findings are not independently verified.")
+        gate("structure_treatment", structure_ready[key],
+             "Requires source-bound joint structure/text/data/topology facts compatible with the chosen route; source file format is not figure structure.")
         for name in COMMON_CHECKS + ROUTE_CHECKS[decision["route"]]:
             gate(name, figure["checks"].get(name, {}).get("status") == "recorded_satisfied",
                  "Requires a source-bound recorded review; this validator does not independently verify its finding.")

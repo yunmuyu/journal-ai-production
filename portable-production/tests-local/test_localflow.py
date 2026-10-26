@@ -54,6 +54,11 @@ class LocalFlowTest(unittest.TestCase):
                           "method": "synthetic test", "location": "whole source", "observation": "N1 to N2 fixture topology recorded."}],
             "checks": {key: {"status": "recorded_satisfied", "evidence_ids": ["test-review"]}
                        for key in COMMON_CHECKS + ROUTE_CHECKS[route]}, "author_issues": []}
+        figure['text_review'] = {'requirement': 'replace', 'categories': ['other'],
+            'reason': 'Synthetic N1 and N2 labels are typeset by structural redraw.', 'evidence_ids': ['test-review']}
+        figure['source_review'] = {'source_snapshot': {'source-1': digest}, 'structure': 'node_link',
+            'text_requirement': 'replace', 'data_preservation': 'not_applicable', 'topology': 'reconstructable',
+            'evidence': [{'source_id':'source-1','source_sha256':digest,'location':'whole source','observation':'N1 to N2 topology and labels need redraw.'}]}
         values = json.loads(self.constraints.read_text(encoding="utf-8"))
         values["confirmed"].update(editorial_route_contract={"schema_version": "editorial-route/1", "figures": [figure]},
             editorial_figure_id="figure-1", editorial_targets=[{"id": "figure-1", "author_rel": "编辑/作者", "figure_number": "1"}])

@@ -4,9 +4,9 @@ This is an **additive, local decision validator**, not an automatic classifier,
 renderer, production-state adapter, or publication approval. It has no built-in
 author IDs, figure labels, gold answers, OCR, external service, or font dependency.
 Existing preflight-v2 routing and production state are unchanged.
-At this commit, existing localflow/delivery does not call this validator:
-runtime delivery is not yet gated by it. A downstream integration must explicitly
-invoke it and handle blocked/error results before dispatch or release.
+Localflow's `editorial_gate.check_editorial_gate` calls this validator before
+candidate publication. Low-level preview generation is not a semantic approval;
+other downstream integrations must also handle blocked/error results explicitly.
 
 ## Use
 
@@ -71,6 +71,50 @@ visual/font audits, and final user acceptance remain separate downstream work.
 No existing localflow dispatch or publication gate is bypassed or replaced.
 
 ## Decisions and evidence
+
+Every new reviewed figure needs `text_review`, even if the decision is to retain
+native text or the source is a photograph with no text. Old `editorial-route/1`
+records without this field still parse, but their `text_treatment` gate blocks.
+Missing review is never inferred as `none`, and `unknown` always blocks.
+
+It also needs `source_review` using the semantic-fact shape documented in the
+preflight README for `suggest-route`. Its source snapshot must equal this
+figure's sources, every source needs observation evidence, and its
+`text_requirement` must match `text_review.requirement`. The
+`structure_treatment` gate checks joint structure/text/data/topology compatibility
+with the final route. Missing, unknown or conflicting structural facts block;
+a PDF source does not become a raster/photo merely because of its format.
+Localflow's normal `review` and `publish` paths reach this gate through
+`publishing._editorial_gate` and `editorial_gate.check_editorial_gate`.
+This enforcement does not consume a suggestion as approval: all existing
+editorial, live-source, output, font and final acceptance checks remain required.
+
+```json
+"text_review": {
+  "requirement": "replace",
+  "categories": ["axis_title", "tick_label", "legend", "data_annotation"],
+  "reason": "<actual observed text and why it needs replacement>",
+  "evidence_ids": ["<existing-source-bound-review-id>"]
+}
+```
+
+`requirement` is `none` (no text), `preserve_native` (explicitly retain source
+lettering, e.g. reviewed UI pixels), `replace`, or `unknown`. Categories may be
+`axis_title`, `tick_label`, `legend`, `data_annotation`, `ui_text`, or `other`;
+list only observed categories. `none` requires an empty category list; preserve
+and replace require at least one. Supply a concrete reason and evidence covering
+every declared source, using current source hashes. Explicit UI preservation
+does not excuse separate axes or annotations requiring replacement: any such
+requirement makes the overall requirement `replace` and must be explained.
+
+Replacement needs cannot pass `raster_grayscale_single_column`: that route only
+changes pixels to grayscale and does not replace lettering. Use a reviewed
+`plot_reletter` or `structural_redraw` route with its required checks. The gate
+uses the final user-overridden route without changing proposal/override history;
+an incompatible final decision remains blocked for resolution, never silently
+rerouted. This validates the Agent's recorded review, not image recognition,
+OCR, correctness of the evidence, or completed output quality. Recheck real
+inputs; do not bulk-label legacy records `none` to make them pass.
 
 Exactly four routes are accepted:
 

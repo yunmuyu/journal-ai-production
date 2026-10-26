@@ -96,6 +96,8 @@ def test_actual_8pt_scene_cannot_publish_as_registered_plot():
         constraints = json.loads(fixture.constraints.read_text())
         row = constraints['confirmed']['editorial_route_contract']['figures'][0]
         row['decision']['route'] = row['decision']['proposed']['route'] = 'plot_reletter'
+        row['source_review'].update(structure='plot', text_requirement='replace',
+                                    data_preservation='required', topology='not_applicable')
         row['checks'] = {name: {'status': 'recorded_satisfied', 'evidence_ids': ['test-review']}
                          for name in COMMON_CHECKS + ROUTE_CHECKS['plot_reletter']}
         write_json(fixture.constraints, constraints)
@@ -184,6 +186,10 @@ def test_real_chart_with_nonempty_axis_audits_can_publish(tmp_path):
     confirmed.update(processing_method='reletter', backend='direct-pdf', output_format='pdf')
     figure = confirmed['editorial_route_contract']['figures'][0]
     figure['decision']['route'] = figure['decision']['proposed']['route'] = 'plot_reletter'
+    figure['text_review'].update(requirement='replace', categories=['axis_title', 'tick_label', 'legend'],
+                                reason='Synthetic chart explicitly replaces its axis and legend lettering.')
+    figure['source_review'].update(structure='plot', text_requirement='replace',
+                                  data_preservation='required', topology='not_applicable')
     figure['checks'] = {name: {'status': 'recorded_satisfied', 'evidence_ids': ['review-1']}
                         for name in COMMON_CHECKS + ROUTE_CHECKS['plot_reletter']}
     write_json(job[3], constraints)

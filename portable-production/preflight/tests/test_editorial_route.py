@@ -24,7 +24,19 @@ def contract(tmp_path, route="structural_redraw"):
                       "method": "synthetic fixture", "location": "whole source",
                       "observation": "A test-only recorded observation."}],
         "checks": checks, "author_issues": [],
+        "text_review": {"requirement": "preserve_native", "categories": ["other"],
+                        "reason": "Synthetic source text is retained verbatim in this contract-only test.",
+                        "evidence_ids": ["review-1"]},
     }
+    if route == 'plot_reletter': figure['text_review']['requirement'] = 'replace'
+    figure['source_review'] = {
+        'source_snapshot': {'source': digest},
+        'structure': {'structural_redraw':'node_link','plot_reletter':'plot','raster_grayscale_single_column':'ui','unresolved':'unknown'}[route],
+        'text_requirement': figure['text_review']['requirement'],
+        'data_preservation': 'not_applicable' if route == 'structural_redraw' else 'required',
+        'topology': 'reconstructable' if route == 'structural_redraw' else 'not_applicable',
+        'evidence': [{'source_id':'source','source_sha256':digest,'location':'whole synthetic source',
+                      'observation':'Synthetic semantic facts for contract validation, not image classification.'}]}
     return {"schema_version": SCHEMA_VERSION, "figures": [figure]}, {
         "files": [{"id": "source", "path": str(source)}]}
 
@@ -281,6 +293,8 @@ def test_per_figure_source_staleness_and_shared_hash_conflict(tmp_path):
     manifest["figures"].append(second)
     assert len(validate_manifest(manifest, live)["figures"]) == 2
     second["sources"][0]["sha256"] = second["evidence"][0]["source_sha256"] = "0" * 64
+    second['source_review']['source_snapshot']['source'] = '0' * 64
+    second['source_review']['evidence'][0]['source_sha256'] = '0' * 64
     with pytest.raises(ContractError, match="conflicting hashes"):
         validate_manifest(manifest, live)
 
@@ -350,3 +364,64 @@ def test_unresolved_column_blocks_even_with_recorded_route_checks(tmp_path):
     report = validate_manifest(manifest, live)
     assert not report["ready_for_processing"]
     assert gates(report)["column_resolved"] == "blocked"
+
+@pytest.mark.parametrize('requirement', ['missing', 'unknown', 'replace'])
+def test_raster_text_needs_cannot_be_silently_treated_as_none(tmp_path, requirement):
+    # Given: a grayscale decision with every legacy gate satisfied.
+    manifest, live = contract(tmp_path, 'raster_grayscale_single_column')
+    figure = manifest['figures'][0]
+    del figure['text_review']
+    del figure['source_review']
+    if requirement != 'missing':
+        figure['text_review'] = {'requirement': requirement, 'categories': ['tick_label'],
+                                 'reason': 'Synthetic ticks need font review.', 'evidence_ids': ['review-1']}
+    # When: validating the current source-bound contract.
+    result = validate_manifest(manifest, live)
+    # Then: missing, unknown or unfulfilled replacement needs block processing.
+    assert not result['ready_for_processing']
+    assert gates(result)['text_treatment'] == 'blocked'
+
+@pytest.mark.parametrize('requirement,categories,route', [
+    ('none', [], 'raster_grayscale_single_column'),
+    ('preserve_native', ['ui_text'], 'raster_grayscale_single_column'),
+    ('replace', ['axis_title', 'tick_label', 'legend', 'data_annotation'], 'plot_reletter'),
+    ('replace', ['other'], 'structural_redraw'),
+])
+def test_explicit_source_bound_text_treatment_allows_compatible_route(tmp_path, requirement, categories, route):
+    manifest, live = contract(tmp_path, route)
+    manifest['figures'][0]['text_review'] = {'requirement': requirement, 'categories': categories,
+        'reason': 'Synthetic reviewed treatment; no automatic image classification claimed.', 'evidence_ids': ['review-1']}
+    manifest['figures'][0]['source_review']['text_requirement'] = requirement
+    result = validate_manifest(manifest, live)
+    assert result['ready_for_processing']
+    assert not result['semantics_independently_verified']
+
+
+@pytest.mark.parametrize('change', ['empty_evidence', 'unknown_evidence', 'empty_reason', 'none_with_ticks', 'replacement_without_categories'])
+def test_text_review_rejects_unbound_or_contradictory_claim(tmp_path, change):
+    manifest, live = contract(tmp_path)
+    review = manifest['figures'][0]['text_review']
+    if change == 'empty_evidence': review['evidence_ids'] = []
+    elif change == 'unknown_evidence': review['evidence_ids'] = ['invented']
+    elif change == 'empty_reason': review['reason'] = ' '
+    elif change == 'none_with_ticks': review.update(requirement='none', categories=['tick_label'])
+    else: review.update(requirement='replace', categories=[])
+    with pytest.raises(ContractError, match='text_review'):
+        validate_manifest(manifest, live)
+
+
+def test_text_gate_uses_user_overridden_route_without_rewriting_history(tmp_path):
+    manifest, live = contract(tmp_path, 'raster_grayscale_single_column')
+    figure = manifest['figures'][0]
+    figure['text_review'].update(requirement='replace', categories=['tick_label'])
+    figure['source_review'].update(structure='plot', text_requirement='replace')
+    previous = copy.deepcopy(manifest)
+    decision = figure['decision']
+    decision['route'] = 'plot_reletter'
+    decision['overrides'] = [{'id': 'replace-text', 'field': 'route',
+        'previous_value': 'raster_grayscale_single_column', 'value': 'plot_reletter', 'provenance': provenance(manifest)}]
+    figure['checks'].update({name: {'status': 'recorded_satisfied', 'evidence_ids': ['review-1']}
+                            for name in ROUTE_CHECKS['plot_reletter']})
+    result = validate_manifest(manifest, live, previous=previous)
+    assert result['ready_for_processing']
+    assert result['figures'][0]['record']['decision']['proposed']['route'] == 'raster_grayscale_single_column'
