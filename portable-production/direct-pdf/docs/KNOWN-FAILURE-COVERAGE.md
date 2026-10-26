@@ -31,7 +31,7 @@ route. All development artifacts remain candidates until explicitly accepted.
   Regression: test_publication_font_gate.py, including real scene negative and
   dedicated-chart publication positive.
 - Same-size log exponents/hyphen: explicit power10 semantics produce reduced
-  exponent glyph sizes and mathematical minus, not independently moved labels.
+  exponent glyph sizes and ASCII unary negative signs, not independently moved labels.
   Original tick spelling and bound positions must agree with the declaration.
   Regression: test_scientific_text.py, actual PDF span verification.
 

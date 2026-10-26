@@ -12,24 +12,24 @@ from journal_pdf.render import compile_figure, render_one
 from journal_pdf.scientific_text import power_of_ten
 
 
-@pytest.mark.parametrize('exponent,expected', [(-3, '−3'), (-2, '−2'), (-1, '−1'),
+@pytest.mark.parametrize('exponent,expected', [(-3, '-3'), (-2, '-2'), (-1, '-1'),
                                                (0, '0'), (2, '2'), (12, '12')])
 def test_power_of_ten_has_true_reduced_superscript(exponent, expected):
     base, script = power_of_ten(exponent)
     assert base == {'text': '10', 'style': 'regular'}
     assert script == {'text': expected, 'style': 'regular', 'scale': 0.7,
                       'baseline_shift_pt': -3.2}
-    assert '-' not in script['text']
+    assert '−' not in script['text']
     assert not any(char in script['text'] for char in '⁻⁰¹²³⁴⁵⁶⁷⁸⁹')
 
 
 def test_explicit_fractional_base_size_and_script_scale():
     assert power_of_ten(-12, base_size_pt=7.5, exponent_scale=0.6)[1] == {
-        'text': '−12', 'style': 'regular', 'scale': 0.6, 'baseline_shift_pt': -3.0,
+        'text': '-12', 'style': 'regular', 'scale': 0.6, 'baseline_shift_pt': -3.0,
     }
     first = power_of_ten(-1)
     first[1]['text'] = 'changed'
-    assert power_of_ten(-1)[1]['text'] == '−1'
+    assert power_of_ten(-1)[1]['text'] == '-1'
 
 
 @pytest.mark.parametrize('value', [True, False, 1.0, -1.5, '−1', '-1', None, [], {}])
@@ -56,7 +56,7 @@ def test_script_must_be_finite_positive_and_smaller_than_base(value):
 
 
 @pytest.mark.parametrize('text', ['10⁻¹', '10^−1', '10^-1'])
-def test_explicit_log_tick_preserves_value_not_source_hyphen_typography(text):
+def test_explicit_log_tick_preserves_value_with_editorial_unary_sign(text):
     tick = {'text': text, 'power10': -1, 'position': 99}
     original = copy.deepcopy(tick)
     assert tick_content(tick) == power_of_ten(-1)
@@ -190,7 +190,7 @@ def test_production_entry_exports_default8_and_reduced_mathematical_scripts(reg,
         spans = [span for block in page.get_text('dict')['blocks']
                  for line in block.get('lines', []) for span in line['spans']]
         bases = [span for span in spans if span['text'] == '10']
-        scripts = [span for span in spans if span['text'] in ('−1', '−2', '−3')]
+        scripts = [span for span in spans if span['text'] in ('-1', '-2', '-3')]
         assert len(bases) == len(scripts) == 3
         assert all(span['size'] == pytest.approx(8) for span in bases)
         assert all(span['size'] == pytest.approx(5.6) for span in scripts)
@@ -200,6 +200,6 @@ def test_production_entry_exports_default8_and_reduced_mathematical_scripts(reg,
         text = ''.join(page.get_text().split())
         assert '注入物理噪声概率/%' in text
         assert '误码率/BER' in text
-        assert '（' not in text and '）' not in text and '-' not in text
+        assert '（' not in text and '）' not in text and '−' not in text
         ordinary_spans = [span for span in spans if span not in bases and span not in scripts]
         assert ordinary_spans and all(span['size'] == pytest.approx(8) for span in ordinary_spans)

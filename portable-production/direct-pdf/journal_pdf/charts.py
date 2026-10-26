@@ -66,8 +66,8 @@ def tick_content(tick, base_size_pt=8):
             raise FigureError('tick_semantics_conflict','十的幂刻度不能同时声明数值后缀')
         runs=power_of_ten(tick['power10'],base_size_pt=base_size_pt)
         exponent=runs[1]['text']
-        superscript=exponent.translate(str.maketrans('−0123456789','⁻⁰¹²³⁴⁵⁶⁷⁸⁹'))
-        if raw not in {'10'+superscript,'10^'+exponent,'10^'+exponent.replace('−','-')}:
+        superscript=exponent.translate(str.maketrans('-0123456789','⁻⁰¹²³⁴⁵⁶⁷⁸⁹'))
+        if raw not in {'10'+superscript,'10^'+exponent,'10^'+exponent.replace('-','−')}:
             raise FigureError('tick_power10_mismatch','刻度原文与显式确认的十的幂指数不一致',text=raw)
         return runs
     if 'number' not in tick:

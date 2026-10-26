@@ -561,8 +561,8 @@
     },
     {
       "path": "direct-pdf/docs/KNOWN-FAILURE-COVERAGE.md",
-      "sha256": "915562b9d3668a651b50fe4bdcc35ef1924bf3c5b1f4f5bc8b2271dbe1685ed7",
-      "bytes": 5744
+      "sha256": "580a3b36af58e57738598ffbc58de84cfa7665b45a54ea1ba720ddcab18b748e",
+      "bytes": 5752
     },
     {
       "path": "direct-pdf/docs/NEW-v0.1.2.1.md",
@@ -671,8 +671,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/charts.py",
-      "sha256": "842071b5fa89e9e132d3de3dc1d4888b5ee296f55aeeda7b39e49b00739a86bc",
-      "bytes": 18766
+      "sha256": "bdc27d88c8209118cbb4e95957f7365470e015ff5fdc0d4baed59bfb2a7197cc",
+      "bytes": 18764
     },
     {
       "path": "direct-pdf/journal_pdf/cli.py",
@@ -776,8 +776,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/scientific_text.py",
-      "sha256": "b629b494883973b3d847897235380dbeefffa97c2453af0aab81c58aa2422b25",
-      "bytes": 2206
+      "sha256": "0020e844bcbea18f2354df3679045c3d4b02de72a3514a76646ed73065e01795",
+      "bytes": 2282
     },
     {
       "path": "direct-pdf/journal_pdf/server.py",
@@ -1041,8 +1041,8 @@
     },
     {
       "path": "direct-pdf/tests/test_scientific_text.py",
-      "sha256": "3c83fe6ab22d136e4e2bdb3ea32f4274a544cdc09de0cc9c538fe842549adef1",
-      "bytes": 9997
+      "sha256": "59a6f39fa7c852790d4ea14a3c4db8247b0e5ecb8ee0bd8314e0fbe60ffe8ea0",
+      "bytes": 9982
     },
     {
       "path": "direct-pdf/tests/test_source_icons.py",

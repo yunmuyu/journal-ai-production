@@ -20,7 +20,8 @@ def power_of_ten(
     same ``size=base_size_pt`` (or a scene with that size). The default is an
     8 pt base and a 5.6 pt exponent, raised 3.2 pt. The existing public font
     registry performs all measurement, embedding and drawing. Negative powers
-    use U+2212 MINUS SIGN, not a hyphen or Unicode superscript look-alikes.
+    use ASCII U+002D for unary negative signs per the editorial contract.
+    U+2212 is reserved for binary subtraction; scripts remain real raised text.
 
     This explicit mathematical script may be below 6 pt; it does not change
     the ordinary-text minimum or silently shrink an entire label to 6 pt.
@@ -41,7 +42,7 @@ def power_of_ten(
         or not 0 < exponent_scale < 1
     ):
         raise FigureError('scientific_exponent_scale_invalid', '数学上标比例必须大于0且小于1')
-    exponent_text = ('−' if exponent < 0 else '') + str(abs(exponent))
+    exponent_text = ('-' if exponent < 0 else '') + str(abs(exponent))
     return [
         {'text': '10', 'style': 'regular'},
         {
