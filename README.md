@@ -4,6 +4,8 @@
 
 [下载正式版](https://github.com/yunmuyu/journal-ai-production/releases/latest) · [安装、升级与回滚](docs/RELEASE-GUIDE.md) · [更新日志](CHANGELOG.md) · [本版验证与边界](release-notes/2026.10.26-r36-figure-audit.md)
 
+当前源码补丁为 **2026.10.27-r36-numeric-audit**，修复数字刻度审计并保留逐位置检查；详见[补丁说明](release-notes/2026.10.27-r36-numeric-audit.md)。它尚未发布为下载版，也未部署；上方下载链接仍指向已发布的 r36。
+
 ## 选择入口
 
 | 用途 | 入口 | 说明 |

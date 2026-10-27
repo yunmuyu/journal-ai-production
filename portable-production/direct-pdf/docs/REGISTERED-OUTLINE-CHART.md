@@ -24,6 +24,13 @@ All geometry and inherited attributes of retained primitives are checked before 
 
 The original legend location and height are retained. Measured 8pt capacity failure is an error, not permission to move outside the plot, increase the height or shrink the font. Protected series ink bounds conservatively reject overlap with the original/expanded legend region; this may reject a safe complex source rather than claim unverified clearance. No hidden curve is reconstructed or painted in.
 
+This preservation constraint is local to the registered-outline adapter. It
+does not override the general journal rule that a legend should use a clear
+area inside the plot when one exists. If the original region cannot hold the
+required text, preserve the series geometry and choose another measured safe
+region through an appropriate composition route rather than treating the
+adapter's original-region check as a project-wide placement rule.
+
 The actual-PDF source-path auditor re-prepares registered assets from the hash-bound original and consumes each placed path instance. Original source strokes are preserved under that exact ownership contract; unowned strokes still require the normal 0.5pt policy. There is no viewport exemption and no global tolerance change.
 
 Initial supported inputs are static independent path/line/rect/circle/ellipse/polygon/polyline primitives, explicit inline styles/attributes, and supported finite affine transforms. Missing viewBox is supported only with explicit finite, positive, unitless width/height. Nonzero viewBox origins, nested SVG viewports, CSS stylesheets, XML entities, live text/use/images, percentage dimensions, ambiguous bounds and unsupported resources fail closed. External resources remain forbidden. This does not claim arbitrary SVG, multi-panel, transcription or final production acceptance.

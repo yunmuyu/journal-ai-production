@@ -34,6 +34,11 @@ route. All development artifacts remain candidates until explicitly accepted.
   exponent glyph sizes and ASCII unary negative signs, not independently moved labels.
   Original tick spelling and bound positions must agree with the declaration.
   Regression: test_scientific_text.py, actual PDF span verification.
+- Horizontal multi-digit axis ticks: PyMuPDF may combine `10 11 12 13 14 15`
+  into one text line even when every label is present. Numeric audit now reads
+  words inside each declared tick region instead of assuming one label per line;
+  a genuinely absent numeric label still fails. Regression:
+  test_numeric_axis_audit.py.
 
 - Invented native edge label: a nonempty native connector label must bind an
   original text object, and an explicit duplicate string must agree exactly.

@@ -2,7 +2,10 @@ name: Filesystem safety
 on: [push, pull_request]
 jobs:
   synthetic-security:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -12,4 +15,4 @@ jobs:
       - run: python -m pytest portable-production/direct-pdf/tests/test_raster_preprocess.py portable-production/tests-local/test_native_jpg_publishing.py -k 'symlink or cross_format' -q
         env:
           PYTHONUTF8: '1'
-          PYTHONPATH: portable-production/direct-pdf:portable-production/preflight:portable-production
+          PYTHONPATH: ${{ runner.os == 'Windows' && 'portable-production/direct-pdf;portable-production/preflight;portable-production' || 'portable-production/direct-pdf:portable-production/preflight:portable-production' }}

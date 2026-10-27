@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.26-r36-figure-audit",
-  "createdAt": "2026-10-26T09:54:53.966Z",
-  "status": "validated-source-release",
+  "id": "2026.10.27-r36-numeric-audit",
+  "createdAt": "2026-10-27T02:29:28.212Z",
+  "status": "validated-source-patch",
   "constraints": {
     "fontSizePt": {
       "min": 6,
@@ -12,21 +12,19 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "focused": "119 passed; independent review 38 passed (overlapping suites)",
-    "visual": "Two synthetic PDFs generated and visually inspected; tree spacing, storage quantity, italic glyph and rotated text",
-    "windows": "Portable: 1025 passed, 8 fixture setup failures (WinError1314), 9 subtests; preflight: 132 passed. No assertion failures.",
+    "focused": "92 passed, 7 subtests passed",
+    "windowsDirectPdf": "873 passed, 7 subtests passed; 3 WinError1314 symlink fixture failures",
+    "regression": "swapped-position negative case failed on 4725c48 and passed after per-region comparison",
+    "githubFilesystemSafety": "passed on Linux before manifest-only reseal; final commit CI must pass",
     "status": "passed-with-explicit-platform-limits",
     "notVerified": [
-      "Windows symlink fixtures without privilege",
-      "Legacy Adobe audit suite: pypdfium2 absent",
-      "Real manuscript final acceptance",
-      "Adobe/InDesign placement and print RIP",
-      "Dense numerical callouts: paused, failed candidate excluded"
+      "Adobe/InDesign placement",
+      "Print RIP",
+      "Real manuscript final visual acceptance",
+      "Windows symlink creation without privilege"
     ],
     "deployed": false,
-    "node": "51 passed",
-    "bundleTests": "3 passed",
-    "extractedBundle": "205 files verified; 89 tests passed; localflow CLI, doctor and real synthetic PDF render inspected"
+    "githubReleasePublished": false
   },
   "files": [
     {
@@ -431,7 +429,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.26-r35-consolidated",
+  "supersedes": "2026.10.26-r36-figure-audit",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -481,8 +479,8 @@
     },
     {
       "path": "direct-pdf/AGENT.md",
-      "sha256": "75e1a5dd4ac52a7fbf42e428349da30cc9e727e0d70b3f31c9b1f57bf548528d",
-      "bytes": 1484
+      "sha256": "eec1d93711029ba53eb6f29687607ebbc420c91f91f785f6d9de369723067098",
+      "bytes": 1927
     },
     {
       "path": "direct-pdf/bridge/run-agent-entry.mjs",
@@ -566,8 +564,8 @@
     },
     {
       "path": "direct-pdf/docs/KNOWN-FAILURE-COVERAGE.md",
-      "sha256": "580a3b36af58e57738598ffbc58de84cfa7665b45a54ea1ba720ddcab18b748e",
-      "bytes": 5752
+      "sha256": "53977b964a44d5830d4a59ae37bfe797e482343542925e3373acb0c3e571ae91",
+      "bytes": 6079
     },
     {
       "path": "direct-pdf/docs/NEW-v0.1.2.1.md",
@@ -586,8 +584,8 @@
     },
     {
       "path": "direct-pdf/docs/REGISTERED-OUTLINE-CHART.md",
-      "sha256": "dcb1b8fe601d170db73127f67d225842610ce878c38ce07cf14caabd835fdcac",
-      "bytes": 5069
+      "sha256": "cb60b375e850931b9158ebbeb4fa5eafc0200e16e51979fdea2f07e6d2b84181",
+      "bytes": 5515
     },
     {
       "path": "direct-pdf/docs/RULE-COVERAGE.md",
@@ -760,6 +758,11 @@
       "bytes": 21396
     },
     {
+      "path": "direct-pdf/journal_pdf/numeric_audit.py",
+      "sha256": "6229c2a517c630f94de7cddc0afd86ca80357607e11db6042961bd27074e852c",
+      "bytes": 1185
+    },
+    {
       "path": "direct-pdf/journal_pdf/pdf_font_styles.py",
       "sha256": "3357bd74f66780a83660f6a68a97522710eecc036e4e1973f11113feae1370ba",
       "bytes": 4280
@@ -781,8 +784,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/render.py",
-      "sha256": "be460ef5ab439d6f483cdb69a003050b6dc406aab016b0744eeae533c35a33ac",
-      "bytes": 26775
+      "sha256": "2e15d8fcac35284d78e43ea1b16fc400a9bf9ebfeeaf9dfca248682ae9e6cdd3",
+      "bytes": 26862
     },
     {
       "path": "direct-pdf/journal_pdf/rules_registry.py",
@@ -921,8 +924,8 @@
     },
     {
       "path": "direct-pdf/tests/conftest.py",
-      "sha256": "3d319e026de6cb9d239b6bd775925912b9d4bb886b7019b4589b2ca85db8272a",
-      "bytes": 1199
+      "sha256": "6621a4556c6a5d65054ffd532beeec294b113955e80dc4216ad5f241976d5546",
+      "bytes": 1215
     },
     {
       "path": "direct-pdf/tests/test_agent_integrity.py",
@@ -966,8 +969,8 @@
     },
     {
       "path": "direct-pdf/tests/test_editorial_rules.py",
-      "sha256": "4cabe23408f0f85eccb71e6c444943b82c9a372a28263913892c4c728c984a51",
-      "bytes": 19450
+      "sha256": "7cbd59d0794c3d3711b5e84c2daa523523d1b7c8ac2a59e43f19db743e0b6e0a",
+      "bytes": 19466
     },
     {
       "path": "direct-pdf/tests/test_export_crop_padding.py",
@@ -986,8 +989,8 @@
     },
     {
       "path": "direct-pdf/tests/test_fonts.py",
-      "sha256": "1a0106d15c42ae08c21682a5cbb2580d370a4ad9bfd04bad5487d726b05cf2b0",
-      "bytes": 3389
+      "sha256": "3d238c9180e1d9ff67a54d77723b909dfb5ca58b8db94f06035f5ddc74be273a",
+      "bytes": 3421
     },
     {
       "path": "direct-pdf/tests/test_graph_branch_directions.py",
@@ -1043,6 +1046,11 @@
       "path": "direct-pdf/tests/test_node_dash.py",
       "sha256": "d95483f1232d4db84703d3785ba0bf86f9a3c22da5112732b8c179f7d00342e5",
       "bytes": 1286
+    },
+    {
+      "path": "direct-pdf/tests/test_numeric_axis_audit.py",
+      "sha256": "b33683d61de35b9383212bf9f6fdd8457f30c2d610ebbf86cc03c3d882b9593e",
+      "bytes": 3483
     },
     {
       "path": "direct-pdf/tests/test_numeric_range_connector.py",

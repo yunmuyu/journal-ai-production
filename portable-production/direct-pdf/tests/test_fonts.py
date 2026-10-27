@@ -19,7 +19,7 @@ def test_warm_cache_has_zero_scan_and_zero_rehash(profile,tmp_path,monkeypatch):
 
 
 def test_changed_configured_file_invalidates_only_that_face(profile,tmp_path):
-    d=json.loads(profile.read_text());paths={}
+    d=json.loads(profile.read_text(encoding="utf-8"));paths={}
     for s in d['faces'].values():
         old=s['path']
         if old not in paths:
@@ -34,7 +34,7 @@ def test_changed_configured_file_invalidates_only_that_face(profile,tmp_path):
 
 
 def test_missing_font_never_falls_back(profile,tmp_path):
-    d=json.loads(profile.read_text());d['faces']['cn']['path']=str(tmp_path/'missing.ttf')
+    d=json.loads(profile.read_text(encoding="utf-8"));d['faces']['cn']['path']=str(tmp_path/'missing.ttf')
     p=tmp_path/'profile.json';p.write_text(json.dumps(d))
     with pytest.raises(FigureError,match="不存在"):FontRegistry(p,tmp_path/'cache')
 
