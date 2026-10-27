@@ -49,7 +49,10 @@ def draw_node(page,n):
         if n.get('checked'):
             inset=min(r.width,r.height)*.24
             sh.draw_rect(fitz.Rect(r.x0+inset,r.y0+inset,r.x1-inset,r.y1-inset))
-    sh.finish(width=n['width'],color=(n.get('gray',0),),fill=(n['fill'],) if 'fill' in n else None,
+    # width=None 表示只填充不描边：渐变/色阶分段之间不能出现描边缝。
+    sh.finish(width=n['width'] if n['width'] is not None else 0,
+              color=None if n['width'] is None else (n.get('gray',0),),
+              fill=(n['fill'],) if 'fill' in n else None,
               dashes=('['+' '.join(map(str,n['dash']))+'] 0') if n.get('dash') else None,closePath=True);sh.commit()
 
 

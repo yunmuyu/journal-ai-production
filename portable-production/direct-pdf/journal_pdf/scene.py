@@ -34,7 +34,7 @@ class Scene:
             p=position_text(m,x,y,align,p['rotation'],rotated_ink=self.registry.rotated_ink_bounds(m,p['rotation']))
         t={'id':id,'content':content,'source_content':source_content,'measurement':m,'position':p,'owner':owner,'role':role,'x':x,'y':y,'align':align,'gray':gray}
         self.texts.append(t);return t
-    def shape(self,id,rect,kind='rectangle',container=False,width=.5,dash=None,checked=False):
+    def shape(self,id,rect,kind='rectangle',container=False,width=.5,dash=None,checked=False,fill=None):
         self.ident(id)
         if kind not in ('rectangle','ellipse','diamond','roundrect','terminator','inputOutput','checkbox'):raise FigureError('unsupported_shape','形状未支持',kind=kind)
         if not finite(rect) or rect[2]<=rect[0] or rect[3]<=rect[1]:raise FigureError('invalid_node_rect','节点矩形无效',id=id)
@@ -42,8 +42,15 @@ class Scene:
         if not isinstance(checked,bool):raise FigureError('checkbox_state_invalid','复选框选中态须为布尔值',id=id)
         if kind=='checkbox' and container:raise FigureError('checkbox_container_invalid','复选框是符号图元，不能作为容器',id=id)
         if kind!='checkbox' and checked:raise FigureError('checkbox_state_unsupported','只有复选框图元可声明选中态',id=id)
+        if fill is not None:
+            if isinstance(fill,bool) or not isinstance(fill,(int,float)) or not math.isfinite(fill) or not 0<=fill<=1:
+                raise FigureError('node_fill_invalid','节点填充只接受 0 到 1 的显式灰度',id=id)
+            if container:raise FigureError('node_fill_container','容器不参与填充，避免遮住层内对象',id=id)
+        if width is not None and (isinstance(width,bool) or not isinstance(width,(int,float)) or not math.isfinite(width) or width<0):
+            raise FigureError('node_width_invalid','节点描边宽度须为有限非负数，或显式 None 表示只填充不描边',id=id)
         n={'id':id,'rect':list(rect),'kind':kind,'container':container,'width':width}
         if kind=='checkbox':n['checked']=checked
+        if fill is not None:n['fill']=float(fill)
         if dash is not None:n['dash']=list(dash)
         self.nodes.append(n);return n
     def box(self,id,content,x,y,w=None,h=None,kind='rectangle',padx=4.5,pady=2.7,wrap_chars=None,flow_role=None,text_role='label',vertical_text=False):
@@ -265,7 +272,7 @@ def audit_scene(s:Scene):
             if (texts_intersect(a,b) if oblique(a) or oblique(b) else intersects(a['position']['bbox'],b['position']['bbox'],.05)):
                 issues.append({'code':'text_overlap','ids':[a['id'],b['id']]})
     for n in s.nodes:
-        x,y,r,b=n['rect'];w=n['width']/2
+        x,y,r,b=n['rect'];w=(n['width'] or 0.)/2
         if not contains(page,[x-w,y-w,r+w,b+w],.02):issues.append({'code':'shape_outside_page','id':n['id']})
         if n['kind']=='rectangle':
             corners=[[x,y],[r,y],[r,b],[x,b],[x,y]]

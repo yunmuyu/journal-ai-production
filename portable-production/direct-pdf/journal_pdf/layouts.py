@@ -276,7 +276,7 @@ def primitive(spec,reg,size):
         kind='terminator' if terminal else n.get('shape','rectangle')
         if kind=='roundrect' and not n.get('semantic_shape') and not terminal:
             kind='rectangle'
-        nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),dash=n.get('dash'),checked=n.get('checked',False))
+        nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),width=n.get('width',.5),dash=n.get('dash'),checked=n.get('checked',False),fill=n.get('fill'))
         if terminal:nodes[n['id']]['flow_terminal']=True
         if kind in ('rectangle','roundrect','terminator') and not n.get('container',False):
             nodes[n['id']]['padding_pt']=[4.5*size/8,2.7*size/8]
