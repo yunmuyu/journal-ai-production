@@ -7,7 +7,7 @@ from journal_pdf.fonts import FontRegistry
 def profile():
     p=Path(os.environ.get("JFW_TEST_FONT_PROFILE",str(Path(__file__).resolve().parents[1]/"config/fonts.preview-linux.json")))
     if not p.is_file():pytest.skip("需要设置JFW_TEST_FONT_PROFILE为本机已配置的字体方案")
-    data=json.loads(p.read_text())
+    data=json.loads(p.read_text(encoding="utf-8"))
     if any(not Path(v['path']).is_file() for v in data['faces'].values()):
         pytest.skip("当前测试字体路径不适用于本机，请显式指定字体方案；不扫描或自动替代")
     return p

@@ -13,6 +13,7 @@ from .scene import audit_scene, arrow_vertices
 from .layouts import DIAGRAMS
 from .charts import chart
 from .editorial import engine_signature,RULESET
+from .numeric_audit import missing_numeric_labels
 
 
 def draw_path(page,p):
@@ -180,9 +181,10 @@ def pdf_audit(path:Path,scene,reg):
     axis_units=audit_axis_titles(scene,p.get_text())
     from .quantity_spacing import audit_quantity_spacing
     quantity_spacing=audit_quantity_spacing(scene,p.get_text())
-    numeric_expected=collections.Counter(t['measurement']['text'] for t in scene.texts if t['role'] in ('axis-tick','numeric-value','number'))
-    numeric_actual=collections.Counter(line.strip() for line in p.get_text().splitlines())
-    numeric_missing=dict(numeric_expected-numeric_actual)
+    numeric_labels=[(t['measurement']['text'],(t['position']['bbox'][0],t['position']['bbox'][1],
+                     t['position']['bbox'][2],t['position']['bbox'][3]))
+                    for t in scene.texts if t['role'] in ('axis-tick','numeric-value','number')]
+    numeric_missing=missing_numeric_labels(p,numeric_labels)
     trace=p.get_texttrace()
     from .text_geometry import audit_pdf_rotations
     rotation_audit=audit_pdf_rotations(scene.texts,trace)
