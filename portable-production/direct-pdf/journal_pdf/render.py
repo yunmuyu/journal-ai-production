@@ -43,6 +43,12 @@ def draw_node(page,n):
     elif kind=='inputOutput':
         inset=min(r.height*.25,4)
         sh.draw_polyline([[r.x0+inset,r.y0],[r.x1,r.y0],[r.x1-inset,r.y1],[r.x0,r.y1]])
+    elif kind=='checkbox':
+        # 复选框符号：外框即勾选位，选中态画同心的内嵌方框，不引入填充。
+        sh.draw_rect(r)
+        if n.get('checked'):
+            inset=min(r.width,r.height)*.24
+            sh.draw_rect(fitz.Rect(r.x0+inset,r.y0+inset,r.x1-inset,r.y1-inset))
     sh.finish(width=n['width'],color=(n.get('gray',0),),fill=(n['fill'],) if 'fill' in n else None,
               dashes=('['+' '.join(map(str,n['dash']))+'] 0') if n.get('dash') else None,closePath=True);sh.commit()
 

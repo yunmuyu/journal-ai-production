@@ -2,6 +2,13 @@
 
 发布版本以 GitHub Release 与根目录 `RELEASE.json` 为准。历史组件的内部版本号保留，不代表整套工具当前是否正式发布。
 
+## 2026.10.27-checkbox-glyph
+
+- 增加 `checkbox` 符号图元：`shape: checkbox` 画空心方框，`checked: true` 在同一路径内加同心内框。用于源图中逐项复选框这类并非文字内容的符号，不引入填充，符合黑白印刷。
+- 状态契约不放宽：复选框不得声明为容器；非复选框节点传 `checked: true` 报 `checkbox_state_unsupported`；`checked` 非布尔报 `checkbox_state_invalid`。都不静默忽略。
+- 新增 `tests/test_checkbox_glyph.py`（7 例）：状态记录与场景审计、三种非法借用、容器拒绝、实际 PDF 中空心态一个方框、选中态两个方框且内框严格落在外框内。
+- 直接 PDF 全量 883 例：870 通过、13 失败。失败集中在 SVG 来源、栅格预处理与注册式统计图三组，已用 `git stash` 回退本版改动复跑，同样失败，属本机环境既有问题，与本版无关。
+
 ## 2026.10.27-numeric-tick-audit-fix
 
 - 修复水平轴多位数刻度在 PDF 文本提取中合并为一行时被误报缺失的问题。数字检查改为按各刻度声明的页面区域提取词元，避免由审计误报触发不必要的刻度旋转或重新排版。

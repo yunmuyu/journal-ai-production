@@ -34,12 +34,16 @@ class Scene:
             p=position_text(m,x,y,align,p['rotation'],rotated_ink=self.registry.rotated_ink_bounds(m,p['rotation']))
         t={'id':id,'content':content,'source_content':source_content,'measurement':m,'position':p,'owner':owner,'role':role,'x':x,'y':y,'align':align,'gray':gray}
         self.texts.append(t);return t
-    def shape(self,id,rect,kind='rectangle',container=False,width=.5,dash=None):
+    def shape(self,id,rect,kind='rectangle',container=False,width=.5,dash=None,checked=False):
         self.ident(id)
-        if kind not in ('rectangle','ellipse','diamond','roundrect','terminator','inputOutput'):raise FigureError('unsupported_shape','形状未支持',kind=kind)
+        if kind not in ('rectangle','ellipse','diamond','roundrect','terminator','inputOutput','checkbox'):raise FigureError('unsupported_shape','形状未支持',kind=kind)
         if not finite(rect) or rect[2]<=rect[0] or rect[3]<=rect[1]:raise FigureError('invalid_node_rect','节点矩形无效',id=id)
         validate_node_dash(dash, id=id)
+        if not isinstance(checked,bool):raise FigureError('checkbox_state_invalid','复选框选中态须为布尔值',id=id)
+        if kind=='checkbox' and container:raise FigureError('checkbox_container_invalid','复选框是符号图元，不能作为容器',id=id)
+        if kind!='checkbox' and checked:raise FigureError('checkbox_state_unsupported','只有复选框图元可声明选中态',id=id)
         n={'id':id,'rect':list(rect),'kind':kind,'container':container,'width':width}
+        if kind=='checkbox':n['checked']=checked
         if dash is not None:n['dash']=list(dash)
         self.nodes.append(n);return n
     def box(self,id,content,x,y,w=None,h=None,kind='rectangle',padx=4.5,pady=2.7,wrap_chars=None,flow_role=None,text_role='label',vertical_text=False):
