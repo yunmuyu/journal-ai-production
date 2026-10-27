@@ -8,6 +8,8 @@ from pathlib import Path
 from .common import FigureError, PT_PER_MM, finite
 from .scene import Scene, port, ray_ellipse
 from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, STROKE, COMPACT_GAP, display_content, wrap_text
+from .label_fit import plan as plan_label
+from .fonts import position_text
 
 
 def metrics(reg,size,texts):
@@ -298,7 +300,32 @@ def primitive(spec,reg,size):
                 nodes[n['id']]['measurement_contract']={'mode':'tight','expected_wh':[
                     measurement['width']+9*size/8,measurement['height']+5.4*size/8]}
         if 'text' in n:s.text(n['id']+':text',n['text'],(r[0]+r[2])/2,(r[1]+r[3])/2,owner=n['id'],wrap_chars=n.get('wrap_chars'))
-    for t in spec.get('texts',[]):s.text(t['id'],t['text'],t['x'],t['y'],t.get('align','center'),t.get('rotation',0),t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'),gray=t.get('gray',0))
+    def place_text(t):
+        """装载一条文本；声明了 fit 的先做标签排版决策，再落到场景。"""
+        content=t['text'];x=t['x'];y=t['y'];angle=t.get('rotation',0);align=t.get('align','center')
+        fit=t.get('fit')
+        if fit is None:
+            s.text(t['id'],content,x,y,align,angle,t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'),gray=t.get('gray',0));return
+        if not isinstance(fit,dict):raise FigureError('label_fit_declaration','文本的fit须为显式对象',id=t['id'])
+        unknown=set(fit)-{'width_pt','max_lines','allow_angles','anchor'}
+        if unknown:raise FigureError('label_fit_declaration','fit只接受width_pt、max_lines、allow_angles、anchor',id=t['id'],unknown=sorted(unknown))
+        if 'width_pt' not in fit:raise FigureError('label_fit_declaration','fit必须给出可用宽度width_pt',id=t['id'])
+        anchor=fit.get('anchor','center')
+        if anchor not in ('center','top','bottom'):raise FigureError('label_fit_declaration','fit的anchor只接受center、top、bottom',id=t['id'],anchor=anchor)
+        planned=plan_label(content,width_pt=fit['width_pt'],measure=reg.measure,size=size,
+                           max_lines=fit.get('max_lines',2),allow_angles=fit.get('allow_angles',(0.0,)))
+        content='\n'.join(planned['lines'])
+        if planned['angle']:angle=planned['angle']
+        if anchor!='center':
+            probe=position_text(reg.measure(content,size),0,0,align,angle)
+            height=probe['bbox'][3]-probe['bbox'][1]
+            y=y+height/2 if anchor=='top' else y-height/2
+        s.text(t['id'],content,x,y,align,angle,t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'),gray=t.get('gray',0))
+        s.layout_evidence.setdefault('label_fit',[]).append({
+            'text_id':t['id'],'source':t['text'],'display':content.replace('\n',' / '),
+            'lines':list(planned['lines']),'angle':planned['angle'],'reason':planned['reason'],
+            'width_pt':round(planned['width_pt'],3),'availability_pt':planned['availability_pt'],'anchor':anchor})
+    for t in spec.get('texts',[]):place_text(t)
     node_groups=spec.get('node_groups',[])
     if not isinstance(node_groups,list):
         raise FigureError('node_group_invalid','node_groups须为明确成员清单')
