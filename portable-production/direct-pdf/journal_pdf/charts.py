@@ -93,8 +93,13 @@ def chart(spec,reg,size,assets,root):
     xms=[reg.measure(tick_content(v,size),size) for v in spec['x_ticks']]
     # Reflow the complete tick row when horizontal ink overlaps. Use the
     # existing native quarter-turn renderer; this is not source-angle recovery.
-    ordered=sorted((v['position']*scale,m['width']) for v,m in zip(spec['x_ticks'],xms))
-    xrotation=90 if any(a[0]+a[1]/2>b[0]-b[1]/2 for a,b in zip(ordered,ordered[1:])) else 0
+    ordered=sorted((v['position']*scale,position_text(m,0,0)['bbox'][2]-position_text(m,0,0)['bbox'][0])
+                   for v,m in zip(spec['x_ticks'],xms))
+    min_gap=spec.get('x_tick_min_gap_pt',0.0)
+    if isinstance(min_gap,bool) or not isinstance(min_gap,(int,float)) or not math.isfinite(min_gap) or min_gap<0:
+        raise FigureError('x_tick_min_gap','刻度最小净距须为非负有限数',value=min_gap)
+    horizontal_gaps=[b[0]-b[1]/2-(a[0]+a[1]/2) for a,b in zip(ordered,ordered[1:])]
+    xrotation=90 if any(g<min_gap for g in horizontal_gaps) else 0
     xbounds=[position_text(m,0,0,rotation=xrotation)['bbox'] for m in xms]
     xwidths=[b[2]-b[0] for b in xbounds]
     xheights=[b[3]-b[1] for b in xbounds]
@@ -253,7 +258,9 @@ def chart(spec,reg,size,assets,root):
     s.layout_evidence['numeric_labels']=[{'source':v['text'],'display':m['text']} for v,m in zip(spec['x_ticks']+spec['y_ticks'],xms+yms)]
     s.layout_evidence['corner_tick_adjustment_pt']=x_tick_edge-original_x_tick_edge
     s.layout_evidence['x_tick_layout']={'rotation_degrees':xrotation,
-        'reason':'measured-horizontal-overlap' if xrotation else 'horizontal-ink-fits',
+        'reason':('horizontal-gap-below-minimum' if min_gap>0 else 'measured-horizontal-overlap') if xrotation else 'horizontal-ink-fits',
+        'minimum_horizontal_gap_pt':min_gap,
+        'measured_horizontal_gap_pt':round(min(horizontal_gaps),3) if horizontal_gaps else None,
         'source_anchors_preserved':True,'source_angle_preservation_claim':False}
     s.layout_evidence['legend_frame']=framed
     s.layout_evidence['legend_background_audit']=occupancy_evidence
