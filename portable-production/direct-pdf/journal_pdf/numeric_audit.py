@@ -20,9 +20,8 @@ def missing_numeric_labels(
 ) -> dict[str, int]:
     """Return declared numeric labels absent from their expected PDF regions."""
     crop = page.cropbox_position
-    expected = Counter(_normalized_label_text(text) for text, _ in labels)
-    actual: Counter[str] = Counter()
-    for _, bbox in labels:
+    missing: Counter[str] = Counter()
+    for text, bbox in labels:
         region = pymupdf.Rect(
             bbox[0] - crop.x - BBOX_PROTECTION_PT,
             bbox[1] - crop.y - BBOX_PROTECTION_PT,
@@ -31,13 +30,7 @@ def missing_numeric_labels(
         )
         words = page.get_text("words", clip=region)
         ordered = sorted(words, key=lambda word: (word[1], word[0]))
-        actual[_normalized_label_text(" ".join(word[4] for word in ordered))] += 1
-
-    missing_normalized = expected - actual
-    missing: Counter[str] = Counter()
-    for text, _ in labels:
-        normalized = _normalized_label_text(text)
-        if missing_normalized[normalized] > 0:
+        actual = _normalized_label_text(" ".join(word[4] for word in ordered))
+        if actual != _normalized_label_text(text):
             missing[text] += 1
-            missing_normalized[normalized] -= 1
     return dict(missing)

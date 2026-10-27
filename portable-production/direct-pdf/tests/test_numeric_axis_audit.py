@@ -70,6 +70,18 @@ def test_missing_grouping_space_in_numeric_label_is_not_masked() -> None:
     assert missing == {"0.073 162": 1}
 
 
+def test_swapped_numeric_labels_fail_at_both_declared_positions() -> None:
+    with pymupdf.open() as doc:
+        page = doc.new_page(width=120, height=40)
+        page.insert_text((10, 20), "1", fontsize=8)
+        page.insert_text((70, 20), "2", fontsize=8)
+        words = {word[4]: tuple(word[:4]) for word in page.get_text("words")}
+
+        missing = missing_numeric_labels(page, [("2", words["1"]), ("1", words["2"])])
+
+        assert missing == {"2": 1, "1": 1}
+
+
 def test_rendered_horizontal_axis_ticks_pass_real_pdf_audit(tmp_path, reg) -> None:
     # Given
     source_root = tmp_path / "source"
