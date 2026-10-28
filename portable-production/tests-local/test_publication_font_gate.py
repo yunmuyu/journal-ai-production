@@ -9,6 +9,27 @@ from localflow.rendering import render, check_candidate
 from localflow.publishing import review, publish
 
 
+@pytest.mark.parametrize('code', ['reduced_nonscript_text_requires_review',
+    'axis_decimal_precision_mismatch', 'axis_tick_group_missing', 'unknown_review_notice'])
+def test_unresolved_editorial_notice_blocks_publication(code):
+    from localflow.publishing import _check_editorial_notices
+    with pytest.raises(FlowError) as error:
+        _check_editorial_notices({'status': 'candidate-editorial-review', 'warnings': [{'code': code}]})
+    assert error.value.code == 'publication_editorial_review'
+
+
+def test_base_size_review_is_resolved_by_separate_font_policy_gate():
+    from localflow.publishing import _check_editorial_notices
+    _check_editorial_notices({'status': 'candidate-editorial-review',
+                              'warnings': [{'code': 'base_font_below_8_requires_review'}]})
+
+
+def test_empty_editorial_review_cannot_be_treated_as_resolved():
+    from localflow.publishing import _check_editorial_notices
+    with pytest.raises(FlowError):
+        _check_editorial_notices({'status': 'candidate-editorial-review', 'warnings': []})
+
+
 @pytest.mark.parametrize('size', [6, 7.5])
 def test_real_preview_without_default_start_cannot_enter_publication(size):
     fixture = fixtures.LocalFlowTest()
@@ -19,6 +40,8 @@ def test_real_preview_without_default_start_cannot_enter_publication(size):
         write_json(fixture.spec, spec)
         pid = probe(fixture.config, fixture.manifest)['probe_id']
         result = render(fixture.config, fixture.spec, fixture.constraints, pid)
+        assert result['status'] == 'candidate-editorial-review'
+        assert result['audit'] == 'editorial-review-required'
         cid = result['candidate_id']
         candidate, report, artifact = check_candidate(fixture.config, cid)
         assert artifact.is_file()  # Legitimate low-level preview not forbidden.

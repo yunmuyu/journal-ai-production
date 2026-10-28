@@ -72,7 +72,7 @@ def check_report(report: dict, pdf: Path) -> None:
     if (any(a.get("mode") in ("source-vector-body", "source-mixed-body") for a in report.get("assets", []))
             or report.get("typography_coverage", {}).get("status") == "unverified"):
         raise FlowError("source_text_coverage", "源图路径或像素中的文字覆盖尚未验证；原生文字检查不能证明全图文字合格")
-    if report.get("status") != "candidate-rendered" or report.get("mechanical_checks_passed") is not True:
+    if report.get("status") not in ("candidate-rendered", "candidate-editorial-review") or report.get("mechanical_checks_passed") is not True:
         raise FlowError("render_audit", "引擎没有生成机械检查通过的候选")
     if report.get("pdf_sha256") != hash_file(pdf):
         raise FlowError("render_audit", "候选 PDF 与引擎报告哈希不一致")
@@ -199,7 +199,7 @@ def render(config: Config, spec_path: Path, constraints_path: Path, probe_id: st
         candidate = {"candidate_id": candidate_id, "probe_id": probe_id,
             "output_pdf": report["output_pdf"], "output_sha256": report["pdf_sha256"],
             "report_sha256": hash_file(report_path), "spec_sha256": hash_json(spec),
-            "constraints_sha256": hash_json(constraints), "status": "candidate-rendered",
+            "constraints_sha256": hash_json(constraints), "status": report["status"],
             "constraints_path": str(constraints_path.resolve()),
             "constraints_file_sha256": constraints_initial_sha,
             "font_profile_sha256": hash_file(config.font_profile),
@@ -208,5 +208,5 @@ def render(config: Config, spec_path: Path, constraints_path: Path, probe_id: st
             "render_ms": round((time.perf_counter() - began) * 1000, 3)}
         write_json(folder / "candidate.json", candidate)
     return {"candidate_id": candidate_id, "pdf": str(pdf), "sha256": report["pdf_sha256"],
-        "render_ms": candidate["render_ms"], "audit": "passed", "status": "candidate-rendered",
+        "render_ms": candidate["render_ms"], "audit": "passed" if report["status"] == "candidate-rendered" else "editorial-review-required", "status": report["status"],
         "render_log": str(log_path), "warning_count": candidate["warning_count"]}
