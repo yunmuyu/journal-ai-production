@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.28-isotropic-vector-clip-candidate",
-  "createdAt": "2026-10-28T08:12:56.778Z",
+  "id": "2026.10.28-axis-font-review-candidate",
+  "createdAt": "2026-10-28T08:25:56.536Z",
   "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
@@ -12,21 +12,19 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
+    "status": "candidate-not-deployed",
+    "focused": "175 typography, precision, scientific text, quantity and crop tests passed",
+    "strictPython": "two new modules passed no-excuse checker; basedpyright and ruff not run",
+    "sourceSample": "local mixed-precision original flagged and corrected axis reported no precision warning; private data excluded from repo",
     "notVerified": [
-      "Non-square playback DPI native validation",
-      "Text and ellipse clipping",
-      "Bitmap and exact stroked-outline clipping",
-      "GDI integer region rounding",
-      "All EMF records and full rendering",
+      "Automatic semantic determination of script runs",
+      "Raster-embedded text",
+      "Physical spacing of grouped labels",
       "Adobe/InDesign placement",
       "Print RIP",
       "Local Windows symlink privilege"
     ],
-    "windowsDirectPdf": "1029 passed, 7 subtests passed, 3 WinError 1314 symlink privilege failures; before final supplemental tests and small checks",
-    "status": "candidate-not-deployed",
-    "gdi": "synthetic isotropic mapping, extent scaling, region combinations, metaclip and shear compared with Windows GDI on equal-DPI device",
-    "focused": "97 EMF and crop tests passed on final code; optional Shapely 2.1.2 installed in isolated work directory",
-    "strictPython": "no violations in 20 figure_audit files (no-excuse checker); basedpyright and ruff not run"
+    "fullSuite": "not rerun after this change; prior full run 1029 passed, 7 subtests passed, 3 WinError 1314 symlink privilege failures"
   },
   "files": [
     {
@@ -431,7 +429,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.28-emf-mapping-clip-candidate",
+  "supersedes": "2026.10.28-isotropic-vector-clip-candidate",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -513,6 +511,11 @@
       "path": "direct-pdf/docs/AGENT-ENTRY.md",
       "sha256": "ce08633b35dfa0439ae18fa3e1d8bc62d14f51452173ae5695abe75a3d27b27f",
       "bytes": 14560
+    },
+    {
+      "path": "direct-pdf/docs/AXIS-PRECISION-REVIEW.md",
+      "sha256": "6eec437c0a5aa54cb072564d42c4ceda269905e5944f9947001eb91a5d1a780e",
+      "bytes": 1477
     },
     {
       "path": "direct-pdf/docs/BOUNDARIES.md",
@@ -796,8 +799,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/charts.py",
-      "sha256": "871e7b5b73f4825bff65c2762076e6f36f7d2ae4b0b21f54ce5093a91033481e",
-      "bytes": 20866
+      "sha256": "cb7e9fee18e8a57f6452e2f6377df0ba3b761bb6b26525a00f18a0607ea2617a",
+      "bytes": 21105
     },
     {
       "path": "direct-pdf/journal_pdf/cli.py",
@@ -833,6 +836,11 @@
       "path": "direct-pdf/journal_pdf/font_descriptors.py",
       "sha256": "1d14f0ce0d6a52c787bc0be051ed9009632e253ee9766437794c69ac0c1100bb",
       "bytes": 8007
+    },
+    {
+      "path": "direct-pdf/journal_pdf/font_review.py",
+      "sha256": "3e947d961b278471af7cbe8dede6fff318f74b6a951cd13745c8341f7b04021f",
+      "bytes": 1121
     },
     {
       "path": "direct-pdf/journal_pdf/fonts.py",
@@ -876,8 +884,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/layouts.py",
-      "sha256": "024a49883406e118d706935438b1bb4aef27768530b7a4b01b66a27e587b55f1",
-      "bytes": 24105
+      "sha256": "209cb9c4d31521e62510aa4c5b59c4ec62bfdb7943ea4fd82016a0209d6a7048",
+      "bytes": 24227
     },
     {
       "path": "direct-pdf/journal_pdf/numeric_audit.py",
@@ -906,8 +914,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/render.py",
-      "sha256": "d835ca0f697673ce299a886bedee2d66a3924bdb4e49d8485b1c18022d71860f",
-      "bytes": 28323
+      "sha256": "442fe4ff775a9e9d4e225189b6f6ba59f07b5028b12322ed334dc9b9bed624b0",
+      "bytes": 28870
     },
     {
       "path": "direct-pdf/journal_pdf/rules_registry.py",
@@ -1005,6 +1013,11 @@
       "bytes": 3185
     },
     {
+      "path": "direct-pdf/journal_pdf/tick_precision.py",
+      "sha256": "06068d179459288e1560b9949304adda80091b3c57782ad39304b780b7ccbe77",
+      "bytes": 2333
+    },
+    {
       "path": "direct-pdf/journal_pdf/vertical_text.py",
       "sha256": "395c32b1fd98e7a0cfa890ad453919ff4a41a502e6f49e1c3e22423c57b8fa00",
       "bytes": 1874
@@ -1068,6 +1081,11 @@
       "path": "direct-pdf/tests/test_assets.py",
       "sha256": "397510e5d3b5cbca58d9b17b629c0e36b26677fd9ae56cc44d8ae07cb5eea939",
       "bytes": 4154
+    },
+    {
+      "path": "direct-pdf/tests/test_axis_precision_review.py",
+      "sha256": "5f71127996561f983d7859ae787c007e4943b9c42e947ab7f119e7ba5b368cb6",
+      "bytes": 3994
     },
     {
       "path": "direct-pdf/tests/test_axis_units.py",
