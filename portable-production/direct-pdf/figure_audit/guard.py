@@ -574,7 +574,9 @@ def c_spacing_ledger(r: R, out_pdf: Path, path: Path | None):
             bad.append(f"{role} 无法重算")
             continue
         old = it.get("measured_pt")
-        if old is not None and abs(float(old) - hit["measured_pt"]) > 0.3:
+        if isinstance(old, bool) or not isinstance(old, (int, float)) or not math.isfinite(old):
+            bad.append(f"{role} 缺少有效测量值")
+        elif abs(float(old) - hit["measured_pt"]) > 0.3:
             bad.append(f"{role} 台账 {float(old):.2f} pt ≠ 重算 {hit['measured_pt']:.2f} pt")
 
     if bad:

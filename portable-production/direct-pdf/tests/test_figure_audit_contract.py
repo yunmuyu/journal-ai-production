@@ -163,3 +163,20 @@ def test_fingerprint_equal_does_not_certify_layout():
               'bars_per_group': [], 'group_axis': 'none'}
     message = fingerprint.report(fingerprint.compare(values, values), values, values)
     assert '未改动版式结构' not in message
+
+
+def test_spacing_ledger_rejects_missing_measurement(tmp_path, monkeypatch):
+    import json
+    from figure_audit import spacing
+    from figure_audit.guard import R, c_spacing_ledger
+    pdf = tmp_path / 'sample.pdf'
+    pdf.write_bytes(b'sample')
+    result = R(pdf, None)
+    monkeypatch.setattr(spacing.Spacing, 'measure', lambda self, path: {
+        'items': [{'role': 'tick_to_axis', 'measured_pt': 2.0, 'verdict': 'INFO'}],
+        'n_warn': 0, 'n_info': 1, 'size_pt': 8.0, 'pdf_sha256': 'sha'})
+    ledger = tmp_path / 'ledger.json'
+    ledger.write_text(json.dumps({'pdf_sha256': 'sha', 'items': [
+        {'role': 'tick_to_axis', 'origin': 'corpus'}]}), encoding='utf-8')
+    c_spacing_ledger(result, pdf, ledger)
+    assert next(i for i in result.issues if i['code'] == 'S12b')['level'] == 'FAIL'
