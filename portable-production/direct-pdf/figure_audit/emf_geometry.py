@@ -33,6 +33,24 @@ def _device_point(pt, state):
     return (x - wx + vx, y - wy + vy)
 
 
+def _intersect_clip(state, rect):
+    x0, y0, x1, y1 = rect
+    corners = ((x0, y0), (x1, y0), (x1, y1), (x0, y1))
+    state['clip_regions'] += (tuple(_device_point(point, state) for point in corners),)
+
+
+def _offset_clip(state, offset):
+    if state['coordinate_status'] == 'unknown':
+        state['clip_status'] = 'unknown'
+        return
+    origin = _device_point((0, 0), state)
+    target = _device_point(offset, state)
+    dx, dy = target[0]-origin[0], target[1]-origin[1]
+    state['clip_regions'] = tuple(
+        tuple((x+dx, y+dy) for x, y in region)
+        for region in state['clip_regions'])
+
+
 def _mul(a, b):
     """a 之后应用 b（b 左乘）"""
     a11, a12, a21, a22, adx, ady = a

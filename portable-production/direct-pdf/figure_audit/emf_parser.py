@@ -1,7 +1,7 @@
 """Partial EMF record parser."""
 import struct
 from .errors import AuditInputError
-from .emf_geometry import IDENT, _crd, _xform, _mul, _device_point
+from .emf_geometry import IDENT, _crd, _xform, _mul, _device_point, _intersect_clip, _offset_clip
 
 class Emf:
     def __init__(self, path):
@@ -20,7 +20,7 @@ class Emf:
         d = self.data
         if len(d) < 88 or struct.unpack_from('<I', d, 0)[0] != 1 or d[40:44] != b' EMF':
             raise AuditInputError('invalid EMF header')
-        supported = {1, 14, 18, 22, 24, 27, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 54, 82, 83, 84, 86, 87, 89, 3, 4, 9, 10, 11, 12, 95, 17, 30}
+        supported = {1, 14, 18, 22, 24, 26, 27, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 54, 82, 83, 84, 86, 87, 89, 3, 4, 9, 10, 11, 12, 95, 17, 30}
         self.unsupported_records = {}
         offset = 0
         eof = False
@@ -147,16 +147,16 @@ class Emf:
             elif t in (31, 32, 115):
                 state['coordinate_status'] = 'unknown'
                 state['clip_status'] = 'unknown'
-            elif t in (26, 28, 29, 67, 75):
+            elif t in (28, 29, 67, 75):
                 state['clip_status'] = 'unknown'
             elif t == 17:
                 state['map_mode'] = struct.unpack('<I', p[8:12])[0]
                 if state['map_mode'] not in (1, 8):
                     raise AuditInputError('unsupported EMF mapping mode')
             elif t == 30:
-                x0, y0, x1, y1 = struct.unpack('<iiii', p[8:24])
-                corners = ((x0, y0), (x1, y0), (x1, y1), (x0, y1))
-                state['clip_regions'] += (tuple(_device_point(point, state) for point in corners),)
+                _intersect_clip(state, struct.unpack('<iiii', p[8:24]))
+            elif t == 26:  # OFFSETCLIPRGN: a logical vector, not a point.
+                _offset_clip(state, struct.unpack('<ii', p[8:16]))
             elif t in (9, 11):  # SETWINDOWEXTEX / SETVIEWPORTEXTEX
                 ex, ey = struct.unpack('<ii', p[8:16])
                 state['win_ext' if t == 9 else 'vp_ext'] = (ex, ey)

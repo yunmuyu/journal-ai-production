@@ -31,6 +31,17 @@ def test_guard_rejects_multipage_input(tmp_path):
         run(path, None, None, 'trace', 1, 0, None)
 
 
+@pytest.mark.parametrize(('width_mm','expected'), [(40,'PASS'), (71.3,'PASS'), (80,'PASS'), (80.1,'FAIL')])
+def test_column_width_is_an_upper_bound(width_mm, expected):
+    from figure_audit.guard_checks import c_page
+    from figure_audit.guard_core import R
+    with fitz.open() as doc:
+        page=doc.new_page(width=width_mm*72/25.4, height=100)
+        result=R(Path('out.pdf'),None)
+        c_page(result,page,80)
+        assert result.issues[0]['level']==expected
+
+
 def test_emf_rejects_truncated_record(tmp_path):
     path = tmp_path / 'bad.emf'
     header = bytearray(88)
@@ -223,6 +234,108 @@ def test_emf_intersect_clip_tracks_device_space_and_restore(tmp_path):
     assert len(result.polys[0]['clip_regions']) == 2
     assert len(result.polys[1]['clip_regions']) == 1
     assert result.polys[0]['clip_regions'][0] == pytest.approx([(20, 20), (80, 20), (80, 80), (20, 80)])
+
+
+def test_emf_offset_clip_uses_mapped_vector_and_restore(tmp_path):
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    records = [_emf_record(17, struct.pack('<I', 8)),
+               _emf_record(9, pair(100, 100)), _emf_record(11, pair(200, 300)),
+               _emf_record(10, pair(10, 20)), _emf_record(12, pair(3, 5)),
+               _emf_record(30, struct.pack('<iiii', 10, 20, 40, 40)), _emf_record(33),
+               _emf_record(26, pair(3, 4)),
+               _emf_record(27, pair(0, 0)), _emf_record(54, pair(1, 1)),
+               _emf_record(34, struct.pack('<i', -1)),
+               _emf_record(27, pair(0, 0)), _emf_record(54, pair(1, 1))]
+    result=Emf(_emf_fixture(tmp_path, records))
+    assert result.polys[0]['clip_regions'][0] == pytest.approx([(9,17),(69,17),(69,77),(9,77)])
+    assert result.polys[1]['clip_regions'][0] == pytest.approx([(3,5),(63,5),(63,65),(3,65)])
+    assert 26 not in result.unsupported_records
+
+
+def test_emf_offset_clip_when_mapping_unknown_remains_unknown(tmp_path):
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    result=Emf(_emf_fixture(tmp_path, [_emf_record(31, struct.pack('<iiii',2,1,1,1)),
+        _emf_record(26, pair(3,4)),_emf_record(27,pair(0,0)),_emf_record(54,pair(1,1))]))
+    assert result.polys[0]['clip_status']=='unknown'
+
+
+def test_emf_clip_offset_matches_windows_gdi():
+    import sys
+    if sys.platform != 'win32':
+        pytest.skip('Windows GDI oracle is only available on Windows')
+    import ctypes
+    from ctypes import wintypes
+    gdi=ctypes.WinDLL('gdi32',use_last_error=True)
+    gdi.CreateCompatibleDC.argtypes=[wintypes.HDC];gdi.CreateCompatibleDC.restype=wintypes.HDC
+    gdi.DeleteDC.argtypes=[wintypes.HDC]
+    gdi.SetMapMode.argtypes=[wintypes.HDC,ctypes.c_int]
+    gdi.SetWindowExtEx.argtypes=[wintypes.HDC,ctypes.c_int,ctypes.c_int,ctypes.c_void_p]
+    gdi.SetViewportExtEx.argtypes=[wintypes.HDC,ctypes.c_int,ctypes.c_int,ctypes.c_void_p]
+    gdi.SetWindowOrgEx.argtypes=[wintypes.HDC,ctypes.c_int,ctypes.c_int,ctypes.c_void_p]
+    gdi.SetViewportOrgEx.argtypes=[wintypes.HDC,ctypes.c_int,ctypes.c_int,ctypes.c_void_p]
+    gdi.IntersectClipRect.argtypes=[wintypes.HDC,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+    gdi.OffsetClipRgn.argtypes=[wintypes.HDC,ctypes.c_int,ctypes.c_int]
+    gdi.CreateRectRgn.argtypes=[ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int];gdi.CreateRectRgn.restype=wintypes.HRGN
+    gdi.GetClipRgn.argtypes=[wintypes.HDC,wintypes.HRGN]
+    gdi.GetRgnBox.argtypes=[wintypes.HRGN,ctypes.POINTER(wintypes.RECT)]
+    gdi.DeleteObject.argtypes=[wintypes.HANDLE]
+    dc=gdi.CreateCompatibleDC(None);region=gdi.CreateRectRgn(0,0,0,0)
+    try:
+        assert dc and region
+        assert gdi.SetMapMode(dc,8)
+        assert gdi.SetWindowExtEx(dc,100,100,None)
+        assert gdi.SetViewportExtEx(dc,200,300,None)
+        assert gdi.SetWindowOrgEx(dc,10,20,None)
+        assert gdi.SetViewportOrgEx(dc,3,5,None)
+        assert gdi.IntersectClipRect(dc,10,20,40,40)>0
+        assert gdi.OffsetClipRgn(dc,3,4)>0
+        assert gdi.GetClipRgn(dc,region)==1
+        rect=wintypes.RECT();assert gdi.GetRgnBox(region,ctypes.byref(rect))>0
+        assert (rect.left,rect.top,rect.right,rect.bottom)==(9,17,69,77)
+    finally:
+        if region:gdi.DeleteObject(region)
+        if dc:gdi.DeleteDC(dc)
+
+
+def test_emf_rotated_clip_offset_matches_windows_gdi(tmp_path):
+    import sys
+    if sys.platform != 'win32':
+        pytest.skip('Windows GDI oracle is only available on Windows')
+    import ctypes
+    from ctypes import wintypes
+    class Xform(ctypes.Structure):
+        _fields_=[(name,ctypes.c_float) for name in ('m11','m12','m21','m22','dx','dy')]
+    gdi=ctypes.WinDLL('gdi32',use_last_error=True)
+    gdi.CreateCompatibleDC.argtypes=[wintypes.HDC];gdi.CreateCompatibleDC.restype=wintypes.HDC
+    gdi.DeleteDC.argtypes=[wintypes.HDC]
+    gdi.SetGraphicsMode.argtypes=[wintypes.HDC,ctypes.c_int]
+    gdi.SetWorldTransform.argtypes=[wintypes.HDC,ctypes.POINTER(Xform)]
+    gdi.IntersectClipRect.argtypes=[wintypes.HDC,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int]
+    gdi.OffsetClipRgn.argtypes=[wintypes.HDC,ctypes.c_int,ctypes.c_int]
+    gdi.CreateRectRgn.argtypes=[ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int];gdi.CreateRectRgn.restype=wintypes.HRGN
+    gdi.GetClipRgn.argtypes=[wintypes.HDC,wintypes.HRGN]
+    gdi.GetRgnBox.argtypes=[wintypes.HRGN,ctypes.POINTER(wintypes.RECT)]
+    gdi.DeleteObject.argtypes=[wintypes.HANDLE]
+    dc=gdi.CreateCompatibleDC(None);region=gdi.CreateRectRgn(0,0,0,0)
+    try:
+        assert dc and region
+        assert gdi.SetGraphicsMode(dc,2)
+        assert gdi.SetWorldTransform(dc,ctypes.byref(Xform(0,1,-1,0,100,0)))
+        assert gdi.IntersectClipRect(dc,10,20,40,40)>0
+        assert gdi.OffsetClipRgn(dc,3,4)>0
+        assert gdi.GetClipRgn(dc,region)==1
+        rect=wintypes.RECT();assert gdi.GetRgnBox(region,ctypes.byref(rect))>0
+        pair=lambda x,y:struct.pack('<ii',x,y)
+        records=[_emf_record(35,struct.pack('<6f',0,1,-1,0,100,0)),
+                 _emf_record(30,struct.pack('<iiii',10,20,40,40)),_emf_record(26,pair(3,4)),
+                 _emf_record(27,pair(0,0)),_emf_record(54,pair(1,1))]
+        corners=Emf(_emf_fixture(tmp_path,records)).polys[0]['clip_regions'][0]
+        bounds=(min(p[0] for p in corners),min(p[1] for p in corners),
+                max(p[0] for p in corners),max(p[1] for p in corners))
+        assert bounds==pytest.approx((rect.left,rect.top,rect.right,rect.bottom))
+    finally:
+        if region:gdi.DeleteObject(region)
+        if dc:gdi.DeleteDC(dc)
 
 
 def test_emf_left_and_right_world_transforms_are_distinct(tmp_path):

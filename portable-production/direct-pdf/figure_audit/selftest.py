@@ -118,7 +118,7 @@ def main():
 
     d, p = new_doc(w=71.3 / 25.4 * 72)
     text(p, 40, 100, "0.70")
-    case("S1 未满栏只给 WARN 不判错", d, None, {"S1": "WARN"}, column=80)
+    case("S1 未满栏正常通过", d, None, {"S1": "PASS"}, column=80)
     d.close()
 
     # ---- S5 数值守恒 / S13 文字覆盖 -------------------------------------

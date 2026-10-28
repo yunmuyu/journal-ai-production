@@ -6,8 +6,7 @@ from .guard_core import R, MM, ink_bbox, numbers_of, is_grouped, _strip
 def c_page(r: R, page, column: int | None):
     """S1 页面尺寸。翻车：两张图按 159mm 通栏出，实际都该 80mm 单栏。
 
-    判级：**超栏 = FAIL**（放不进版）；**未满栏 = WARN**（只需说明理由，不算错）。
-    这么分是因为"等比缩放后只有 71.3 mm"是合法结果，硬拉满反而破坏等比。
+    栏宽是上限：超栏为 FAIL，未满栏本身不构成异常。
     """
     w_mm = page.rect.width * MM
     h_mm = page.rect.height * MM
@@ -17,10 +16,8 @@ def c_page(r: R, page, column: int | None):
         return
     if w_mm > column + 0.02:
         r.fail("S1", f"页宽 {w_mm:.2f} mm 超出 {column} mm 栏目（+{w_mm - column:.2f}）")
-    elif abs(w_mm - column) > 1.5:
-        r.warn("S1", f"未满栏 {w_mm:.2f}×{h_mm:.2f} mm（差 {column - w_mm:.2f} mm）")
     else:
-        r.ok("S1", f"{w_mm:.2f}×{h_mm:.2f} mm")
+        r.ok("S1", f"{w_mm:.2f}×{h_mm:.2f} mm（栏目上限 {column} mm）")
 
 
 def c_font_policy(r: R, spans: list[dict]):
