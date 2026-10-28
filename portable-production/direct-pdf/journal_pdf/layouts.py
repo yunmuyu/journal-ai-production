@@ -257,12 +257,24 @@ def primitive(spec,reg,size):
         equal_width=group.get('equal_width',False)
         if not isinstance(equal_width,bool):
             raise FigureError('measured_group_equal_width','equal_width须为布尔值',group=group.get('id'))
+        target_width=group.get('target_width_pt')
+        if 'target_width_pt' in group:
+            if (axis!='row' or not equal_width or isinstance(target_width,bool) or
+                    not isinstance(target_width,(int,float)) or not math.isfinite(target_width) or target_width<=0 or
+                    not math.isfinite(gap) or gap<0):
+                raise FigureError('measured_group_target_width','目标组宽仅支持等宽横排及有限非负间距',group=group.get('id'))
         measured_axis='both' if axis=='row' and equal_width else axis
         s.measurement_groups[group['id']]['axis']=measured_axis
         widths=[m['width']+2*padx for _,m in members];heights=[m['height']+2*pady for _,m in members]
         if axis=='row':
             heights=[max(heights)]*len(heights)
             if equal_width:widths=[max(widths)]*len(widths)
+            if 'target_width_pt' in group:
+                cell_width=(target_width-gap*(len(widths)-1))/len(widths)
+                if cell_width+1e-7<max(widths):
+                    raise FigureError('measured_group_target_width','目标组宽不足以保留文字与框内留白',group=group.get('id'))
+                widths=[cell_width]*len(widths)
+                s.measurement_groups[group['id']]['cell_width_pt']=cell_width
         else:widths=[max(widths)]*len(widths)
         for index,((n,_),w,h) in enumerate(zip(members,widths,heights)):
             kind=n['shape'] if n.get('shape') in ('roundrect','terminator') and n.get('semantic_shape') else 'rectangle'

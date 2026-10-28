@@ -226,7 +226,13 @@ def audit_scene(s:Scene):
             if peer_contract.get('mode')!='measured-group' or peer_contract.get('group')!=contract.get('group') or peer_contract.get('axis')!=definition.get('axis'):return None
             peers.append(natural_wh(peer,peer_text))
         own=natural_wh(node,text);axis=definition['axis']
-        return [max(v[0] for v in peers) if axis in ('column','both') else own[0],
+        width=max(v[0] for v in peers) if axis in ('column','both') else own[0]
+        if 'cell_width_pt' in definition:
+            target=definition['cell_width_pt']
+            if (axis!='both' or isinstance(target,bool) or not isinstance(target,(int,float)) or
+                    not math.isfinite(target) or target+1e-7<width):return None
+            width=target
+        return [width,
                 max(v[1] for v in peers) if axis in ('row','both') else own[1]]
     def fixed_valid(node,contract):
         fixed=contract.get('fixed_size');constraints={'table-cell':'tabular-grid','code-panel':'source-code-viewport',
