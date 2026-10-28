@@ -1,0 +1,215 @@
+{
+  "version": 1,
+  "unit": "pt",
+  "updated": "2026-10-28",
+  "note": [
+    "Experimental historical observations from two journal issues; measurements and sample selection need independent verification.",
+    "Targets and ranges are reference data only and are not editorial acceptance rules."
+  ],
+  "roles": {
+    "tick_to_axis": {
+      "desc": "刻度文字近轴边缘 → 轴线（刻度在内侧时为负，取绝对值）",
+      "target_em": 0.22,
+      "range_em": [
+        0.05,
+        0.8
+      ],
+      "origin": {
+        "kind": "corpus",
+        "n": 92,
+        "p25": 0.12,
+        "p50": 0.22,
+        "p75": 0.36,
+        "why": "Historical measurement; observational only, verify source and applicability."
+      },
+      "mode": "record_only"
+    },
+    "axis_title_x_to_axis": {
+      "desc": "横轴标题顶 → 横轴线（含刻度行占位，故比刻度间距大一个量级）",
+      "target_em": 1.21,
+      "range_em": [
+        0.85,
+        1.6
+      ],
+      "origin": {
+        "kind": "corpus",
+        "n": 33,
+        "p25": 1.05,
+        "p50": 1.21,
+        "p75": 1.31,
+        "why": "Historical measurement; observational only, verify source and applicability."
+      },
+      "mode": "record_only"
+    },
+    "axis_title_y_to_axis": {
+      "desc": "纵轴标题右缘 → 纵轴线（含刻度列占位）",
+      "target_em": 1.71,
+      "range_em": [
+        1.1,
+        2.6
+      ],
+      "origin": {
+        "kind": "corpus",
+        "n": 60,
+        "p25": 1.45,
+        "p50": 1.71,
+        "p75": 2.05,
+        "why": "Historical measurement; observational only, verify source and applicability."
+      },
+      "mode": "record_only"
+    },
+    "category_to_axis": {
+      "desc": "类目名（横轴非数字标签）底 → 横轴线",
+      "target_em": 0.77,
+      "range_em": [
+        0.15,
+        1.7
+      ],
+      "origin": {
+        "kind": "corpus",
+        "n": 49,
+        "p50": 0.77,
+        "why": "Historical measurement; observational only, verify source and applicability.",
+        "p25": 0.24,
+        "p75": 1.25
+      },
+      "mode": "record_only"
+    },
+    "category_to_axis_title": {
+      "desc": "类目名底 → 横轴标题顶",
+      "target_em": 0.9,
+      "range_em": [
+        0.3,
+        2.0
+      ],
+      "origin": {
+        "kind": "corpus",
+        "n": 21,
+        "p50": 0.9,
+        "why": "Historical measurement; observational only, verify source and applicability."
+      },
+      "status": "unstable",
+      "mode": "record_only"
+    },
+    "legend_to_plot": {
+      "desc": "图例整体（含样例线/色块）最近边 → 绘图区边界",
+      "target_em": null,
+      "range_em": [
+        0.15,
+        20.0
+      ],
+      "origin": {
+        "kind": "corpus",
+        "n": 35,
+        "p25": 3.74,
+        "p50": 6.79,
+        "p75": 18.63,
+        "why": "Historical measurement; observational only, verify source and applicability."
+      },
+      "mode": "record_only",
+      "min_em": 0.15,
+      "max_em": 20.0
+    },
+    "legend_swatch_to_text": {
+      "desc": "图例样例（线样/色块）右缘 → 图例文字左缘",
+      "target_em": 0.39,
+      "range_em": [
+        0.1,
+        0.9
+      ],
+      "origin": {
+        "kind": "corpus",
+        "n": 159,
+        "p50": 0.39,
+        "why": "Historical measurement; observational only, verify source and applicability.",
+        "p25": 0.2,
+        "p75": 0.59
+      },
+      "mode": "record_only"
+    },
+    "legend_row_pitch": {
+      "desc": "图例相邻两行的行距（基线到基线）",
+      "target_em": 1.78,
+      "range_em": [
+        0.9,
+        4.0
+      ],
+      "origin": {
+        "kind": "typographic",
+        "why": "Historical measurement; observational only, verify source and applicability.",
+        "n": 131,
+        "p25": 1.14,
+        "p50": 1.78,
+        "p75": 3.64
+      },
+      "mode": "record_only"
+    },
+    "value_label_to_element": {
+      "desc": "数值标签底 → 其所标注的元素（柱顶/点）",
+      "target_em": 0.36,
+      "range_em": [
+        0.08,
+        2.0
+      ],
+      "origin": {
+        "kind": "typographic",
+        "why": "Historical measurement; observational only, verify source and applicability.",
+        "n": 18,
+        "p25": 0.24,
+        "p50": 0.36,
+        "p75": 1.56
+      },
+      "mode": "record_only"
+    },
+    "plot_to_canvas": {
+      "desc": "墨迹最近边 → 画布边（导出裁切后的四边留白）",
+      "target_em": null,
+      "range_em": [
+        -0.35,
+        1.6
+      ],
+      "origin": {
+        "kind": "corpus",
+        "n": 100,
+        "p50": -0.07,
+        "why": "Historical measurement; observational only, verify source and applicability."
+      },
+      "mode": "record_only",
+      "min_em": -0.35,
+      "max_em": 1.6
+    },
+    "subplot_gap": {
+      "desc": "上下叠排子图之间的间隙（上一子图 x 轴标题底 → 下一子图绘图区顶）",
+      "target_em": 1.2,
+      "range_em": [
+        0.4,
+        3.0
+      ],
+      "origin": {
+        "kind": "corpus",
+        "why": "Historical measurement; observational only, verify source and applicability."
+      },
+      "status": "unstable",
+      "mode": "record_only"
+    },
+    "legend_to_graphic": {
+      "desc": "图例整体 → 无坐标轴图形（雷达/环形/示意）的最外缘（含四周标签）",
+      "target_em": null,
+      "range_em": [
+        0.15,
+        20.0
+      ],
+      "origin": {
+        "kind": "corpus",
+        "n": 39,
+        "p25": 4.84,
+        "p50": 8.44,
+        "p75": 14.11,
+        "why": "Historical measurement; observational only, verify source and applicability."
+      },
+      "mode": "record_only",
+      "min_em": 0.15,
+      "max_em": 20.0
+    }
+  }
+}

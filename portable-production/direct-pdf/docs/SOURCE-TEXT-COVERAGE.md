@@ -51,7 +51,7 @@ font elsewhere in the document cannot mask a regular glyph at an italic target.
 This checks declared styles, not whether a source symbol is semantically a
 variable; that decision still requires source review.
 
-Confirmed storage quantity spacing is normalized for plain and rich text while
+Confirmed storage and frequency quantity spacing (Hz, kHz, MHz, GHz) is normalized for plain and rich text while
 preserving values and unit case. Literal/code/path content is protected. An
 independent PDF check retains spaces, unlike a whitespace-insensitive character
 multiset. Unknown units and physical character-gap measurement remain outside

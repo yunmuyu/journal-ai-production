@@ -3,6 +3,8 @@ import pytest
 from journal_pdf.editorial import display_content
 
 @pytest.mark.parametrize('source,expected',[
+    ('15kHz 30kHz 60kHz 120kHz 3GHz 2.5MHz 1Hz','15 kHz 30 kHz 60 kHz 120 kHz 3 GHz 2.5 MHz 1 Hz'),
+    ('15 kHz 15kHz_rate 15kHz.png x15kHz','15 kHz 15kHz_rate 15kHz.png x15kHz'),
     ('（52.4KB）','（52.4 KB）'),('52.4 KB','52.4 KB'),('52.4kB 1MB 2KiB 3MiB 4GB 5TB 6GiB 7TiB','52.4 kB 1 MB 2 KiB 3 MiB 4 GB 5 TB 6 GiB 7 TiB'),('52.4\u00a0KB','52.4\u00a0KB'),
     ('GLM-5.2 R2 52.4kb 52.4qux 52.4unknown 50% 90° 5m 2A 3B 52.4KBps','GLM-5.2 R2 52.4kb 52.4qux 52.4unknown 50% 90° 5m 2A 3B 52.4KBps'),
     ('52.4KB.png C:/52.4KB /52.4KB x52.4KB v52.4KB','52.4KB.png C:/52.4KB /52.4KB x52.4KB v52.4KB'),
@@ -55,6 +57,32 @@ def test_audit_rederives_from_source_and_detects_missing_actual_space():
     item['measurement']['text']='（52.4 KB）'
     assert not audit_quantity_spacing(scene,'（52.4KB）')['ok']
     assert audit_quantity_spacing(scene,'（52.4 KB）')['ok']
+
+def test_frequency_spacing_is_audited_against_actual_pdf_text():
+    from types import SimpleNamespace
+    from journal_pdf.quantity_spacing import audit_quantity_spacing
+    item={'id':'frequency','role':'label','source_content':'15kHz',
+          'measurement':{'text':'15 kHz'}}
+    scene=SimpleNamespace(texts=[item])
+    assert not audit_quantity_spacing(scene,'15kHz')['ok']
+    assert audit_quantity_spacing(scene,'15 kHz')['ok']
+
+def test_frequency_spacing_survives_actual_pdf_render(reg, tmp_path):
+    import pymupdf as fitz
+    from journal_pdf.assets import Assets
+    from journal_pdf.render import render_one
+    source=tmp_path/'source';source.mkdir()
+    spec={'id':'frequency','author':'Synthetic','synthetic':True,'kind':'scene','width_pt':100,'height_pt':60,
+          'texts':[{'id':'label','text':'15kHz','x':50,'y':30}],
+          'policy':{'export_crop_padding_pt':4}}
+    assets=Assets()
+    try:
+        result=render_one(spec,reg,assets,source,tmp_path/'output')
+        with fitz.open(tmp_path/'output'/result['output_pdf']) as doc:
+            assert '15 kHz' in doc[0].get_text()
+        assert result['mechanical_checks_passed']
+    finally:
+        assets.close()
 
 def test_audit_checks_quantity_occurrence_counts_and_literal_baseline():
     from types import SimpleNamespace

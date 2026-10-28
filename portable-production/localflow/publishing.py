@@ -96,6 +96,17 @@ def _audit_artifact(path: Path, output_format: str, report: dict | None = None) 
         audit_pdf_compatibility(path)
 
 
+def _check_editorial_notices(report: dict) -> None:
+    """Block unresolved review notices; font-size approval has its own gate."""
+    if report.get("status") != "candidate-editorial-review":
+        return
+    warnings = report.get("warnings")
+    if (not isinstance(warnings, list) or not warnings or
+            any(not isinstance(item, dict) or item.get("code") != "base_font_below_8_requires_review"
+                for item in warnings)):
+        raise FlowError("publication_editorial_review", "候选存在尚未解决的版面检查提醒，不能发布")
+
+
 def _editorial_gate(config: Config, candidate: dict, report: dict, output_format: str) -> None:
     # Imported lazily so loading/inspecting the CLI does not evaluate contracts.
     from .editorial_gate import check_editorial_gate
@@ -111,6 +122,7 @@ def _editorial_gate(config: Config, candidate: dict, report: dict, output_format
         default_start, explicit_exception = _font_policy_evidence(spec, evidence)
         if not (default_start or explicit_exception):
             raise FlowError("publication_font_policy", "PDF候选缺少实测8pt起排或绑定当前来源及回复的制作例外；只能保留预览，不能发布")
+        _check_editorial_notices(report)
 
 
 def _check_chart_semantics(spec: dict, report: dict) -> None:

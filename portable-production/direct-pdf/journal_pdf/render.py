@@ -26,6 +26,17 @@ def draw_path(page,p):
         tip,prev=pts[idx],pts[nextidx];length=math.dist(tip,prev)
         ux,uy=(tip[0]-prev[0])/length,(tip[1]-prev[1])/length
         pts[idx]=[tip[0]-2.2*p.get("arrow_scale",1)*ux,tip[1]-2.2*p.get("arrow_scale",1)*uy]
+    fill=p.get('fill')
+    if fill is not None or p.get('closed') or p.get('gray',0) not in (None,0):
+        closed=bool(p.get('closed'))
+        poly=pts+([pts[0]] if closed and pts[0]!=pts[-1] else [])
+        sh=page.new_shape();sh.draw_polyline(poly)
+        stroke=None if p.get('width') in (None,0) else (p.get('gray',0),)
+        sh.finish(width=p.get('width') or 0,color=stroke,fill=(fill,) if fill is not None else None,
+                  dashes=('['+' '.join(map(str,p['dash']))+'] 0') if p['dash'] else None,closePath=closed,
+                  fill_opacity=p.get('opacity',1))
+        sh.commit()
+        return
     sh=page.new_shape();sh.draw_polyline(pts)
     sh.finish(width=p['width'],color=(0,),dashes=('['+' '.join(map(str,p['dash']))+'] 0') if p['dash'] else None,closePath=False)
     sh.commit()
@@ -43,7 +54,16 @@ def draw_node(page,n):
     elif kind=='inputOutput':
         inset=min(r.height*.25,4)
         sh.draw_polyline([[r.x0+inset,r.y0],[r.x1,r.y0],[r.x1-inset,r.y1],[r.x0,r.y1]])
-    sh.finish(width=n['width'],color=(n.get('gray',0),),fill=(n['fill'],) if 'fill' in n else None,
+    elif kind=='checkbox':
+        # 复选框符号：外框即勾选位，选中态画同心的内嵌方框，不引入填充。
+        sh.draw_rect(r)
+        if n.get('checked'):
+            inset=min(r.width,r.height)*.24
+            sh.draw_rect(fitz.Rect(r.x0+inset,r.y0+inset,r.x1-inset,r.y1-inset))
+    # width=None 表示只填充不描边：渐变/色阶分段之间不能出现描边缝。
+    sh.finish(width=n['width'] if n['width'] is not None else 0,
+              color=None if n['width'] is None else (n.get('gray',0),),
+              fill=(n['fill'],) if 'fill' in n else None,
               dashes=('['+' '.join(map(str,n['dash']))+'] 0') if n.get('dash') else None,closePath=True);sh.commit()
 
 
@@ -64,7 +84,10 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
         return value
     def build(font_size):
         if kind=='chart':value=chart(spec,reg,font_size,assets,root)
-        elif kind in DIAGRAMS:value=DIAGRAMS[kind](spec,reg,font_size)
+        elif kind in DIAGRAMS:
+            # stage-grid 可以按块声明裁图图标，需要Assets与源图根目录；其余图种签名不变。
+            value=(DIAGRAMS[kind](spec,reg,font_size,assets,root) if kind=='stage-grid'
+                   else DIAGRAMS[kind](spec,reg,font_size))
         else:raise FigureError('unsupported_figure_kind','未实现的图种，不生成冒充成果的空页',kind=kind)
         value=attach_trusted_sources(value)
         if kind=='scene':
@@ -265,7 +288,9 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         for a in scene.assets:
             if a['role']!='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
         for p in scene.paths:draw_path(page,p)
-        for n in scene.nodes:draw_node(page,n)
+        for n in scene.nodes:
+            if n.get('invisible'):continue      # 无边框节点只用于承接箭头，不落笔
+            draw_node(page,n)
         for a in scene.assets:
             if a['role']=='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
         for t in scene.texts:draw_text(page,reg,t)
@@ -290,6 +315,8 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         audit,img=pdf_audit(tmp,scene,reg)
         preview_tmp=tempdir/'figure.png';img.save(preview_tmp,optimize=True)
         warnings=[dict(w) for w in spec.get('warnings',[])]+list(scene.notes)
+        from .font_review import font_size_notices
+        warnings.extend(font_size_notices(scene))
         unit_changes=[ev for ev in scene.layout_evidence.get('axis_title_normalization',{}).values() if ev['changed']]
         if unit_changes:
             for w in warnings:
@@ -313,15 +340,20 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
                              'scope':'Native PDF text checks do not inspect text retained as source paths or image pixels.'}
         if unverified_assets:
             warnings.append({'code':'source_text_coverage','message':'原图路径或像素中的文字尚未逐项核对；原生文字替换通过不等于全图字号、字体与布局合格。'})
+        editorial_codes={'base_font_below_8_requires_review','reduced_nonscript_text_requires_review',
+                         'axis_decimal_precision_mismatch','axis_tick_group_missing'}
+        editorial_review=[w['code'] for w in warnings if w.get('code') in editorial_codes]
+        candidate_status=('candidate-unverified-source-text' if unverified_assets else
+                          'candidate-editorial-review' if editorial_review else 'candidate-rendered')
         result={'schema_version':1,'engine_version':__version__,'engine_signature':engine_signature(),
                 'editorial_ruleset':RULESET,'editorial_coverage':'partial-see-RULE-COVERAGE.md','id':id,'author':author,'kind':spec['kind'],
-                'status':'candidate-unverified-source-text' if unverified_assets else 'candidate-rendered',
-                'mechanical_checks_passed':True,'overall_checks_passed':not unverified_assets,
+                'status':candidate_status,
+                'mechanical_checks_passed':True,'overall_checks_passed':not unverified_assets and not editorial_review,
                 'typography_coverage':typography_coverage,'ready_for_publication':False,
                 'backend':'direct-pdf','required_artifact':'pdf','ai_required':False,
                 'editable_policy':spec.get('policy',{}),'spec_hash':digest_json(spec),'source_bindings':bindings,'font':reg.summary(),
                 'layout':scene.export(),'assets':asset_reports,'pdf_audit':audit,'warnings':warnings,
-                'needs_review':['source-pairing-and-topology','font-profile-equivalence','actual-size-visual-review','InDesign-placement'],
+                'needs_review':['source-pairing-and-topology','font-profile-equivalence','actual-size-visual-review','InDesign-placement']+editorial_review,
                 'timings_ms':{'compile':round((layout_finished-start)*1000,3),
                               'pdf_write_and_font_subset':round((drawing_finished-layout_finished)*1000,3),
                               'actual_pdf_audit_and_preview':round((time.perf_counter()-drawing_finished)*1000,3),

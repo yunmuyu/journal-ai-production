@@ -8,6 +8,8 @@ from pathlib import Path
 from .common import FigureError, PT_PER_MM, finite
 from .scene import Scene, port, ray_ellipse
 from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, STROKE, COMPACT_GAP, display_content, wrap_text
+from .label_fit import plan as plan_label
+from .fonts import position_text
 
 
 def metrics(reg,size,texts):
@@ -255,12 +257,24 @@ def primitive(spec,reg,size):
         equal_width=group.get('equal_width',False)
         if not isinstance(equal_width,bool):
             raise FigureError('measured_group_equal_width','equal_width须为布尔值',group=group.get('id'))
+        target_width=group.get('target_width_pt')
+        if 'target_width_pt' in group:
+            if (axis!='row' or not equal_width or isinstance(target_width,bool) or
+                    not isinstance(target_width,(int,float)) or not math.isfinite(target_width) or target_width<=0 or
+                    not math.isfinite(gap) or gap<0):
+                raise FigureError('measured_group_target_width','目标组宽仅支持等宽横排及有限非负间距',group=group.get('id'))
         measured_axis='both' if axis=='row' and equal_width else axis
         s.measurement_groups[group['id']]['axis']=measured_axis
         widths=[m['width']+2*padx for _,m in members];heights=[m['height']+2*pady for _,m in members]
         if axis=='row':
             heights=[max(heights)]*len(heights)
             if equal_width:widths=[max(widths)]*len(widths)
+            if 'target_width_pt' in group:
+                cell_width=(target_width-gap*(len(widths)-1))/len(widths)
+                if cell_width+1e-7<max(widths):
+                    raise FigureError('measured_group_target_width','目标组宽不足以保留文字与框内留白',group=group.get('id'))
+                widths=[cell_width]*len(widths)
+                s.measurement_groups[group['id']]['cell_width_pt']=cell_width
         else:widths=[max(widths)]*len(widths)
         for index,((n,_),w,h) in enumerate(zip(members,widths,heights)):
             kind=n['shape'] if n.get('shape') in ('roundrect','terminator') and n.get('semantic_shape') else 'rectangle'
@@ -276,7 +290,7 @@ def primitive(spec,reg,size):
         kind='terminator' if terminal else n.get('shape','rectangle')
         if kind=='roundrect' and not n.get('semantic_shape') and not terminal:
             kind='rectangle'
-        nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),dash=n.get('dash'))
+        nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),width=n.get('width',.5),dash=n.get('dash'),checked=n.get('checked',False),fill=n.get('fill'))
         if terminal:nodes[n['id']]['flow_terminal']=True
         if kind in ('rectangle','roundrect','terminator') and not n.get('container',False):
             nodes[n['id']]['padding_pt']=[4.5*size/8,2.7*size/8]
@@ -298,7 +312,32 @@ def primitive(spec,reg,size):
                 nodes[n['id']]['measurement_contract']={'mode':'tight','expected_wh':[
                     measurement['width']+9*size/8,measurement['height']+5.4*size/8]}
         if 'text' in n:s.text(n['id']+':text',n['text'],(r[0]+r[2])/2,(r[1]+r[3])/2,owner=n['id'],wrap_chars=n.get('wrap_chars'))
-    for t in spec.get('texts',[]):s.text(t['id'],t['text'],t['x'],t['y'],t.get('align','center'),t.get('rotation',0),t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'),gray=t.get('gray',0))
+    def place_text(t):
+        """装载一条文本；声明了 fit 的先做标签排版决策，再落到场景。"""
+        content=t['text'];x=t['x'];y=t['y'];angle=t.get('rotation',0);align=t.get('align','center')
+        fit=t.get('fit')
+        if fit is None:
+            s.text(t['id'],content,x,y,align,angle,t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'),gray=t.get('gray',0));return
+        if not isinstance(fit,dict):raise FigureError('label_fit_declaration','文本的fit须为显式对象',id=t['id'])
+        unknown=set(fit)-{'width_pt','max_lines','allow_angles','anchor'}
+        if unknown:raise FigureError('label_fit_declaration','fit只接受width_pt、max_lines、allow_angles、anchor',id=t['id'],unknown=sorted(unknown))
+        if 'width_pt' not in fit:raise FigureError('label_fit_declaration','fit必须给出可用宽度width_pt',id=t['id'])
+        anchor=fit.get('anchor','center')
+        if anchor not in ('center','top','bottom'):raise FigureError('label_fit_declaration','fit的anchor只接受center、top、bottom',id=t['id'],anchor=anchor)
+        planned=plan_label(content,width_pt=fit['width_pt'],measure=reg.measure,size=size,
+                           max_lines=fit.get('max_lines',2),allow_angles=fit.get('allow_angles',(0.0,)))
+        content='\n'.join(planned['lines'])
+        if planned['angle']:angle=planned['angle']
+        if anchor!='center':
+            probe=position_text(reg.measure(content,size),0,0,align,angle)
+            height=probe['bbox'][3]-probe['bbox'][1]
+            y=y+height/2 if anchor=='top' else y-height/2
+        s.text(t['id'],content,x,y,align,angle,t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'),gray=t.get('gray',0))
+        s.layout_evidence.setdefault('label_fit',[]).append({
+            'text_id':t['id'],'source':t['text'],'display':content.replace('\n',' / '),
+            'lines':list(planned['lines']),'angle':planned['angle'],'reason':planned['reason'],
+            'width_pt':round(planned['width_pt'],3),'availability_pt':planned['availability_pt'],'anchor':anchor})
+    for t in spec.get('texts',[]):place_text(t)
     node_groups=spec.get('node_groups',[])
     if not isinstance(node_groups,list):
         raise FigureError('node_group_invalid','node_groups须为明确成员清单')
@@ -312,9 +351,19 @@ def primitive(spec,reg,size):
         s.line(e.get('id','edge'+str(i)),points,e.get('arrow',False),e.get('both',False),e.get('dash'),
                exact_terminal=bool(e.get('arrow',False) or e.get('both',False)),endpoint_nodes=[e['from'],e['to']],
                shared_net=e.get('shared_net'),semantic_role=e.get('semantic_role','connection'))
-    for p in spec.get('paths',[]):s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
-                                         exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'),
-                                         shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'))
+    for p in spec.get('paths',[]):
+        if p.get('fill') is not None or p.get('closed') or p.get('gray') not in (None,0):
+            if p.get('arrow') or p.get('both') or p.get('endpoint_nodes'):
+                raise FigureError('polygon_connection_unsupported','填充或灰度多边形不支持连接语义',id=p['id'])
+            s.poly(p['id'],p['points'],fill=p.get('fill'),gray=p.get('gray',0),width=p.get('width',.5),
+                   dash=p.get('dash'),closed=bool(p.get('closed')),
+                   semantic_role=p.get('semantic_role','decorative'),opacity=p.get('opacity'))
+        else:
+            s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
+                   exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'),
+                   shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'))
+    from .tick_precision import scene_axis_notices
+    s.notes.extend(scene_axis_notices(s,spec.get('axis_tick_groups')))
     return s.finish(spec['width_pt'],spec['height_pt'])
 
 
@@ -326,3 +375,5 @@ from .columns import columns
 DIAGRAMS["columns"]=columns
 from .grouped_chains import grouped_chains
 DIAGRAMS['grouped-chains'] = grouped_chains
+from .stage_grid import stage_grid
+DIAGRAMS['stage-grid'] = stage_grid

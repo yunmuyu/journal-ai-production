@@ -4,6 +4,8 @@
 
 对话/Agent 入口已接通。来源、视觉与语义复核仍需执行；引擎只生成候选，正式交付由 localflow 管理。
 
+同排等宽框及不同数量的编组按统一总宽对齐，见 [等宽横排与编组对齐](docs/MEASURED-ROWS.md)。
+
 先读 **AGENT.md**，使用说明见 **docs/AGENT-ENTRY.md**。新增能力与边界机器可读表：**docs/CAPABILITIES.json**。
 
 ## 本轮新增
