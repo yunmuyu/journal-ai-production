@@ -315,6 +315,8 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         audit,img=pdf_audit(tmp,scene,reg)
         preview_tmp=tempdir/'figure.png';img.save(preview_tmp,optimize=True)
         warnings=[dict(w) for w in spec.get('warnings',[])]+list(scene.notes)
+        from .font_review import font_size_notices
+        warnings.extend(font_size_notices(scene))
         unit_changes=[ev for ev in scene.layout_evidence.get('axis_title_normalization',{}).values() if ev['changed']]
         if unit_changes:
             for w in warnings:
@@ -338,15 +340,20 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
                              'scope':'Native PDF text checks do not inspect text retained as source paths or image pixels.'}
         if unverified_assets:
             warnings.append({'code':'source_text_coverage','message':'原图路径或像素中的文字尚未逐项核对；原生文字替换通过不等于全图字号、字体与布局合格。'})
+        editorial_codes={'base_font_below_8_requires_review','reduced_nonscript_text_requires_review',
+                         'axis_decimal_precision_mismatch','axis_tick_group_missing'}
+        editorial_review=[w['code'] for w in warnings if w.get('code') in editorial_codes]
+        candidate_status=('candidate-unverified-source-text' if unverified_assets else
+                          'candidate-editorial-review' if editorial_review else 'candidate-rendered')
         result={'schema_version':1,'engine_version':__version__,'engine_signature':engine_signature(),
                 'editorial_ruleset':RULESET,'editorial_coverage':'partial-see-RULE-COVERAGE.md','id':id,'author':author,'kind':spec['kind'],
-                'status':'candidate-unverified-source-text' if unverified_assets else 'candidate-rendered',
-                'mechanical_checks_passed':True,'overall_checks_passed':not unverified_assets,
+                'status':candidate_status,
+                'mechanical_checks_passed':True,'overall_checks_passed':not unverified_assets and not editorial_review,
                 'typography_coverage':typography_coverage,'ready_for_publication':False,
                 'backend':'direct-pdf','required_artifact':'pdf','ai_required':False,
                 'editable_policy':spec.get('policy',{}),'spec_hash':digest_json(spec),'source_bindings':bindings,'font':reg.summary(),
                 'layout':scene.export(),'assets':asset_reports,'pdf_audit':audit,'warnings':warnings,
-                'needs_review':['source-pairing-and-topology','font-profile-equivalence','actual-size-visual-review','InDesign-placement'],
+                'needs_review':['source-pairing-and-topology','font-profile-equivalence','actual-size-visual-review','InDesign-placement']+editorial_review,
                 'timings_ms':{'compile':round((layout_finished-start)*1000,3),
                               'pdf_write_and_font_subset':round((drawing_finished-layout_finished)*1000,3),
                               'actual_pdf_audit_and_preview':round((time.perf_counter()-drawing_finished)*1000,3),

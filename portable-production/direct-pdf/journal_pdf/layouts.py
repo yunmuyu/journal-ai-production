@@ -350,6 +350,8 @@ def primitive(spec,reg,size):
             s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
                    exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'),
                    shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'))
+    from .tick_precision import scene_axis_notices
+    s.notes.extend(scene_axis_notices(s,spec.get('axis_tick_groups')))
     return s.finish(spec['width_pt'],spec['height_pt'])
 
 

@@ -6,6 +6,8 @@ from .common import FigureError, resolve_source, contains, segment_hits
 from .scene import Scene
 from .fonts import position_text
 from .axis_units import normalize_axis_title, axis_title_evidence
+from .axis_units import plain_content
+from .tick_precision import precision_notice
 from .editorial import group_number, TICK_CLEARANCE, LABEL_CLEARANCE, STROKE, PAD_X
 from PIL import Image
 import io
@@ -256,6 +258,9 @@ def chart(spec,reg,size,assets,root):
         if ev['status']=='semantic_review_needed':
             s.notes.append({'code':'axis_unit_semantics_pending','axis':key,'source':ev['source'],'message':'未知括号内容未按单位改写；需核对语义，不宣称全量轴单位通过'})
     s.layout_evidence['numeric_labels']=[{'source':v['text'],'display':m['text']} for v,m in zip(spec['x_ticks']+spec['y_ticks'],xms+yms)]
+    for axis in ('x','y'):
+        note=precision_notice(axis,[plain_content(v['text']) for v in spec[axis+'_ticks']])
+        if note:s.notes.append(note)
     s.layout_evidence['corner_tick_adjustment_pt']=x_tick_edge-original_x_tick_edge
     s.layout_evidence['x_tick_layout']={'rotation_degrees':xrotation,
         'reason':('horizontal-gap-below-minimum' if min_gap>0 else 'measured-horizontal-overlap') if xrotation else 'horizontal-ink-fits',
