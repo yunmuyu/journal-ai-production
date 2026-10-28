@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.28-axis-font-review-candidate",
-  "createdAt": "2026-10-28T08:25:56.536Z",
+  "id": "2026.10.28-measured-row-alignment-candidate",
+  "createdAt": "2026-10-28T09:21:22.834Z",
   "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
@@ -13,18 +13,16 @@
   },
   "validation": {
     "status": "candidate-not-deployed",
-    "focused": "175 typography, precision, scientific text, quantity and crop tests passed",
-    "strictPython": "two new modules passed no-excuse checker; basedpyright and ruff not run",
-    "sourceSample": "local mixed-precision original flagged and corrected axis reported no precision warning; private data excluded from repo",
+    "focused": "40 measured-row, primitive audit and spacing tests passed including actual PDF rendering",
+    "fullSuite": "1039 passed, 7 subtests passed, 3 baseline Windows symlink privilege failures, 1 skipped because Shapely is unavailable; full run predates one added end-to-end test",
+    "baseline": "three symlink failures reproduced against unchanged HEAD baseline",
     "notVerified": [
-      "Automatic semantic determination of script runs",
-      "Raster-embedded text",
-      "Physical spacing of grouped labels",
+      "Windows symlink security cases without privilege",
+      "Shapely-dependent clipping test",
+      "automatic source topology recognition",
       "Adobe/InDesign placement",
-      "Print RIP",
-      "Local Windows symlink privilege"
-    ],
-    "fullSuite": "not rerun after this change; prior full run 1029 passed, 7 subtests passed, 3 WinError 1314 symlink privilege failures"
+      "print output"
+    ]
   },
   "files": [
     {
@@ -429,7 +427,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.28-isotropic-vector-clip-candidate",
+  "supersedes": "2026.10.28-axis-font-review-candidate",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -576,6 +574,11 @@
       "path": "direct-pdf/docs/KNOWN-FAILURE-COVERAGE.md",
       "sha256": "53977b964a44d5830d4a59ae37bfe797e482343542925e3373acb0c3e571ae91",
       "bytes": 6079
+    },
+    {
+      "path": "direct-pdf/docs/MEASURED-ROWS.md",
+      "sha256": "9ee6cf322369552864916d0e6b23432cba9f699c099fd132c7cc3046fd9e304a",
+      "bytes": 1341
     },
     {
       "path": "direct-pdf/docs/NEW-v0.1.2.1.md",
@@ -824,8 +827,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/editorial.py",
-      "sha256": "719ae60e1b04dac168c0cc53f95737a14996ec92af9e2423a3b2b65738e7e6a7",
-      "bytes": 9585
+      "sha256": "53dbf6cb324b2b341e8994c318e673e88e905202c87df801ce741ababdde5027",
+      "bytes": 9704
     },
     {
       "path": "direct-pdf/journal_pdf/flow_shapes.py",
@@ -884,8 +887,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/layouts.py",
-      "sha256": "209cb9c4d31521e62510aa4c5b59c4ec62bfdb7943ea4fd82016a0209d6a7048",
-      "bytes": 24227
+      "sha256": "7a34a19b94951b4e76d4cc38683327a4a747c4fd2bc6d965dd535e88133f51eb",
+      "bytes": 25148
     },
     {
       "path": "direct-pdf/journal_pdf/numeric_audit.py",
@@ -924,8 +927,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/scene.py",
-      "sha256": "c3f1aae3109b170284a17e8f96dd4c0d8f24fb3305c5205661a07983f4172d91",
-      "bytes": 26335
+      "sha256": "6c73b0b24d233e30f88e019a4ebc7b9862828cad5af580f533c912e4f841cc16",
+      "bytes": 26646
     },
     {
       "path": "direct-pdf/journal_pdf/scientific_text.py",
@@ -1034,8 +1037,8 @@
     },
     {
       "path": "direct-pdf/README.md",
-      "sha256": "d14f7f53abce9d80d786876fbc1232884f8c7248a79f40044fe8a6733f72c4ab",
-      "bytes": 5132
+      "sha256": "bbccf210c0bbcbc12cf778f7165439d3c5dcad47177203d7a3240d7a60281365",
+      "bytes": 5256
     },
     {
       "path": "direct-pdf/RELEASE-CANDIDATE.json",
@@ -1201,6 +1204,11 @@
       "path": "direct-pdf/tests/test_measured_primitive_contracts.py",
       "sha256": "b5669b8e6402726cfa7b4eb071087e49c5d65e6be2ebd817418d1102d2eb2c42",
       "bytes": 8108
+    },
+    {
+      "path": "direct-pdf/tests/test_measured_row_width.py",
+      "sha256": "3b2fcbcf4f0a2b211dc39bb9e6046834b9455a0765884d65851e1dca50e9a5d3",
+      "bytes": 3457
     },
     {
       "path": "direct-pdf/tests/test_native_crop_contracts.py",
