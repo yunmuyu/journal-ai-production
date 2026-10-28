@@ -1,6 +1,6 @@
-"""Source-derived spacing for confirmed storage quantities, never unit conversion.
+"""Source-derived spacing for confirmed storage and frequency quantities.
 
-Case-sensitive storage tokens only. Other dimensions and ambiguous units require
+Case-sensitive storage and frequency tokens only. Other dimensions and ambiguous units require
 separate semantic evidence. Literal/code/path runs are byte-preserving boundaries.
 """
 from __future__ import annotations
@@ -11,11 +11,11 @@ from typing import Final
 from .axis_units import plain_content
 
 QUANTITY_SPACING_RULE: Final = {
-    'id':'confirmed-storage-quantity-spacing-20261026-v1',
-    'scope':'KB/kB/MB/GB/TB and KiB/MiB/GiB/TiB quantities only; case and values preserved',
+    'id':'confirmed-quantity-spacing-20261028-v2',
+    'scope':'KB/kB/MB/GB/TB, KiB/MiB/GiB/TiB and Hz/kHz/MHz/GHz quantities; case and values preserved',
 }
 LITERAL_ROLES: Final = frozenset({'literal','code','command','path'})
-_UNITS: Final = r'(?:KiB|MiB|GiB|TiB|KB|kB|MB|GB|TB)'
+_UNITS: Final = r'(?:KiB|MiB|GiB|TiB|KB|kB|MB|GB|TB|kHz|MHz|GHz|Hz)'
 _QUANTITY: Final = re.compile(
     r'(?<![A-Za-z0-9_./\\-])(?P<number>[+−-]?(?:\d+(?:\.\d+)?|\.\d+))'
     r'(?P<gap>[ \u00a0\u202f]*)(?P<unit>'+_UNITS+r')(?![A-Za-z0-9_./\\-])')
@@ -81,4 +81,4 @@ physical-space measurement; PDFs with unusual extraction order need review.
                              'missing_spaced_quantities':[{'number':n,'unit':u,'count':count} for (n,u),count in missing.items()]})
     return {'rule':QUANTITY_SPACING_RULE,'checks':checks,'issues':issues,'ok':not issues,
             'whitespace_ignored':False,'physical_character_gap_audited':False,
-            'scope_note':'Confirmed storage tokens and occurrence counts; unknown units unchanged; not a general unit or formula audit.'}
+            'scope_note':'Confirmed storage and frequency tokens and occurrence counts; unknown units unchanged; not a general unit or formula audit.'}
