@@ -8,4 +8,4 @@ The stage-grid tests cover layout constraints and a synthetic PDF through `rende
 
 Polygon fill, stroke gray and opacity are available in direct scene paths. They are independently audited; decorative geometry is not a general exemption from text-collision checks.
 
-The separate local PDF guard, spacing heuristics, corpus rules, EMF parser, private baselines and per-author scripts are not part of this candidate. Their current evidence does not justify treating empirical thresholds as mandatory editorial standards or exposing machine-specific data in a public repository. A guard PASS cannot establish source fidelity or visual acceptability.
+The separately integrated audit tools are experimental and never establish source fidelity or visual acceptance. See FIGURE-AUDIT.md. Private baselines and per-author scripts are excluded.

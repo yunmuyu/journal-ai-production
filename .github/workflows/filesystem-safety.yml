@@ -16,3 +16,11 @@ jobs:
         env:
           PYTHONUTF8: '1'
           PYTHONPATH: ${{ runner.os == 'Windows' && 'portable-production/direct-pdf;portable-production/preflight;portable-production' || 'portable-production/direct-pdf:portable-production/preflight:portable-production' }}
+      - run: python -m pytest portable-production/direct-pdf/tests/test_figure_audit_contract.py -q
+        env:
+          PYTHONUTF8: '1'
+          PYTHONPATH: portable-production/direct-pdf
+      - run: python -m figure_audit.selftest
+        env:
+          PYTHONUTF8: '1'
+          PYTHONPATH: portable-production/direct-pdf
