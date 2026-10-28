@@ -1,6 +1,8 @@
 """Experimental PDF spacing measurements; empirical values are advisory only."""
 
 from __future__ import annotations
+from .types import SpacingReport
+from .errors import AuditInputError, UnknownSpacingRole
 
 import argparse
 import hashlib
@@ -47,7 +49,7 @@ class Spacing:
         本刊并无统一规范，只能给下限——这类角色没有 target，返回 None。
         """
         if role not in self.roles:
-            raise KeyError(f"未定义的间距角色 {role}，可选：{', '.join(self.roles)}")
+            raise UnknownSpacingRole(f"未定义的间距角色 {role}，可选：{', '.join(self.roles)}")
         t = self.roles[role].get("target_em")
         return None if t is None else round(t * size, 3)
 
@@ -65,18 +67,18 @@ class Spacing:
     def judge(self, role: str, actual: float, size: float) -> tuple[str, str]:
         """Report an observation; the historical distribution is not a publication rule."""
         if role not in self.roles:
-            raise KeyError(role)
+            raise UnknownSpacingRole(role)
         if size <= 0:
-            raise ValueError("字号须大于零")
+            raise AuditInputError("字号须大于零")
         return "INFO", f"{actual:.2f}pt = {actual / size:.2f}em（经验观察，须人工复核）"
 
     # ---------------------------------------------------------- 测量
-    def measure(self, pdf: Path | str, figure: str = "", size: float | None = None) -> dict:
+    def measure(self, pdf: Path | str, figure: str = "", size: float | None = None) -> SpacingReport:
         """从成品 PDF 量全部可测角色，与规则比对。"""
         doc = fitz.open(str(pdf))
         if len(doc) != 1:
             doc.close()
-            raise ValueError("间距观察只接受单页 PDF")
+            raise AuditInputError("间距观察只接受单页 PDF")
         page = doc[0]
         sp = L.spans(page)
         size = round(size or L.body_size(sp), 2)
@@ -233,7 +235,7 @@ class Spacing:
     def dump(led: dict, out: Path | str) -> Path:
         p = Path(out)
         if p.resolve() == Path(led["pdf"]).resolve():
-            raise ValueError("台账路径不能覆盖输入 PDF")
+            raise AuditInputError("台账路径不能覆盖输入 PDF")
         p.write_text(json.dumps(led, ensure_ascii=False, indent=1), encoding="utf-8")
         return p
 

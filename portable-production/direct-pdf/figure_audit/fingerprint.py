@@ -25,6 +25,8 @@ redraw（凭版式重画）的图，几何本来就变，S6 等比校验用不�
 """
 
 from __future__ import annotations
+from .types import FingerprintReport
+from .errors import AuditInputError
 
 import argparse
 import json
@@ -102,11 +104,11 @@ def _group_by_gaps(bars) -> list[list[tuple]]:
     return groups
 
 
-def fp(path: str | Path) -> dict:
+def fp(path: str | Path) -> FingerprintReport:
     doc = fitz.open(str(path))
     if len(doc) != 1:
         doc.close()
-        raise ValueError("指纹只接受单页 PDF")
+        raise AuditInputError("指纹只接受单页 PDF")
     page = doc[0]
     sp = L.spans(page)
     frames = L.detect_frames(page, sp)
@@ -216,7 +218,7 @@ def main(argv=None) -> int:
     inputs = {Path(value).resolve() for value in (a.src, a.out) if value}
     for destination in (a.json, a.save):
         if destination and Path(destination).resolve() in inputs:
-            raise ValueError("报告不能覆盖输入 PDF")
+            raise AuditInputError("报告不能覆盖输入 PDF")
 
     allow = {x.strip() for x in a.allow.split(",") if x.strip()}
 

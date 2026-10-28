@@ -180,3 +180,202 @@ def test_spacing_ledger_rejects_missing_measurement(tmp_path, monkeypatch):
         {'role': 'tick_to_axis', 'origin': 'corpus'}]}), encoding='utf-8')
     c_spacing_ledger(result, pdf, ledger)
     assert next(i for i in result.issues if i['code'] == 'S12b')['level'] == 'FAIL'
+
+
+def _emf_record(kind, payload=b''):
+    return struct.pack('<II', kind, 8 + len(payload)) + payload
+
+
+def _emf_fixture(tmp_path, records):
+    header = bytearray(88)
+    struct.pack_into('<II', header, 0, 1, 88)
+    struct.pack_into('<iiii', header, 8, 0, 0, 100, 100)
+    struct.pack_into('<iiii', header, 24, 0, 0, 1000, 1000)
+    header[40:44] = b' EMF'
+    struct.pack_into('<ii', header, 72, 100, 100)
+    struct.pack_into('<ii', header, 80, 10, 10)
+    path = tmp_path / 'sample.emf'
+    path.write_bytes(header + b''.join(records) + _emf_record(14))
+    return path
+
+
+def test_emf_maps_window_to_viewport_once(tmp_path):
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    records = [_emf_record(17, struct.pack('<I', 8)),
+               _emf_record(9, pair(100, 100)), _emf_record(11, pair(200, 300)),
+               _emf_record(10, pair(10, 20)), _emf_record(12, pair(3, 5)),
+               _emf_record(27, pair(10, 20)), _emf_record(54, pair(20, 30))]
+    result = Emf(_emf_fixture(tmp_path, records))
+    assert result.polys[0]['pts'] == pytest.approx([(3, 5), (23, 35)])
+
+
+def test_emf_intersect_clip_tracks_device_space_and_restore(tmp_path):
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    rect = lambda a, b, c, d: struct.pack('<iiii', a, b, c, d)
+    records = [_emf_record(17, struct.pack('<I', 8)),
+               _emf_record(9, pair(100, 100)), _emf_record(11, pair(200, 200)),
+               _emf_record(30, rect(10, 10, 40, 40)), _emf_record(33),
+               _emf_record(30, rect(20, 20, 30, 30)),
+               _emf_record(27, pair(0, 0)), _emf_record(54, pair(50, 50)),
+               _emf_record(34, struct.pack('<i', -1)),
+               _emf_record(27, pair(0, 0)), _emf_record(54, pair(50, 50))]
+    result = Emf(_emf_fixture(tmp_path, records))
+    assert len(result.polys[0]['clip_regions']) == 2
+    assert len(result.polys[1]['clip_regions']) == 1
+    assert result.polys[0]['clip_regions'][0] == pytest.approx([(20, 20), (80, 20), (80, 80), (20, 80)])
+
+
+def test_emf_left_and_right_world_transforms_are_distinct(tmp_path):
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    translate = struct.pack('<6f', 1, 0, 0, 1, 10, 0)
+    scale = struct.pack('<6f', 2, 0, 0, 2, 0, 0)
+    records = [_emf_record(35, translate), _emf_record(33),
+               _emf_record(36, scale + struct.pack('<I', 2)),
+               _emf_record(27, pair(1, 1)), _emf_record(54, pair(2, 1)),
+               _emf_record(34, struct.pack('<i', -1)),
+               _emf_record(36, scale + struct.pack('<I', 3)),
+               _emf_record(27, pair(1, 1)), _emf_record(54, pair(2, 1))]
+    result = Emf(_emf_fixture(tmp_path, records))
+    assert result.polys[0]['pts'][0] == pytest.approx((12, 2))
+    assert result.polys[1]['pts'][0] == pytest.approx((22, 2))
+
+
+def test_emf_polylineto16_uses_logical_current_position(tmp_path):
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    points = struct.pack('<iiiiIhh', 0, 0, 100, 100, 1, 7, 8)
+    result = Emf(_emf_fixture(tmp_path, [
+        _emf_record(27, pair(3, 4)), _emf_record(89, points), _emf_record(54, pair(9, 10))]))
+    assert result.polys[0]['pts'] == pytest.approx([(3, 4), (7, 8)])
+    assert result.polys[1]['pts'] == pytest.approx([(7, 8), (9, 10)])
+
+
+def test_emf_unsupported_clip_marks_subsequent_geometry_unknown(tmp_path):
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    records = [_emf_record(29, struct.pack('<iiii', 1, 1, 5, 5)),
+               _emf_record(27, pair(0, 0)), _emf_record(54, pair(9, 9))]
+    result = Emf(_emf_fixture(tmp_path, records))
+    assert result.polys[0]['clip_status'] == 'unknown'
+    assert result.unsupported_records[29] == 1
+
+
+def test_emf_zero_text_reference_is_not_current_position_without_updatecp(tmp_path):
+    text = bytearray(80)
+    struct.pack_into('<II', text, 0, 84, 80)
+    struct.pack_into('<ii', text, 36, 0, 0)
+    struct.pack_into('<II', text, 44, 1, 76)
+    text[76:78] = 'A'.encode('utf-16le')
+    result = Emf(_emf_fixture(tmp_path, [_emf_record(27, struct.pack('<ii', 20, 30)), bytes(text)]))
+    assert result.texts[0]['ref'] == pytest.approx((0, 0))
+
+
+def test_emf_unhandled_mapping_changes_mark_coordinates_unknown(tmp_path):
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    records = [_emf_record(31, struct.pack('<iiii', 2, 1, 1, 1)),
+               _emf_record(27, pair(0, 0)), _emf_record(54, pair(1, 1))]
+    result = Emf(_emf_fixture(tmp_path, records))
+    assert result.polys[0]['coordinate_status'] == 'unknown'
+
+
+def test_emf_json_exposes_clip_constraints_in_millimeters(tmp_path):
+    import json
+    from figure_audit.emf import to_json
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    records = [_emf_record(30, struct.pack('<iiii', 10, 20, 30, 40)),
+               _emf_record(27, pair(0, 0)), _emf_record(54, pair(50, 50))]
+    source = _emf_fixture(tmp_path, records)
+    report = tmp_path / 'inspect.json'
+    to_json(source, report)
+    data = json.loads(report.read_text(encoding='utf-8'))
+    assert data['complete'] is False
+    assert data['polys'][0]['clip_status'] == 'partial'
+    corners = data['polys'][0]['clip_regions_mm'][0]
+    assert corners[0] == pytest.approx([1, 2])
+    assert corners[2] == pytest.approx([3, 4])
+
+
+def test_emf_restored_dc_restores_current_position(tmp_path):
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    records = [_emf_record(27, pair(1, 2)), _emf_record(33), _emf_record(27, pair(7, 8)),
+               _emf_record(34, struct.pack('<i', -1)), _emf_record(54, pair(3, 4))]
+    result = Emf(_emf_fixture(tmp_path, records))
+    assert result.polys[0]['pts'] == pytest.approx([(1, 2), (3, 4)])
+
+
+def test_emf_window_viewport_mapping_matches_windows_gdi(tmp_path):
+    import sys
+    if sys.platform != 'win32':
+        pytest.skip('Windows GDI oracle is only available on Windows')
+    import ctypes
+    from ctypes import wintypes
+    gdi = ctypes.WinDLL('gdi32', use_last_error=True)
+    gdi.CreateCompatibleDC.argtypes = [wintypes.HDC]
+    gdi.CreateCompatibleDC.restype = wintypes.HDC
+    gdi.DeleteDC.argtypes = [wintypes.HDC]
+    gdi.SetMapMode.argtypes = [wintypes.HDC, ctypes.c_int]
+    gdi.SetWindowExtEx.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
+    gdi.SetViewportExtEx.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
+    gdi.SetWindowOrgEx.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
+    gdi.SetViewportOrgEx.argtypes = [wintypes.HDC, ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
+    gdi.LPtoDP.argtypes = [wintypes.HDC, ctypes.POINTER(wintypes.POINT), ctypes.c_int]
+    dc = gdi.CreateCompatibleDC(None)
+    assert dc
+    try:
+        assert gdi.SetMapMode(dc, 8)
+        assert gdi.SetWindowExtEx(dc, 100, 100, None)
+        assert gdi.SetViewportExtEx(dc, 200, 300, None)
+        assert gdi.SetWindowOrgEx(dc, 10, 20, None)
+        assert gdi.SetViewportOrgEx(dc, 3, 5, None)
+        points = (wintypes.POINT * 2)(wintypes.POINT(10, 20), wintypes.POINT(20, 30))
+        assert gdi.LPtoDP(dc, points, 2)
+        expected = [(p.x, p.y) for p in points]
+    finally:
+        assert gdi.DeleteDC(dc)
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    records = [_emf_record(17, struct.pack('<I', 8)),
+               _emf_record(9, pair(100, 100)), _emf_record(11, pair(200, 300)),
+               _emf_record(10, pair(10, 20)), _emf_record(12, pair(3, 5)),
+               _emf_record(27, pair(10, 20)), _emf_record(54, pair(20, 30))]
+    actual = Emf(_emf_fixture(tmp_path, records)).polys[0]['pts']
+    assert actual == pytest.approx(expected)
+
+
+def test_emf_world_transform_order_matches_windows_gdi(tmp_path):
+    import sys
+    if sys.platform != 'win32':
+        pytest.skip('Windows GDI oracle is only available on Windows')
+    import ctypes
+    from ctypes import wintypes
+    class Xform(ctypes.Structure):
+        _fields_ = [(name, ctypes.c_float) for name in ('m11', 'm12', 'm21', 'm22', 'dx', 'dy')]
+    gdi = ctypes.WinDLL('gdi32', use_last_error=True)
+    gdi.CreateCompatibleDC.argtypes = [wintypes.HDC]
+    gdi.CreateCompatibleDC.restype = wintypes.HDC
+    gdi.DeleteDC.argtypes = [wintypes.HDC]
+    gdi.SetGraphicsMode.argtypes = [wintypes.HDC, ctypes.c_int]
+    gdi.SetWorldTransform.argtypes = [wintypes.HDC, ctypes.POINTER(Xform)]
+    gdi.ModifyWorldTransform.argtypes = [wintypes.HDC, ctypes.POINTER(Xform), wintypes.DWORD]
+    gdi.LPtoDP.argtypes = [wintypes.HDC, ctypes.POINTER(wintypes.POINT), ctypes.c_int]
+    dc = gdi.CreateCompatibleDC(None)
+    assert dc
+    try:
+        assert gdi.SetGraphicsMode(dc, 2)
+        expected = []
+        for mode in (2, 3):
+            assert gdi.SetWorldTransform(dc, ctypes.byref(Xform(1, 0, 0, 1, 10, 0)))
+            assert gdi.ModifyWorldTransform(dc, ctypes.byref(Xform(2, 0, 0, 2, 0, 0)), mode)
+            point = wintypes.POINT(1, 1)
+            assert gdi.LPtoDP(dc, ctypes.byref(point), 1)
+            expected.append((point.x, point.y))
+    finally:
+        assert gdi.DeleteDC(dc)
+    pair = lambda x, y: struct.pack('<ii', x, y)
+    translate = struct.pack('<6f', 1, 0, 0, 1, 10, 0)
+    scale = struct.pack('<6f', 2, 0, 0, 2, 0, 0)
+    records = [_emf_record(35, translate), _emf_record(33),
+               _emf_record(36, scale + struct.pack('<I', 2)),
+               _emf_record(27, pair(1, 1)), _emf_record(54, pair(2, 1)),
+               _emf_record(34, struct.pack('<i', -1)),
+               _emf_record(36, scale + struct.pack('<I', 3)),
+               _emf_record(27, pair(1, 1)), _emf_record(54, pair(2, 1))]
+    result = Emf(_emf_fixture(tmp_path, records))
+    assert [poly['pts'][0] for poly in result.polys] == pytest.approx(expected)
