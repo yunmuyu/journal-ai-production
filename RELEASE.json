@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.28-stage-grid-candidate",
-  "createdAt": "2026-10-28T06:47:12.482Z",
+  "id": "2026.10.28-figure-audit-candidate",
+  "createdAt": "2026-10-28T06:58:52.348Z",
   "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
@@ -12,15 +12,18 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "focused": "144 passed",
-    "syntheticPdf": "rendered and inspected",
+    "windowsDirectPdf": "958 passed, 7 subtests passed, 3 failures WinError 1314 before final focused changes",
+    "smoke": "real PDF and EMF inspected locally, no author data included",
     "status": "candidate-not-deployed",
-    "windowsDirectPdf": "941 passed, 7 subtests passed, 3 failures WinError 1314 before final focused collision changes",
+    "strictPython": "27 violations in adapted legacy modules",
+    "auditFocused": "15 passed; guard selftest 19/19",
     "notVerified": [
-      "Real manuscript end-to-end review",
+      "EMF fidelity and transformations",
+      "Historical spacing corpus",
+      "Real manuscript end-to-end acceptance",
       "Adobe/InDesign placement",
       "Print RIP",
-      "Windows symlink creation without privilege"
+      "Local Windows symlink privilege"
     ]
   },
   "files": [
@@ -426,7 +429,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.27-r36-numeric-audit",
+  "supersedes": "2026.10.28-stage-grid-candidate",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -530,6 +533,11 @@
       "bytes": 2160
     },
     {
+      "path": "direct-pdf/docs/FIGURE-AUDIT.md",
+      "sha256": "b276541f5aaabfe87c83ab187a0044af3e239115ce67a0ead1b11312ad210bf2",
+      "bytes": 2547
+    },
+    {
       "path": "direct-pdf/docs/FIRST-PASS-SPEED.md",
       "sha256": "c9c489dfb7304c3b2a43ce6c3791f73c7891d4d29eb1346ae8aaa66a2003f555",
       "bytes": 4162
@@ -601,8 +609,8 @@
     },
     {
       "path": "direct-pdf/docs/STAGE-GRID.md",
-      "sha256": "0e5212cf802d435c6fefd442b7f381b161fa0a1ed1376734e3a05429153ac9ac",
-      "bytes": 1769
+      "sha256": "637e4b15b30139f042bf63b57f80e9ea4b2abddd08de8ff678bcb75e85d6fe7d",
+      "bytes": 1577
     },
     {
       "path": "direct-pdf/docs/TEST-RESULTS.md",
@@ -633,6 +641,46 @@
       "path": "direct-pdf/examples/specs/demo-network.json",
       "sha256": "cebb2f0611aa367a243bf504926d37b79a103afb22f05bbb2d1357d0cce7837e",
       "bytes": 862
+    },
+    {
+      "path": "direct-pdf/figure_audit/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "direct-pdf/figure_audit/emf.py",
+      "sha256": "aadff773ea6559e4ee9f773220715dd424d05cc7c82f3e656501b2188725d539",
+      "bytes": 14437
+    },
+    {
+      "path": "direct-pdf/figure_audit/fingerprint.py",
+      "sha256": "ed3f9c1188d699e1ccf873c57280551319a62f1112188c88d398ce1ea372bf78",
+      "bytes": 9269
+    },
+    {
+      "path": "direct-pdf/figure_audit/guard.py",
+      "sha256": "56ec745c717eaea0ef93dfcac2cfdf8f9ae3c8d90bd38c84fda59189179b8369",
+      "bytes": 27285
+    },
+    {
+      "path": "direct-pdf/figure_audit/selftest.py",
+      "sha256": "21531b3397a9c064fa484b28fdc95f4342e90670ab8c864fdde7bdb75fedbd54",
+      "bytes": 7163
+    },
+    {
+      "path": "direct-pdf/figure_audit/spacing_rules.json",
+      "sha256": "840434af7fc4da16c58efb45ca82dac23c57c9d91c8f5786a3aeef5a13081596",
+      "bytes": 5793
+    },
+    {
+      "path": "direct-pdf/figure_audit/spacing.py",
+      "sha256": "d6557cda7c182b8b5731a925ed41212edd27c913f6f7a9864c0e8ead015baad5",
+      "bytes": 12702
+    },
+    {
+      "path": "direct-pdf/figure_audit/spec_lib.py",
+      "sha256": "0383d4c15e6aa44b430b21cb3064a1375bf780b508937f4ef3ac736eb709d733",
+      "bytes": 23121
     },
     {
       "path": "direct-pdf/journal_pdf/__init__.py",
@@ -993,6 +1041,11 @@
       "path": "direct-pdf/tests/test_export_crop_padding.py",
       "sha256": "2153c47258456adba3a4197bf1d73f778f21e4d2605f8ed2ea16080195175e55",
       "bytes": 2497
+    },
+    {
+      "path": "direct-pdf/tests/test_figure_audit_contract.py",
+      "sha256": "7912950bbe2df034cf61a1b4b278b499dd204f6cbc31708be34125ed35e7fb2e",
+      "bytes": 6626
     },
     {
       "path": "direct-pdf/tests/test_final_layout_regressions.py",
