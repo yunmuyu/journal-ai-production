@@ -2,7 +2,16 @@
 from __future__ import annotations
 import struct
 from .errors import AuditInputError
-from .emf_geometry import _exclude_clip, _intersect_clip, _offset_clip, _scale_extent
+from .emf_geometry import _adjust_isotropic, _exclude_clip, _intersect_clip, _offset_clip, _scale_extent
+
+
+def validate_options(dpi, clipping, bounds):
+    if dpi is not None and (not isinstance(dpi, tuple) or len(dpi) != 2
+            or any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in dpi)):
+        raise AuditInputError('isotropic DPI must be a pair of positive integers')
+    if clipping and (not isinstance(bounds, tuple) or len(bounds) != 4
+                     or any(isinstance(v, bool) or not isinstance(v, int) for v in bounds)):
+        raise AuditInputError('vector clipping requires explicit integer playback device bounds')
 
 
 def apply_mapping_clip(record_type, payload, state):
@@ -28,8 +37,10 @@ def apply_mapping_clip(record_type, payload, state):
             state['clip_status'] = 'unknown'
     elif record_type == 17:
         mode = struct.unpack('<I', payload[8:12])[0]
-        if mode not in (1, 2, 3, 4, 5, 6, 8):
+        if mode not in (1, 2, 3, 4, 5, 6, 7, 8):
             raise AuditInputError('unsupported EMF mapping mode')
+        if mode == 7 and state.get('isotropic_dpi') is None:
+            raise AuditInputError('MM_ISOTROPIC requires explicit playback device DPI')
         if mode != state['map_mode']:
             if mode == 1:
                 state['win_ext'] = (1, 1)
@@ -40,7 +51,12 @@ def apply_mapping_clip(record_type, payload, state):
                 state['win_ext'] = ((mm_x*factor + divisor//2)//divisor,
                                     (mm_y*factor + divisor//2)//divisor)
                 state['vp_ext'] = (state['dev'][0], -state['dev'][1])
+            elif mode == 7:
+                state['win_ext'] = (state['dev_mm'][0]*10, state['dev_mm'][1]*10)
+                state['vp_ext'] = (state['dev'][0], -state['dev'][1])
         state['map_mode'] = mode
+        if mode == 7:
+            _adjust_isotropic(state)
     elif record_type in (29, 30):
         rect = struct.unpack('<iiii', payload[8:24])
         (_exclude_clip if record_type == 29 else _intersect_clip)(state, rect)
@@ -50,8 +66,10 @@ def apply_mapping_clip(record_type, payload, state):
         _scale_extent(state, 'vp_ext' if record_type == 31 else 'win_ext', struct.unpack('<iiii', payload[8:24]))
     elif record_type in (9, 11):
         ex, ey = struct.unpack('<ii', payload[8:16])
-        if state['map_mode'] == 8 and ex and ey:
+        if state['map_mode'] in (7, 8) and ex and ey:
             state['win_ext' if record_type == 9 else 'vp_ext'] = (ex, ey)
+            if state['map_mode'] == 7:
+                _adjust_isotropic(state)
     elif record_type in (10, 12):
         state['win_org' if record_type == 10 else 'vp_org'] = struct.unpack('<ii', payload[8:16])
     else:

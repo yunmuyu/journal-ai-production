@@ -34,7 +34,7 @@ def _device_point(pt, state):
     x, y = _xform(pt, state['m'])
     wx, wy = state.get('win_org', (0, 0))
     vx, vy = state.get('vp_org', (0, 0))
-    if state.get('map_mode', 1) in (2, 3, 4, 5, 6, 8):
+    if state.get('map_mode', 1) in (2, 3, 4, 5, 6, 7, 8):
         ex, ey = state.get('win_ext', (1, 1))
         dx, dy = state.get('vp_ext', (1, 1))
         if ex == 0 or ey == 0:
@@ -78,7 +78,7 @@ def _offset_clip(state, offset):
 
 def _scale_extent(state, key, factors):
     """Match GDI integer extent scaling; invalid/zero results leave it unchanged."""
-    if state['map_mode'] != 8:
+    if state['map_mode'] not in (7, 8):
         return
     xn, xd, yn, yd = factors
     if not xn or not xd or not yn or not yd:
@@ -95,6 +95,28 @@ def _scale_extent(state, key, factors):
         state['clip_status'] = 'unknown'
     elif x and y:
         state[key] = (x, y)
+        if state['map_mode'] == 7:
+            _adjust_isotropic(state)
+
+
+def _adjust_isotropic(state):
+    """Fit viewport to equal physical axis scales using explicit playback DPI."""
+    wx, wy = state.get('win_ext', (1, 1))
+    vx, vy = state.get('vp_ext', (1, 1))
+    dpi_x, dpi_y = state['isotropic_dpi']
+    if not wx or not wy:
+        raise AuditInputError('zero isotropic window extent')
+    sx = abs(vx * wy * dpi_y)
+    sy = abs(vy * wx * dpi_x)
+    def muldiv_nearest(numerator, denominator):
+        return (numerator + denominator // 2) // denominator
+    if sx > sy:
+        value = muldiv_nearest(abs(vy * wx * dpi_x), abs(wy * dpi_y))
+        vx = value if vx >= 0 else -value
+    elif sy > sx:
+        value = muldiv_nearest(abs(vx * wy * dpi_y), abs(wx * dpi_x))
+        vy = value if vy >= 0 else -value
+    state['vp_ext'] = (vx, vy)
 
 
 def _mul(a, b):

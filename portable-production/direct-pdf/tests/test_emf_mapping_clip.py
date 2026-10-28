@@ -45,6 +45,14 @@ def test_switch_from_metric_to_anisotropic_retains_extents(tmp_path):
     assert Emf(_emf_fixture(tmp_path,r)).polys[0]['pts']==pytest.approx([(0,0),(10,-10)])
 
 
+def test_isotropic_requires_explicit_playback_dpi(tmp_path):
+    path=_emf_fixture(tmp_path,[_emf_record(17,struct.pack('<I',7)),*line()])
+    with pytest.raises(AuditInputError,match='explicit playback device DPI'):
+        Emf(path)
+    with pytest.raises(AuditInputError,match='positive integers'):
+        Emf(path,isotropic_dpi=(96,0))
+
+
 def test_extent_scaling_truncates_and_invalid_operations_are_noops(tmp_path):
     r=[_emf_record(17,struct.pack('<I',8)),_emf_record(9,pair(-5,5)),
        _emf_record(11,pair(20,20)),_emf_record(32,struct.pack('<iiii',1,2,1,2)),
@@ -167,6 +175,69 @@ def test_predefined_mapping_modes_match_windows_gdi(tmp_path, mode):
                          g.GetDeviceCaps(dc,4),g.GetDeviceCaps(dc,6))
         path.write_bytes(data)
         assert Emf(path).polys[0]['pts']==pytest.approx([(p.x,p.y) for p in pts])
+    finally:
+        if dc:g.DeleteDC(dc)
+
+
+@pytest.mark.skipif(sys.platform!='win32',reason='Requires Windows GDI')
+@pytest.mark.parametrize('values',[(100,100,200,300),(100,200,200,300),(5,7,3,10),
+                                  (8,5,3,9),(2,5,3,9),(100,100,200,-300)])
+def test_isotropic_mapping_matches_windows_gdi(tmp_path,values):
+    import ctypes as c
+    from ctypes import wintypes as w
+    g=c.WinDLL('gdi32',use_last_error=True)
+    g.CreateCompatibleDC.argtypes=[w.HDC];g.CreateCompatibleDC.restype=w.HDC
+    g.DeleteDC.argtypes=[w.HDC];g.SetMapMode.argtypes=[w.HDC,c.c_int]
+    g.GetDeviceCaps.argtypes=[w.HDC,c.c_int]
+    g.SetWindowExtEx.argtypes=[w.HDC,c.c_int,c.c_int,c.c_void_p]
+    g.SetViewportExtEx.argtypes=[w.HDC,c.c_int,c.c_int,c.c_void_p]
+    g.GetViewportExtEx.argtypes=[w.HDC,c.POINTER(w.SIZE)]
+    dc=g.CreateCompatibleDC(None)
+    try:
+        assert dc and g.SetMapMode(dc,7)
+        wx,wy,vx,vy=values
+        assert g.SetWindowExtEx(dc,wx,wy,None) and g.SetViewportExtEx(dc,vx,vy,None)
+        vp=w.SIZE();assert g.GetViewportExtEx(dc,c.byref(vp))
+        r=[_emf_record(17,struct.pack('<I',7)),_emf_record(9,pair(wx,wy)),
+           _emf_record(11,pair(vx,vy)),_emf_record(27,pair(0,0)),_emf_record(54,pair(wx,wy))]
+        path=_emf_fixture(tmp_path,r);data=bytearray(path.read_bytes())
+        struct.pack_into('<iiii',data,72,g.GetDeviceCaps(dc,8),g.GetDeviceCaps(dc,10),
+                         g.GetDeviceCaps(dc,4),g.GetDeviceCaps(dc,6));path.write_bytes(data)
+        e=Emf(path,isotropic_dpi=(g.GetDeviceCaps(dc,88),g.GetDeviceCaps(dc,90)))
+        assert e.polys[0]['pts'][1]==pytest.approx((vp.cx,vp.cy))
+    finally:
+        if dc:g.DeleteDC(dc)
+
+
+@pytest.mark.skipif(sys.platform!='win32',reason='Requires Windows GDI')
+def test_isotropic_extent_scaling_matches_windows_gdi(tmp_path):
+    import ctypes as c
+    from ctypes import wintypes as w
+    g=c.WinDLL('gdi32',use_last_error=True)
+    g.CreateCompatibleDC.argtypes=[w.HDC];g.CreateCompatibleDC.restype=w.HDC
+    g.DeleteDC.argtypes=[w.HDC];g.SetMapMode.argtypes=[w.HDC,c.c_int]
+    g.GetDeviceCaps.argtypes=[w.HDC,c.c_int]
+    g.SetWindowExtEx.argtypes=[w.HDC,c.c_int,c.c_int,c.c_void_p]
+    g.SetViewportExtEx.argtypes=[w.HDC,c.c_int,c.c_int,c.c_void_p]
+    g.ScaleWindowExtEx.argtypes=[w.HDC,c.c_int,c.c_int,c.c_int,c.c_int,c.c_void_p]
+    g.ScaleViewportExtEx.argtypes=[w.HDC,c.c_int,c.c_int,c.c_int,c.c_int,c.c_void_p]
+    g.GetViewportExtEx.argtypes=[w.HDC,c.POINTER(w.SIZE)]
+    g.GetWindowExtEx.argtypes=[w.HDC,c.POINTER(w.SIZE)]
+    dc=g.CreateCompatibleDC(None)
+    try:
+        assert dc and g.SetMapMode(dc,7)
+        assert g.SetWindowExtEx(dc,100,200,None) and g.SetViewportExtEx(dc,300,300,None)
+        assert g.ScaleWindowExtEx(dc,1,2,3,2,None) and g.ScaleViewportExtEx(dc,2,1,3,2,None)
+        vp=w.SIZE();win=w.SIZE();assert g.GetViewportExtEx(dc,c.byref(vp)) and g.GetWindowExtEx(dc,c.byref(win))
+        records=[_emf_record(17,struct.pack('<I',7)),_emf_record(9,pair(100,200)),
+                 _emf_record(11,pair(300,300)),_emf_record(32,struct.pack('<iiii',1,2,3,2)),
+                 _emf_record(31,struct.pack('<iiii',2,1,3,2)),_emf_record(27,pair(0,0)),
+                 _emf_record(54,pair(win.cx,win.cy))]
+        path=_emf_fixture(tmp_path,records);data=bytearray(path.read_bytes())
+        struct.pack_into('<iiii',data,72,g.GetDeviceCaps(dc,8),g.GetDeviceCaps(dc,10),
+                         g.GetDeviceCaps(dc,4),g.GetDeviceCaps(dc,6));path.write_bytes(data)
+        e=Emf(path,isotropic_dpi=(g.GetDeviceCaps(dc,88),g.GetDeviceCaps(dc,90)))
+        assert e.polys[0]['pts'][1]==pytest.approx((vp.cx,vp.cy))
     finally:
         if dc:g.DeleteDC(dc)
 

@@ -2,11 +2,15 @@
 import struct
 from .errors import AuditInputError
 from .emf_geometry import IDENT, _crd, _xform, _mul, _device_point, _read_transform
-from .emf_mapping import apply_mapping_clip
+from .emf_mapping import apply_mapping_clip, validate_options
 
 class Emf:
-    def __init__(self, path):
+    def __init__(self, path, isotropic_dpi=None, clip_geometry=False, clip_device_bounds=None):
         self.path = path
+        validate_options(isotropic_dpi, clip_geometry, clip_device_bounds)
+        self.isotropic_dpi = isotropic_dpi
+        self.clip_geometry = clip_geometry
+        self.clip_device_bounds = clip_device_bounds
         from pathlib import Path
         self.data = Path(path).read_bytes()
         self.pages = []          # [(w_mm,h_mm,w_px,h_px)]
@@ -25,6 +29,8 @@ class Emf:
         if len(d) < 88 or struct.unpack_from('<I', d, 0)[0] != 1 or d[40:44] != b' EMF':
             raise AuditInputError('invalid EMF header')
         supported = {1, 14, 18, 22, 24, 26, 27, 29, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 54, 82, 83, 84, 86, 87, 89, 3, 4, 9, 10, 11, 12, 95, 17, 30}
+        if self.clip_geometry:
+            supported.update((28, 75))
         self.unsupported_records = {}
         offset = 0
         eof = False
@@ -65,8 +71,11 @@ class Emf:
         state = {
             'color': (0, 0, 0), 'fill': None, 'pen_w': 0.0,
             'font': None, 'tcolor': (0, 0, 0), 'align': 0, 'bkmode': 2,
-            'm': IDENT, 'map_mode': 1, 'dev': self.dev, 'dev_mm': self.dev_mm, 'clip_regions': (), 'clip_exclusions': (), 'clip_status': 'partial', 'meta_clip_unknown': False, 'coordinate_status': 'partial',
+            'm': IDENT, 'map_mode': 1, 'dev': self.dev, 'dev_mm': self.dev_mm, 'isotropic_dpi': self.isotropic_dpi, 'clip_regions': (), 'clip_exclusions': (), 'clip_status': 'partial', 'meta_clip_unknown': False, 'coordinate_status': 'partial',
         }
+        if self.clip_geometry:
+            from .emf_clip_geometry import initial
+            state['clip_model'] = initial(self.clip_device_bounds)
         stack = []
         objs = {}
         path_pts = None          # 正在录制的 path
@@ -211,12 +220,15 @@ class Emf:
                         face=f['face'], color=state['tcolor'], align=state['align']))
                     if state['align'] & 1:
                         state['coordinate_status'] = 'unknown'
+            if self.clip_geometry and t in (26, 28, 29, 30, 67, 75, 115):
+                from .emf_clip_geometry import apply_event
+                state['clip_model'] = apply_event(state['clip_model'], t, p, state)
             off += sz
 
     def _emit(self, pts, state, closed, kind='poly'):
         if len(pts) < 2:
             return
-        self.polys.append(dict(pts=pts, closed=closed, kind=kind,
+        self.polys.append(dict(pts=pts, closed=closed, kind=kind, clip_model=state.get('clip_model'),
                                stroke=state['color'], width=state['pen_w'],
                                fill=state['fill'], clip_regions=state['clip_regions'], clip_exclusions=state['clip_exclusions'], clip_status=state['clip_status'], coordinate_status=state['coordinate_status']))
 
@@ -243,7 +255,7 @@ class Emf:
                             weight=t['weight'], italic=t['italic'], face=t['face'],
                             gray=round(sum(t['color']) / 3, 3), bbox_estimated=True, clip_status=t['clip_status'], coordinate_status=t['coordinate_status'],
                             clip_regions_mm=[[list(self.pt_of(point)) for point in region] for region in t['clip_regions']],
-                            clip_exclusions_mm=[[list(self.pt_of(point)) for point in region] for region in t['clip_exclusions']]))
+                            clip_exclusions_mm=[[list(self.pt_of(point)) for point in region] for region in t['clip_exclusions']], **({'visible_geometry_status': 'unsupported-text-glyph'} if self.clip_geometry else {})))
         return out
 
     def font_stats(self):
