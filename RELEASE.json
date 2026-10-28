@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.28-measured-row-alignment-candidate",
-  "createdAt": "2026-10-28T09:21:22.834Z",
-  "status": "release-candidate",
+  "id": "2026.10.28-r37-figure-tools",
+  "createdAt": "2026-10-28T09:30:38.894Z",
+  "status": "released",
   "constraints": {
     "fontSizePt": {
       "min": 6,
@@ -12,17 +12,20 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "status": "candidate-not-deployed",
-    "focused": "40 measured-row, primitive audit and spacing tests passed including actual PDF rendering",
-    "fullSuite": "1039 passed, 7 subtests passed, 3 baseline Windows symlink privilege failures, 1 skipped because Shapely is unavailable; full run predates one added end-to-end test",
-    "baseline": "three symlink failures reproduced against unchanged HEAD baseline",
+    "status": "released-not-deployed",
+    "directPdf": "1039 passed and 7 subtests passed; three local Windows symlink privilege failures reproduced in prior baseline; one Shapely-dependent file skipped in this run",
+    "measuredRows": "40 focused tests passed, including generated PDF row alignment",
+    "optionalClipping": "28 clipping and measured-row tests passed from extracted candidate package with isolated Shapely 2.1.2",
+    "localflow": "121 passed and 2 subtests passed; five Windows symlink privilege failures; editorial font/coverage focused suite 22 passed",
+    "priorGithubWindows": "11 synthetic symlink/cross-format checks passed on candidate commit; final release commit checks required",
     "notVerified": [
-      "Windows symlink security cases without privilege",
-      "Shapely-dependent clipping test",
       "automatic source topology recognition",
+      "all EMF records and full rendering",
       "Adobe/InDesign placement",
-      "print output"
-    ]
+      "print output",
+      "deployment on existing machines"
+    ],
+    "extractedPackage": "50 font gate, source coverage, aligned-row and optional clipping tests passed; 247 file hashes verified"
   },
   "files": [
     {
@@ -427,7 +430,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.28-axis-font-review-candidate",
+  "supersedes": "2026.10.28-measured-row-alignment-candidate",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -1432,8 +1435,8 @@
     },
     {
       "path": "localflow/publishing.py",
-      "sha256": "04a0d5209d044505199d2455e0fa3af2682259b13df2896f2d669acd22d42343",
-      "bytes": 23768
+      "sha256": "917dabacaf974b93360470892b686d4e40f17dbe6ff0fe3ec2284a9f05ef0a0e",
+      "bytes": 24377
     },
     {
       "path": "localflow/raster_candidates.py",
@@ -1447,8 +1450,8 @@
     },
     {
       "path": "localflow/rendering.py",
-      "sha256": "487223828a534947d8fb1113ad3518fb621af4c36c142c7e44a2894ce5b694c6",
-      "bytes": 12505
+      "sha256": "7155c7d8f54f7a1b56be2f3be157e8a161203d5146b10947caa24a882b23ea01",
+      "bytes": 12610
     },
     {
       "path": "localflow/routing.py",
@@ -1632,8 +1635,8 @@
     },
     {
       "path": "tests-local/test_publication_font_gate.py",
-      "sha256": "8a4c84b740f312583993deb2cde13f1ed70a01755f15ad9b504a5f3f0e14e11b",
-      "bytes": 12425
+      "sha256": "a2745a3ffec0c1203f2dad2c7da6005a59d58534752a0b00095f3b2fb910089f",
+      "bytes": 13608
     },
     {
       "path": "tests-local/test_source_text_coverage_gate.py",
