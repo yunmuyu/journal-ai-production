@@ -26,6 +26,17 @@ def draw_path(page,p):
         tip,prev=pts[idx],pts[nextidx];length=math.dist(tip,prev)
         ux,uy=(tip[0]-prev[0])/length,(tip[1]-prev[1])/length
         pts[idx]=[tip[0]-2.2*p.get("arrow_scale",1)*ux,tip[1]-2.2*p.get("arrow_scale",1)*uy]
+    fill=p.get('fill')
+    if fill is not None or p.get('closed') or p.get('gray',0) not in (None,0):
+        closed=bool(p.get('closed'))
+        poly=pts+([pts[0]] if closed and pts[0]!=pts[-1] else [])
+        sh=page.new_shape();sh.draw_polyline(poly)
+        stroke=None if p.get('width') in (None,0) else (p.get('gray',0),)
+        sh.finish(width=p.get('width') or 0,color=stroke,fill=(fill,) if fill is not None else None,
+                  dashes=('['+' '.join(map(str,p['dash']))+'] 0') if p['dash'] else None,closePath=closed,
+                  fill_opacity=p.get('opacity',1))
+        sh.commit()
+        return
     sh=page.new_shape();sh.draw_polyline(pts)
     sh.finish(width=p['width'],color=(0,),dashes=('['+' '.join(map(str,p['dash']))+'] 0') if p['dash'] else None,closePath=False)
     sh.commit()
@@ -73,7 +84,10 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
         return value
     def build(font_size):
         if kind=='chart':value=chart(spec,reg,font_size,assets,root)
-        elif kind in DIAGRAMS:value=DIAGRAMS[kind](spec,reg,font_size)
+        elif kind in DIAGRAMS:
+            # stage-grid 可以按块声明裁图图标，需要Assets与源图根目录；其余图种签名不变。
+            value=(DIAGRAMS[kind](spec,reg,font_size,assets,root) if kind=='stage-grid'
+                   else DIAGRAMS[kind](spec,reg,font_size))
         else:raise FigureError('unsupported_figure_kind','未实现的图种，不生成冒充成果的空页',kind=kind)
         value=attach_trusted_sources(value)
         if kind=='scene':
@@ -274,7 +288,9 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         for a in scene.assets:
             if a['role']!='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
         for p in scene.paths:draw_path(page,p)
-        for n in scene.nodes:draw_node(page,n)
+        for n in scene.nodes:
+            if n.get('invisible'):continue      # 无边框节点只用于承接箭头，不落笔
+            draw_node(page,n)
         for a in scene.assets:
             if a['role']=='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
         for t in scene.texts:draw_text(page,reg,t)

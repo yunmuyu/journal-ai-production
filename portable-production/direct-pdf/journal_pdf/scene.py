@@ -87,6 +87,28 @@ class Scene:
         self.paths.append({'id':id,'points':pts,'arrow':arrow or both,'both':both,'dash':dash or [],'width':width,
                            'exact_terminal':bool(exact_terminal),'endpoint_nodes':endpoint_nodes,
                            'shared_net':shared_net,'semantic_role':semantic_role})
+    def poly(self,id,points,fill=None,gray=0,width=.5,dash=None,closed=True,semantic_role=None,opacity=None):
+        """闭合多边形（统计图数据几何）：0..1 墨量填充 + 0..1 灰度描边，不参与连接。"""
+        self.ident(id); pts=[]
+        for pt in points:
+            if not finite(pt) or len(pt)!=2:raise FigureError('path_point','无效多边形坐标',id=id)
+            if not pts or list(pt)!=pts[-1]:pts.append(list(pt))
+        if closed and len(pts)>1 and pts[0]==pts[-1]:pts.pop()
+        need=3 if closed else 2
+        if len(pts)<need:raise FigureError('path_degenerate','多边形至少3个顶点',id=id)
+        if fill is not None:
+            if isinstance(fill,bool) or not isinstance(fill,(int,float)) or not math.isfinite(fill) or not 0<=fill<=1:
+                raise FigureError('poly_fill_invalid','多边形填充只接受 0 到 1 的显式灰度',id=id)
+        if gray is None or isinstance(gray,bool) or not isinstance(gray,(int,float)) or not math.isfinite(gray) or not 0<=gray<=1:
+            raise FigureError('poly_gray_invalid','多边形描边灰度须为 0 到 1 的有限数值',id=id)
+        if opacity is not None and (isinstance(opacity,bool) or not isinstance(opacity,(int,float)) or not math.isfinite(opacity) or not 0<opacity<=1):
+            raise FigureError('poly_opacity_invalid','多边形填充透明度须为 0 到 1 的有限数值',id=id)
+        rec={'id':id,'points':pts,'arrow':False,'both':False,'dash':dash or [],'width':width,
+             'exact_terminal':False,'endpoint_nodes':None,'shared_net':None,
+             'semantic_role':semantic_role or 'decorative',
+             'fill':fill,'gray':gray,'closed':bool(closed)}
+        if opacity is not None: rec['opacity']=opacity
+        self.paths.append(rec)
     def group(self,id: str,members: list[str]) -> None:
         """Declare non-drawing aggregate ownership over existing real rectangles."""
         real_nodes={n['id'] for n in self.nodes if n['kind']=='rectangle'}
@@ -316,8 +338,10 @@ def audit_scene(s:Scene):
                                        'node':node_id,'point':point})
                 else:
                     issues.append({'code':'arrow_endpoint_declaration_invalid','id':p['id'],'at_start':start})
+        segments=list(zip(pts,pts[1:]))
+        if p.get('closed') and len(pts)>2:segments.append((pts[-1],pts[0]))
         for t in s.texts:
-            if any(segment_intersects_text(a,b,t,protection) if oblique(t) else segment_hits(a,b,t['position']['bbox'],protection) for a,b in zip(pts,pts[1:])):
+            if any(segment_intersects_text(a,b,t,protection) if oblique(t) else segment_hits(a,b,t['position']['bbox'],protection) for a,b in segments):
                 issues.append({'code':'text_path_collision','text':t['id'],'path':p['id']})
         for a in pts:
             if not contains(page,[a[0]-protection,a[1]-protection,a[0]+protection,a[1]+protection],.02):

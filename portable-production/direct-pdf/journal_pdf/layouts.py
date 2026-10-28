@@ -339,9 +339,17 @@ def primitive(spec,reg,size):
         s.line(e.get('id','edge'+str(i)),points,e.get('arrow',False),e.get('both',False),e.get('dash'),
                exact_terminal=bool(e.get('arrow',False) or e.get('both',False)),endpoint_nodes=[e['from'],e['to']],
                shared_net=e.get('shared_net'),semantic_role=e.get('semantic_role','connection'))
-    for p in spec.get('paths',[]):s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
-                                         exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'),
-                                         shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'))
+    for p in spec.get('paths',[]):
+        if p.get('fill') is not None or p.get('closed') or p.get('gray') not in (None,0):
+            if p.get('arrow') or p.get('both') or p.get('endpoint_nodes'):
+                raise FigureError('polygon_connection_unsupported','填充或灰度多边形不支持连接语义',id=p['id'])
+            s.poly(p['id'],p['points'],fill=p.get('fill'),gray=p.get('gray',0),width=p.get('width',.5),
+                   dash=p.get('dash'),closed=bool(p.get('closed')),
+                   semantic_role=p.get('semantic_role','decorative'),opacity=p.get('opacity'))
+        else:
+            s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
+                   exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'),
+                   shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'))
     return s.finish(spec['width_pt'],spec['height_pt'])
 
 
@@ -353,3 +361,5 @@ from .columns import columns
 DIAGRAMS["columns"]=columns
 from .grouped_chains import grouped_chains
 DIAGRAMS['grouped-chains'] = grouped_chains
+from .stage_grid import stage_grid
+DIAGRAMS['stage-grid'] = stage_grid
