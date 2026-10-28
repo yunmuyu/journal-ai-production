@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.28-emf-transform-candidate",
-  "createdAt": "2026-10-28T07:09:36.448Z",
+  "id": "2026.10.28-spacing-clip-candidate",
+  "createdAt": "2026-10-28T07:46:53.406Z",
   "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
@@ -12,8 +12,6 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "windowsDirectPdf": "967 passed, 7 subtests passed, 3 failures WinError 1314 before final focused tests",
-    "focused": "26 passed on Windows; guard selftest 19/19",
     "notVerified": [
       "Arbitrary EMF clip geometry and rendering",
       "All EMF map modes and records",
@@ -22,9 +20,11 @@
       "Print RIP",
       "Local Windows symlink privilege"
     ],
-    "strictPython": "no violations in 18 files (no-excuse checker); basedpyright and ruff not run",
     "status": "candidate-not-deployed",
-    "gdi": "synthetic world transform order and viewport mapping matched Windows GDI"
+    "strictPython": "no violations in 18 figure_audit files (no-excuse checker); basedpyright and ruff not run",
+    "focused": "57 affected tests passed after helper extraction; guard selftest 19/19",
+    "windowsDirectPdf": "984 passed, 7 subtests passed, 3 WinError 1314 symlink privilege failures; before final helper extraction",
+    "gdi": "synthetic clip offsets under anisotropic mapping and 90-degree world rotation matched Windows GDI"
   },
   "files": [
     {
@@ -429,7 +429,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.28-figure-audit-candidate",
+  "supersedes": "2026.10.28-emf-transform-candidate",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -534,8 +534,8 @@
     },
     {
       "path": "direct-pdf/docs/FIGURE-AUDIT.md",
-      "sha256": "457e490dc0cc04dd25a01c44fd0fd0f618f079a6b3a307a4011b6befdd8f00b0",
-      "bytes": 3317
+      "sha256": "4b4f38d0449298d5296c359846fb0c09ee8c32e86a6e6ce06cb6dd3b7272c7f2",
+      "bytes": 3632
     },
     {
       "path": "direct-pdf/docs/FIRST-PASS-SPEED.md",
@@ -604,8 +604,8 @@
     },
     {
       "path": "direct-pdf/docs/SOURCE-TEXT-COVERAGE.md",
-      "sha256": "05b9da71ec67456bd81fd260e1a56a403a4051904834218c4a39fbddc6f9fec9",
-      "bytes": 6814
+      "sha256": "2d5f13ad36cf37ee3bc9a16a6b4d67aebe97839dd54467e1c394062da3b4fa1f",
+      "bytes": 6848
     },
     {
       "path": "direct-pdf/docs/STAGE-GRID.md",
@@ -649,13 +649,13 @@
     },
     {
       "path": "direct-pdf/figure_audit/emf_geometry.py",
-      "sha256": "947a77711d1a7309e540a6e942f1d4540f2496937fafa7ffb81e16a6c792ff2c",
-      "bytes": 1421
+      "sha256": "021f50a9e438163226c4d760ed49717c880f3e4df423a87914d2ccc0d450a971",
+      "bytes": 2030
     },
     {
       "path": "direct-pdf/figure_audit/emf_parser.py",
-      "sha256": "6401fabfa73d47708b18fbb130eaeb4e9ca4da12197dd39b52184a5eb7845f56",
-      "bytes": 13246
+      "sha256": "1991aae847dc5004710788070bb3b8e52d2579014bbde2fbcf870d0684922a28",
+      "bytes": 13259
     },
     {
       "path": "direct-pdf/figure_audit/emf.py",
@@ -674,8 +674,8 @@
     },
     {
       "path": "direct-pdf/figure_audit/guard_checks.py",
-      "sha256": "2e799839ae6bba3d8d8aaca56195aad1555d3f8112b76c348351dbd5c5ba7a9c",
-      "bytes": 6994
+      "sha256": "e6c74173a4c9d9920d9ef8e72041306f7fd6b85f29d2909d21860a8a833c731c",
+      "bytes": 6756
     },
     {
       "path": "direct-pdf/figure_audit/guard_core.py",
@@ -699,8 +699,8 @@
     },
     {
       "path": "direct-pdf/figure_audit/selftest.py",
-      "sha256": "21531b3397a9c064fa484b28fdc95f4342e90670ab8c864fdde7bdb75fedbd54",
-      "bytes": 7163
+      "sha256": "dda4aaffc6546a4e2ccc1ef8e039de8f8fbca0c84d97ac247dffc43711128d24",
+      "bytes": 7154
     },
     {
       "path": "direct-pdf/figure_audit/spacing_rules.json",
@@ -884,8 +884,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/quantity_spacing.py",
-      "sha256": "0915ee9fa4e30159ffb6830a4764528146ff2e04d91c549affe0726fc63d43fb",
-      "bytes": 4384
+      "sha256": "148892bb9991126d3c0f76a11c03242a5e38619d01a82996281a60e07ae9dcfe",
+      "bytes": 4421
     },
     {
       "path": "direct-pdf/journal_pdf/raster_preprocess.py",
@@ -1099,8 +1099,8 @@
     },
     {
       "path": "direct-pdf/tests/test_figure_audit_contract.py",
-      "sha256": "521e9b299a0f1d420a94446eaa235c4a24d41f25234b88764e94b7b22183750e",
-      "bytes": 16259
+      "sha256": "6b1a65b5a245ce69cab3b15b2072b2a08e762dfff22165a71915e776c76cd041",
+      "bytes": 22327
     },
     {
       "path": "direct-pdf/tests/test_final_layout_regressions.py",
@@ -1224,8 +1224,8 @@
     },
     {
       "path": "direct-pdf/tests/test_quantity_spacing.py",
-      "sha256": "c8091bb727e2bb0742052ca5d63d82d625e3de6f6d6e34b6319769c46b3fab32",
-      "bytes": 8961
+      "sha256": "c3c797315c92f942863ebb55dfac9a3aa3da0a6edeae222b3bfebc3851abe2dd",
+      "bytes": 10338
     },
     {
       "path": "direct-pdf/tests/test_raster_preprocess.py",
