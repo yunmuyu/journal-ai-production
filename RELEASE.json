@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.28-emf-mapping-clip-candidate",
-  "createdAt": "2026-10-28T07:58:11.814Z",
+  "id": "2026.10.28-isotropic-vector-clip-candidate",
+  "createdAt": "2026-10-28T08:12:56.778Z",
   "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
@@ -12,20 +12,21 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "windowsDirectPdf": "1005 passed, 7 subtests passed, 3 WinError 1314 symlink privilege failures; before final boundary checks",
-    "status": "candidate-not-deployed",
-    "gdi": "predefined physical modes, scaled extents and exclusion/offset tested against Windows GDI",
-    "focused": "108 related tests passed after final changes",
     "notVerified": [
-      "MM_ISOTROPIC and arbitrary clip region combinations",
-      "Full EMF clipping geometry and rendering",
-      "Device-region rounding",
-      "Real manuscript end-to-end acceptance",
+      "Non-square playback DPI native validation",
+      "Text and ellipse clipping",
+      "Bitmap and exact stroked-outline clipping",
+      "GDI integer region rounding",
+      "All EMF records and full rendering",
       "Adobe/InDesign placement",
       "Print RIP",
       "Local Windows symlink privilege"
     ],
-    "strictPython": "no violations in 19 figure_audit files (no-excuse checker); basedpyright and ruff not run"
+    "windowsDirectPdf": "1029 passed, 7 subtests passed, 3 WinError 1314 symlink privilege failures; before final supplemental tests and small checks",
+    "status": "candidate-not-deployed",
+    "gdi": "synthetic isotropic mapping, extent scaling, region combinations, metaclip and shear compared with Windows GDI on equal-DPI device",
+    "focused": "97 EMF and crop tests passed on final code; optional Shapely 2.1.2 installed in isolated work directory",
+    "strictPython": "no violations in 20 figure_audit files (no-excuse checker); basedpyright and ruff not run"
   },
   "files": [
     {
@@ -430,7 +431,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.28-spacing-clip-candidate",
+  "supersedes": "2026.10.28-emf-mapping-clip-candidate",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -535,8 +536,8 @@
     },
     {
       "path": "direct-pdf/docs/FIGURE-AUDIT.md",
-      "sha256": "017bf1e29b5076d46dd1865107abe79cc4a3e7945737b1fe0d8a1f61bcc1e72b",
-      "bytes": 3994
+      "sha256": "e0a743153d45fd5ef306a6416ecfae79aca2c103d13b362787a0ae12140a01b5",
+      "bytes": 4576
     },
     {
       "path": "direct-pdf/docs/FIRST-PASS-SPEED.md",
@@ -649,24 +650,29 @@
       "bytes": 0
     },
     {
+      "path": "direct-pdf/figure_audit/emf_clip_geometry.py",
+      "sha256": "8501a356e088b4ba982491b0f4f57533b61d38159d8708c8b0c81447441c70ca",
+      "bytes": 6520
+    },
+    {
       "path": "direct-pdf/figure_audit/emf_geometry.py",
-      "sha256": "e513d7d5e68eee4cad17810de8028cb742036967eb039583605719eb6a4f097a",
-      "bytes": 3896
+      "sha256": "4f8184ef8750af7c6925c250e4d33fad13dad42a9d12f274762c75807498c55a",
+      "bytes": 4764
     },
     {
       "path": "direct-pdf/figure_audit/emf_mapping.py",
-      "sha256": "f7799483a8ccf58cd818e8d36441936c59d08932751ab8c5095565330e5eddf4",
-      "bytes": 2740
+      "sha256": "88ef51e83676be62cef998f856477049132c765d34cf500fe54e0bb81e0ae3d3",
+      "bytes": 3790
     },
     {
       "path": "direct-pdf/figure_audit/emf_parser.py",
-      "sha256": "e2c50db47b84f1d8d546d844d6dbcc68cdce04e57f1c578f94da72726505b2d2",
-      "bytes": 12767
+      "sha256": "35276b0e0c60f4e81b9df03fa0a317d5c058fdcc85c392eb3be7843551d6ad88",
+      "bytes": 13663
     },
     {
       "path": "direct-pdf/figure_audit/emf.py",
-      "sha256": "7a799edf46152772b3f3cdd7cff4ec3005a85fdac9f779577aa9ae46ecb68730",
-      "bytes": 2817
+      "sha256": "be05673d9bffed9ae421abbf0c025a6be6e0563ec69558d477c558222bbc18ae",
+      "bytes": 4548
     },
     {
       "path": "direct-pdf/figure_audit/errors.py",
@@ -1024,6 +1030,11 @@
       "bytes": 7570
     },
     {
+      "path": "direct-pdf/requirements-clip.txt",
+      "sha256": "a9da53f34af90c2cc5b9ee96f0ef865935582d869aba11fb0eeb105cb01d6e63",
+      "bytes": 15
+    },
+    {
       "path": "direct-pdf/requirements-dev.txt",
       "sha256": "ebc319f05921f7d8d196fb93e7e47ffabc2cdda3dbd7e261d76a8fbc5ea099c8",
       "bytes": 34
@@ -1099,9 +1110,14 @@
       "bytes": 19466
     },
     {
+      "path": "direct-pdf/tests/test_emf_clip_geometry.py",
+      "sha256": "3530475d3d76b6dfa5946d280654fb174af9f5a46504cf8d61b9a6ec0a85c86d",
+      "bytes": 11860
+    },
+    {
       "path": "direct-pdf/tests/test_emf_mapping_clip.py",
-      "sha256": "72a5354a3d102cbb260eeed64e486155e290115f207daf674e6942adc4b05131",
-      "bytes": 9798
+      "sha256": "ff2c49eead6630d60ba2720f9cd599e8cf5b3795254b260422a8c6b9e30e906a",
+      "bytes": 13790
     },
     {
       "path": "direct-pdf/tests/test_export_crop_padding.py",
