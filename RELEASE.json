@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.28-spacing-clip-candidate",
-  "createdAt": "2026-10-28T07:46:53.406Z",
+  "id": "2026.10.28-emf-mapping-clip-candidate",
+  "createdAt": "2026-10-28T07:58:11.814Z",
   "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
@@ -12,19 +12,20 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
+    "windowsDirectPdf": "1005 passed, 7 subtests passed, 3 WinError 1314 symlink privilege failures; before final boundary checks",
+    "status": "candidate-not-deployed",
+    "gdi": "predefined physical modes, scaled extents and exclusion/offset tested against Windows GDI",
+    "focused": "108 related tests passed after final changes",
     "notVerified": [
-      "Arbitrary EMF clip geometry and rendering",
-      "All EMF map modes and records",
+      "MM_ISOTROPIC and arbitrary clip region combinations",
+      "Full EMF clipping geometry and rendering",
+      "Device-region rounding",
       "Real manuscript end-to-end acceptance",
       "Adobe/InDesign placement",
       "Print RIP",
       "Local Windows symlink privilege"
     ],
-    "status": "candidate-not-deployed",
-    "strictPython": "no violations in 18 figure_audit files (no-excuse checker); basedpyright and ruff not run",
-    "focused": "57 affected tests passed after helper extraction; guard selftest 19/19",
-    "windowsDirectPdf": "984 passed, 7 subtests passed, 3 WinError 1314 symlink privilege failures; before final helper extraction",
-    "gdi": "synthetic clip offsets under anisotropic mapping and 90-degree world rotation matched Windows GDI"
+    "strictPython": "no violations in 19 figure_audit files (no-excuse checker); basedpyright and ruff not run"
   },
   "files": [
     {
@@ -429,7 +430,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.28-emf-transform-candidate",
+  "supersedes": "2026.10.28-spacing-clip-candidate",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -534,8 +535,8 @@
     },
     {
       "path": "direct-pdf/docs/FIGURE-AUDIT.md",
-      "sha256": "4b4f38d0449298d5296c359846fb0c09ee8c32e86a6e6ce06cb6dd3b7272c7f2",
-      "bytes": 3632
+      "sha256": "017bf1e29b5076d46dd1865107abe79cc4a3e7945737b1fe0d8a1f61bcc1e72b",
+      "bytes": 3994
     },
     {
       "path": "direct-pdf/docs/FIRST-PASS-SPEED.md",
@@ -649,18 +650,23 @@
     },
     {
       "path": "direct-pdf/figure_audit/emf_geometry.py",
-      "sha256": "021f50a9e438163226c4d760ed49717c880f3e4df423a87914d2ccc0d450a971",
-      "bytes": 2030
+      "sha256": "e513d7d5e68eee4cad17810de8028cb742036967eb039583605719eb6a4f097a",
+      "bytes": 3896
+    },
+    {
+      "path": "direct-pdf/figure_audit/emf_mapping.py",
+      "sha256": "f7799483a8ccf58cd818e8d36441936c59d08932751ab8c5095565330e5eddf4",
+      "bytes": 2740
     },
     {
       "path": "direct-pdf/figure_audit/emf_parser.py",
-      "sha256": "1991aae847dc5004710788070bb3b8e52d2579014bbde2fbcf870d0684922a28",
-      "bytes": 13259
+      "sha256": "e2c50db47b84f1d8d546d844d6dbcc68cdce04e57f1c578f94da72726505b2d2",
+      "bytes": 12767
     },
     {
       "path": "direct-pdf/figure_audit/emf.py",
-      "sha256": "e9984f09477d0747c63bf47e1f3225a62839fce6bcc425a62eaba2bf651b03a4",
-      "bytes": 2690
+      "sha256": "7a799edf46152772b3f3cdd7cff4ec3005a85fdac9f779577aa9ae46ecb68730",
+      "bytes": 2817
     },
     {
       "path": "direct-pdf/figure_audit/errors.py",
@@ -1093,14 +1099,19 @@
       "bytes": 19466
     },
     {
+      "path": "direct-pdf/tests/test_emf_mapping_clip.py",
+      "sha256": "72a5354a3d102cbb260eeed64e486155e290115f207daf674e6942adc4b05131",
+      "bytes": 9798
+    },
+    {
       "path": "direct-pdf/tests/test_export_crop_padding.py",
       "sha256": "2153c47258456adba3a4197bf1d73f778f21e4d2605f8ed2ea16080195175e55",
       "bytes": 2497
     },
     {
       "path": "direct-pdf/tests/test_figure_audit_contract.py",
-      "sha256": "6b1a65b5a245ce69cab3b15b2072b2a08e762dfff22165a71915e776c76cd041",
-      "bytes": 22327
+      "sha256": "2ff1a9cb5f37ff31dd7cd0e7a713986e996cd864e5a6b82f363c6ac01319fee1",
+      "bytes": 22296
     },
     {
       "path": "direct-pdf/tests/test_final_layout_regressions.py",
