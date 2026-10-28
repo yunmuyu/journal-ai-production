@@ -254,7 +254,7 @@ def test_emf_offset_clip_uses_mapped_vector_and_restore(tmp_path):
 
 def test_emf_offset_clip_when_mapping_unknown_remains_unknown(tmp_path):
     pair = lambda x, y: struct.pack('<ii', x, y)
-    result=Emf(_emf_fixture(tmp_path, [_emf_record(31, struct.pack('<iiii',2,1,1,1)),
+    result=Emf(_emf_fixture(tmp_path, [_emf_record(115, struct.pack('<I',1)),
         _emf_record(26, pair(3,4)),_emf_record(27,pair(0,0)),_emf_record(54,pair(1,1))]))
     assert result.polys[0]['clip_status']=='unknown'
 
@@ -364,11 +364,11 @@ def test_emf_polylineto16_uses_logical_current_position(tmp_path):
 
 def test_emf_unsupported_clip_marks_subsequent_geometry_unknown(tmp_path):
     pair = lambda x, y: struct.pack('<ii', x, y)
-    records = [_emf_record(29, struct.pack('<iiii', 1, 1, 5, 5)),
+    records = [_emf_record(67, struct.pack('<I', 1)),
                _emf_record(27, pair(0, 0)), _emf_record(54, pair(9, 9))]
     result = Emf(_emf_fixture(tmp_path, records))
     assert result.polys[0]['clip_status'] == 'unknown'
-    assert result.unsupported_records[29] == 1
+    assert result.unsupported_records[67] == 1
 
 
 def test_emf_zero_text_reference_is_not_current_position_without_updatecp(tmp_path):
@@ -383,7 +383,7 @@ def test_emf_zero_text_reference_is_not_current_position_without_updatecp(tmp_pa
 
 def test_emf_unhandled_mapping_changes_mark_coordinates_unknown(tmp_path):
     pair = lambda x, y: struct.pack('<ii', x, y)
-    records = [_emf_record(31, struct.pack('<iiii', 2, 1, 1, 1)),
+    records = [_emf_record(115, struct.pack('<I', 1)),
                _emf_record(27, pair(0, 0)), _emf_record(54, pair(1, 1))]
     result = Emf(_emf_fixture(tmp_path, records))
     assert result.polys[0]['coordinate_status'] == 'unknown'

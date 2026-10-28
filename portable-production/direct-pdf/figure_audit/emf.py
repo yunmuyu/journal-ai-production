@@ -32,7 +32,8 @@ def to_json(path, out):
                          closed=pl['closed'], kind=pl['kind'],
                          width=round(pl['width'] * e.kx, 3),
                          fill=pl['fill'], stroke=pl['stroke'], clip_status=pl['clip_status'], coordinate_status=pl['coordinate_status'],
-                         clip_regions_mm=[[list(e.pt_of(point)) for point in region] for region in pl['clip_regions']]) for pl in e.polys])
+                         clip_regions_mm=[[list(e.pt_of(point)) for point in region] for region in pl['clip_regions']],
+                         clip_exclusions_mm=[[list(e.pt_of(point)) for point in region] for region in pl['clip_exclusions']]) for pl in e.polys])
     Path(out).write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding='utf-8')
     print('->', out, len(d['texts']), 'texts', len(d['polys']), 'polys')
 

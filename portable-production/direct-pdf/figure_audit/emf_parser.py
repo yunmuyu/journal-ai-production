@@ -1,7 +1,8 @@
 """Partial EMF record parser."""
 import struct
 from .errors import AuditInputError
-from .emf_geometry import IDENT, _crd, _xform, _mul, _device_point, _intersect_clip, _offset_clip
+from .emf_geometry import IDENT, _crd, _xform, _mul, _device_point, _read_transform
+from .emf_mapping import apply_mapping_clip
 
 class Emf:
     def __init__(self, path):
@@ -13,14 +14,17 @@ class Emf:
         self.polys = []
         self._validate_records()
         self._read_header()
-        self._run()
+        try:
+            self._run()
+        except struct.error as exc:
+            raise AuditInputError('truncated or malformed EMF record payload') from exc
 
     def _validate_records(self):
         """Reject malformed records and retain counts for unsupported constructs."""
         d = self.data
         if len(d) < 88 or struct.unpack_from('<I', d, 0)[0] != 1 or d[40:44] != b' EMF':
             raise AuditInputError('invalid EMF header')
-        supported = {1, 14, 18, 22, 24, 26, 27, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 54, 82, 83, 84, 86, 87, 89, 3, 4, 9, 10, 11, 12, 95, 17, 30}
+        supported = {1, 14, 18, 22, 24, 26, 27, 29, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 54, 82, 83, 84, 86, 87, 89, 3, 4, 9, 10, 11, 12, 95, 17, 30}
         self.unsupported_records = {}
         offset = 0
         eof = False
@@ -61,7 +65,7 @@ class Emf:
         state = {
             'color': (0, 0, 0), 'fill': None, 'pen_w': 0.0,
             'font': None, 'tcolor': (0, 0, 0), 'align': 0, 'bkmode': 2,
-            'm': IDENT, 'map_mode': 1, 'clip_regions': (), 'clip_status': 'partial', 'coordinate_status': 'partial',
+            'm': IDENT, 'map_mode': 1, 'dev': self.dev, 'dev_mm': self.dev_mm, 'clip_regions': (), 'clip_exclusions': (), 'clip_status': 'partial', 'meta_clip_unknown': False, 'coordinate_status': 'partial',
         }
         stack = []
         objs = {}
@@ -129,9 +133,9 @@ class Emf:
                 state, cur = stack[index]
                 del stack[index:]
             elif t == 35:
-                state['m'] = struct.unpack('<6f', p[8:32])
+                state['m'] = _read_transform(p[8:32])
             elif t == 36:
-                xf = struct.unpack('<6f', p[8:32])
+                xf = _read_transform(p[8:32])
                 mode = struct.unpack('<I', p[32:36])[0]
                 if mode == 4:
                     state['m'] = xf
@@ -144,25 +148,8 @@ class Emf:
                 else:
                     state['coordinate_status'] = 'unknown'
                     state['clip_status'] = 'unknown'
-            elif t in (31, 32, 115):
-                state['coordinate_status'] = 'unknown'
-                state['clip_status'] = 'unknown'
-            elif t in (28, 29, 67, 75):
-                state['clip_status'] = 'unknown'
-            elif t == 17:
-                state['map_mode'] = struct.unpack('<I', p[8:12])[0]
-                if state['map_mode'] not in (1, 8):
-                    raise AuditInputError('unsupported EMF mapping mode')
-            elif t == 30:
-                _intersect_clip(state, struct.unpack('<iiii', p[8:24]))
-            elif t == 26:  # OFFSETCLIPRGN: a logical vector, not a point.
-                _offset_clip(state, struct.unpack('<ii', p[8:16]))
-            elif t in (9, 11):  # SETWINDOWEXTEX / SETVIEWPORTEXTEX
-                ex, ey = struct.unpack('<ii', p[8:16])
-                state['win_ext' if t == 9 else 'vp_ext'] = (ex, ey)
-            elif t == 10 or t == 12:
-                ox, oy = struct.unpack('<ii', p[8:16])
-                state['win_org' if t == 10 else 'vp_org'] = (ox, oy)
+            elif apply_mapping_clip(t, p, state):
+                pass
             elif t == 27:  # MOVETOEX
                 cur = struct.unpack('<ii', p[8:16])
             elif t == 54:  # LINETO
@@ -219,7 +206,7 @@ class Emf:
                         o = _device_point(org, state)
                         bb = [o, (o[0] + w_px, o[1] + h_px)]
                     self.texts.append(dict(
-                        text=s, ref=_device_point(org, state), bbox=bb, fopt=fopt, clip_regions=state['clip_regions'], clip_status=state['clip_status'], coordinate_status=state['coordinate_status'],
+                        text=s, ref=_device_point(org, state), bbox=bb, fopt=fopt, clip_regions=state['clip_regions'], clip_exclusions=state['clip_exclusions'], clip_status=state['clip_status'], coordinate_status=state['coordinate_status'],
                         h_px=h_px, weight=f['weight'], italic=f['italic'],
                         face=f['face'], color=state['tcolor'], align=state['align']))
                     if state['align'] & 1:
@@ -231,7 +218,7 @@ class Emf:
             return
         self.polys.append(dict(pts=pts, closed=closed, kind=kind,
                                stroke=state['color'], width=state['pen_w'],
-                               fill=state['fill'], clip_regions=state['clip_regions'], clip_status=state['clip_status'], coordinate_status=state['coordinate_status']))
+                               fill=state['fill'], clip_regions=state['clip_regions'], clip_exclusions=state['clip_exclusions'], clip_status=state['clip_status'], coordinate_status=state['coordinate_status']))
 
     # ---------- 输出 ----------
     def to_mm(self, px, py):
@@ -255,7 +242,8 @@ class Emf:
                             size=round(self.size_pt(t['h_px']), 2),
                             weight=t['weight'], italic=t['italic'], face=t['face'],
                             gray=round(sum(t['color']) / 3, 3), bbox_estimated=True, clip_status=t['clip_status'], coordinate_status=t['coordinate_status'],
-                            clip_regions_mm=[[list(self.pt_of(point)) for point in region] for region in t['clip_regions']]))
+                            clip_regions_mm=[[list(self.pt_of(point)) for point in region] for region in t['clip_regions']],
+                            clip_exclusions_mm=[[list(self.pt_of(point)) for point in region] for region in t['clip_exclusions']]))
         return out
 
     def font_stats(self):
