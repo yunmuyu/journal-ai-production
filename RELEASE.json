@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.28-r37-figure-tools",
-  "createdAt": "2026-10-28T09:30:38.894Z",
+  "id": "2026.10.29-r39-editorial-feedback",
+  "createdAt": "2026-10-29T04:44:59.103Z",
   "status": "released",
   "constraints": {
     "fontSizePt": {
@@ -12,20 +12,13 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "status": "released-not-deployed",
-    "directPdf": "1039 passed and 7 subtests passed; three local Windows symlink privilege failures reproduced in prior baseline; one Shapely-dependent file skipped in this run",
-    "measuredRows": "40 focused tests passed, including generated PDF row alignment",
-    "optionalClipping": "28 clipping and measured-row tests passed from extracted candidate package with isolated Shapely 2.1.2",
-    "localflow": "121 passed and 2 subtests passed; five Windows symlink privilege failures; editorial font/coverage focused suite 22 passed",
-    "priorGithubWindows": "11 synthetic symlink/cross-format checks passed on candidate commit; final release commit checks required",
-    "notVerified": [
-      "automatic source topology recognition",
-      "all EMF records and full rendering",
-      "Adobe/InDesign placement",
-      "print output",
-      "deployment on existing machines"
-    ],
-    "extractedPackage": "50 font gate, source coverage, aligned-row and optional clipping tests passed; 247 file hashes verified"
+    "platform": "Windows 11",
+    "preflight": "138 passed",
+    "scope": "Manual review required; spacing defaults unchanged pending editor input",
+    "task_quality": "43 passed",
+    "direct_pdf_focused": "93 passed, including optional Shapely clip geometry",
+    "direct_pdf_full": "1075 passed, 3 Windows symlink tests blocked by WinError 1314, one changed expectation subsequently passed in focused run",
+    "integration": "Private source-bound 12-label SVG case rendered and audited locally"
   },
   "files": [
     {
@@ -430,7 +423,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.28-measured-row-alignment-candidate",
+  "supersedes": "2026.10.28-r38-prescan",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -540,8 +533,8 @@
     },
     {
       "path": "direct-pdf/docs/FIGURE-AUDIT.md",
-      "sha256": "e0a743153d45fd5ef306a6416ecfae79aca2c103d13b362787a0ae12140a01b5",
-      "bytes": 4576
+      "sha256": "87d680f392fd843dfdc694cd968d0a313527561edf3da5c66dec403ee3e177d5",
+      "bytes": 5386
     },
     {
       "path": "direct-pdf/docs/FIRST-PASS-SPEED.md",
@@ -580,8 +573,8 @@
     },
     {
       "path": "direct-pdf/docs/MEASURED-ROWS.md",
-      "sha256": "9ee6cf322369552864916d0e6b23432cba9f699c099fd132c7cc3046fd9e304a",
-      "bytes": 1341
+      "sha256": "02e342c2fa4880d19a02845d57f5865c55825ea2b35e944ac1d547d51899f28c",
+      "bytes": 1593
     },
     {
       "path": "direct-pdf/docs/NEW-v0.1.2.1.md",
@@ -715,8 +708,13 @@
     },
     {
       "path": "direct-pdf/figure_audit/guard.py",
-      "sha256": "0b63314f41fcc310d15eb975b60ac65a1551334b87f6ad09a32475339fcce6bd",
-      "bytes": 5030
+      "sha256": "0a7174182a7da589691d579ca10fab736afec780534dc3fb96c6b4ab1dbf2bf5",
+      "bytes": 5149
+    },
+    {
+      "path": "direct-pdf/figure_audit/prescan.py",
+      "sha256": "7cd3b38f4d9d97cb8a3148e9ffa3e507ec59123eb2287693284f08a1b8f01a42",
+      "bytes": 4034
     },
     {
       "path": "direct-pdf/figure_audit/selftest.py",
@@ -780,13 +778,13 @@
     },
     {
       "path": "direct-pdf/journal_pdf/assets.py",
-      "sha256": "56185aeb8d816e1077e981a31944721f2f8a26ca26ba78c09625395d0c06a42b",
-      "bytes": 23231
+      "sha256": "e45aa7b3cdd36e7807dff096669d62c5bd18168d41e8467b2843c4228bf7362b",
+      "bytes": 23305
     },
     {
       "path": "direct-pdf/journal_pdf/axis_units.py",
-      "sha256": "a071f2165ea1d4c7a2f60fc1c15fd7199319141830901b106658cd080c1d4a20",
-      "bytes": 5275
+      "sha256": "6ae0721c00d5132595457d2b8434a5c135c58ada148658209a71c90cce079917",
+      "bytes": 6735
     },
     {
       "path": "direct-pdf/journal_pdf/batch.py",
@@ -824,14 +822,19 @@
       "bytes": 3853
     },
     {
+      "path": "direct-pdf/journal_pdf/data_labels.py",
+      "sha256": "915d7be85c6dc648dcad06a542914dd5d8b7be320931e66395c0b0cd17738f1e",
+      "bytes": 8214
+    },
+    {
       "path": "direct-pdf/journal_pdf/doctor.py",
       "sha256": "7675749e0c8a4169bb21a99ca407ae598441b515f5908481a453195571722504",
       "bytes": 1058
     },
     {
       "path": "direct-pdf/journal_pdf/editorial.py",
-      "sha256": "53dbf6cb324b2b341e8994c318e673e88e905202c87df801ce741ababdde5027",
-      "bytes": 9704
+      "sha256": "9e93d111363d53375b02523331b41fd46fc9f120e06694bd428102d785942b63",
+      "bytes": 9773
     },
     {
       "path": "direct-pdf/journal_pdf/flow_shapes.py",
@@ -890,8 +893,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/layouts.py",
-      "sha256": "7a34a19b94951b4e76d4cc38683327a4a747c4fd2bc6d965dd535e88133f51eb",
-      "bytes": 25148
+      "sha256": "44b94df9767801efde87cb42648a4d06e577beb2d17cbcc06ad3caa8a217c9a9",
+      "bytes": 25828
     },
     {
       "path": "direct-pdf/journal_pdf/numeric_audit.py",
@@ -910,8 +913,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/quantity_spacing.py",
-      "sha256": "148892bb9991126d3c0f76a11c03242a5e38619d01a82996281a60e07ae9dcfe",
-      "bytes": 4421
+      "sha256": "17ea32a489e97210f1a9c9d5f7021c5e86a0e4a277248acc4e79739c211d1282",
+      "bytes": 4476
     },
     {
       "path": "direct-pdf/journal_pdf/raster_preprocess.py",
@@ -920,8 +923,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/render.py",
-      "sha256": "442fe4ff775a9e9d4e225189b6f6ba59f07b5028b12322ed334dc9b9bed624b0",
-      "bytes": 28870
+      "sha256": "86735e8793298fb911dbbb36a5bcd4cf66504fd3dcdace715c742aca1aa39431",
+      "bytes": 29625
     },
     {
       "path": "direct-pdf/journal_pdf/rules_registry.py",
@@ -930,8 +933,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/scene.py",
-      "sha256": "6c73b0b24d233e30f88e019a4ebc7b9862828cad5af580f533c912e4f841cc16",
-      "bytes": 26646
+      "sha256": "8766da5da5e17d5168d4d6b49811ba2ceebc2c912c5a27d83e22be5c2bfc1276",
+      "bytes": 26960
     },
     {
       "path": "direct-pdf/journal_pdf/scientific_text.py",
@@ -950,8 +953,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/source_icons.py",
-      "sha256": "9eee08b314c8747dda7d755cb8fe28c3e48aba027ef841abb7d4e795dc7f10b1",
-      "bytes": 13721
+      "sha256": "f79d3004053b3adc27c03b86288ac3d82d98db3f1070d29ff15af7e7fe12f6a0",
+      "bytes": 13884
     },
     {
       "path": "direct-pdf/journal_pdf/source_mixed_body.py",
@@ -1000,8 +1003,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/source_svg_groups.py",
-      "sha256": "b13b7b59f465847727c8a32e552ff744dad79d31d93637d1917b6840c7f3fa47",
-      "bytes": 4513
+      "sha256": "9a5c2432658ab0b6512c658c3f15209d5ad1d725fd98287d2ffc421e1a455c0f",
+      "bytes": 11542
     },
     {
       "path": "direct-pdf/journal_pdf/source_text_bindings.py",
@@ -1040,8 +1043,8 @@
     },
     {
       "path": "direct-pdf/README.md",
-      "sha256": "bbccf210c0bbcbc12cf778f7165439d3c5dcad47177203d7a3240d7a60281365",
-      "bytes": 5256
+      "sha256": "33c28ced4b9efbd3262572a24707cc1bf866f8a547d46f0d486e9987351df6ed",
+      "bytes": 6492
     },
     {
       "path": "direct-pdf/RELEASE-CANDIDATE.json",
@@ -1095,8 +1098,8 @@
     },
     {
       "path": "direct-pdf/tests/test_axis_units.py",
-      "sha256": "e0d50f6c9c3df390a1fa767a23f0b08bc2ecde8371116fde1214737aaf215c85",
-      "bytes": 3282
+      "sha256": "c9c13ebedfc29a10659a0ddfebb604819e18b0a4f6d84d7a1b16d226c32ab312",
+      "bytes": 4455
     },
     {
       "path": "direct-pdf/tests/test_bar_top_labels.py",
@@ -1119,6 +1122,11 @@
       "bytes": 3367
     },
     {
+      "path": "direct-pdf/tests/test_clipped_svg_group.py",
+      "sha256": "5e59654859b8f5be8f252756427b48bbfb9ff176c573e55d3cb15a4530020a95",
+      "bytes": 3684
+    },
+    {
       "path": "direct-pdf/tests/test_columns_layout.py",
       "sha256": "2b13f05ed7c34c9ca0494d7c0c995f9e43c12995c3e7e134a61ecefb5bda1f00",
       "bytes": 6360
@@ -1127,6 +1135,11 @@
       "path": "direct-pdf/tests/test_columns_relations.py",
       "sha256": "27ae0f1ca792dfef4e6143ea86fe4657c84dc3abdc0514607b09797ebd3d7f4f",
       "bytes": 6938
+    },
+    {
+      "path": "direct-pdf/tests/test_data_label_bindings.py",
+      "sha256": "f41423011b6f2ce1125a5622187659a9e69363221b7717c6c5de15e301bf6ba4",
+      "bytes": 4157
     },
     {
       "path": "direct-pdf/tests/test_editorial_rules.py",
@@ -1189,6 +1202,11 @@
       "bytes": 14479
     },
     {
+      "path": "direct-pdf/tests/test_imported_font_collision.py",
+      "sha256": "44eb8adcbc7c5542be778285d9ed8a2c4848668db298f44db0005ea9f7da4a90",
+      "bytes": 1789
+    },
+    {
       "path": "direct-pdf/tests/test_ingest_v020.py",
       "sha256": "30134f20499a0303bf2803450c71b0da5d6188a373fab8793970febdc2b7382d",
       "bytes": 19936
@@ -1210,8 +1228,8 @@
     },
     {
       "path": "direct-pdf/tests/test_measured_row_width.py",
-      "sha256": "3b2fcbcf4f0a2b211dc39bb9e6046834b9455a0765884d65851e1dca50e9a5d3",
-      "bytes": 3457
+      "sha256": "58d76ace10451ef5f7acf01a51d42ae2da52201b4f25a4045aa6bb656974900b",
+      "bytes": 4581
     },
     {
       "path": "direct-pdf/tests/test_native_crop_contracts.py",
@@ -1274,14 +1292,19 @@
       "bytes": 6936
     },
     {
+      "path": "direct-pdf/tests/test_prescan_evidence.py",
+      "sha256": "fbeec4e8970f2e093b946f23cdf98c46978f32c351f6d3739069ceb3655e44de",
+      "bytes": 2622
+    },
+    {
       "path": "direct-pdf/tests/test_production_font_policy.py",
       "sha256": "66e7af10b607ea6d253791254ebce2d81c1296f684b58b4fdcc50e5f9e929320",
       "bytes": 13085
     },
     {
       "path": "direct-pdf/tests/test_quantity_spacing.py",
-      "sha256": "c3c797315c92f942863ebb55dfac9a3aa3da0a6edeae222b3bfebc3851abe2dd",
-      "bytes": 10338
+      "sha256": "9c0bd30888683c85c509ccdaed4e0f037b6a2986bbc5613863dc9ab942e8c890",
+      "bytes": 10483
     },
     {
       "path": "direct-pdf/tests/test_raster_preprocess.py",
@@ -1500,8 +1523,8 @@
     },
     {
       "path": "preflight/journal_preflight/route_suggestion.py",
-      "sha256": "d54ab8cb720c72e8f5f0082581fc52736564891683b3a6d280e7d3359db63cb5",
-      "bytes": 6495
+      "sha256": "5cb770d97c469edd6ec23df125344e3da277854c7beb571db2a5ab3e70e38457",
+      "bytes": 8044
     },
     {
       "path": "preflight/journal_preflight/routing.py",
@@ -1520,8 +1543,8 @@
     },
     {
       "path": "preflight/README.md",
-      "sha256": "52ae24852843095e3fa2e23ff363229fd2e6b4ae5a422e83903c3ef62496f933",
-      "bytes": 5840
+      "sha256": "1a7f1ac265b0e9b2d6266a1969b0ee08a2b03ba7214109624200b0414c69d94d",
+      "bytes": 6401
     },
     {
       "path": "preflight/RELEASE-CANDIDATE.json",
@@ -1545,8 +1568,8 @@
     },
     {
       "path": "preflight/tests/test_route_suggestion.py",
-      "sha256": "d180f4ec86a8ce21c68f850ae77869247083de29ecd99b09128ab117c13edd18",
-      "bytes": 5539
+      "sha256": "1e08a40018a259c849e5121450931ae54a4299d07bedad878c25bc46cfb0ff48",
+      "bytes": 7444
     },
     {
       "path": "quality-recipes/diagram-relations.mjs",
@@ -1585,8 +1608,8 @@
     },
     {
       "path": "task_quality/gate.py",
-      "sha256": "85d275f2c1b7ae61103665e7c4b3773db728a25f493359861bfc85d219530d61",
-      "bytes": 7322
+      "sha256": "4f281d3ac7a4f41d6ed0394638c4061d4761f23c0dbb9cc02fa211e5962bcec0",
+      "bytes": 7888
     },
     {
       "path": "task_quality/models.py",
@@ -1605,8 +1628,8 @@
     },
     {
       "path": "task-quality-workflow.md",
-      "sha256": "139e60df5e27e45bc10775e9e2b8698a96c8690d97353ab7defab856aa1489be",
-      "bytes": 7228
+      "sha256": "35965b9745cb015cb7bf4e0d4e4581d9495d3360270f0677cc27a9bb33e45553",
+      "bytes": 7512
     },
     {
       "path": "tests-local/test_editorial_gate.py",
@@ -1650,8 +1673,8 @@
     },
     {
       "path": "tests-task/test_artifact_set.py",
-      "sha256": "c222ea564955eaacecb9f5f12d02eaa10e1138e330ad98e28eefe8fc05a934bb",
-      "bytes": 1339
+      "sha256": "fb68b043763b53679613d16ceb484b921f23900307af6a20e36244b10788b326",
+      "bytes": 1938
     },
     {
       "path": "tests-task/test_gate.py",

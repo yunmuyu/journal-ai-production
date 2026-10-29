@@ -26,3 +26,11 @@ The optional clipped stroke is a **centerline**, not a complete clipped stroked 
 The state model follows [Microsoft EMF region definitions](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/939400bc-0ecd-4a28-aa8c-60c7e4cc9877), [world transform modes](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/e6bb2996-195f-473f-80c6-9dc1afe474f9), [intersect clip records](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/13cd0c98-d4e9-4ca7-a79d-58055bf45c79) and [offset clip records](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/8bf2b60d-3b19-4bd1-b2d7-c89b027ad808).
 
 Do not upload author PDFs, EMF files, reports, local baselines, paths or font data to public version control. Test figures used in this repository are synthetic.
+
+# 单页 PDF 预检
+
+在 `portable-production/direct-pdf` 下运行 `python -m figure_audit.prescan 图.pdf --json 新报告.json`。报告记录整页尺寸、源文件 SHA-256、可提取文字的字号分布，以及整页等比缩到 80 mm 和 160 mm 时的主字号估算（不放大）。报告文件必须不存在，避免覆盖原稿或已有报告。
+
+预检只提供证据，始终返回 `INCOMPLETE` 和退出码 3；输入或输出失败返回 2。它不判断能否排成单栏、不判定合格，也不考虑裁边、重排、换字或位图文字，仍需逐图核对。
+
+图形确需保留位图时，守门器可显式指定 `--allow-bitmap N`（默认 0）。这个参数只设定图片数量上限，并不能证明图片完整、顺序正确或内容清晰；仍需对照原图检查。

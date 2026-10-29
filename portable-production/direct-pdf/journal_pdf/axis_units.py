@@ -1,7 +1,7 @@
 """Axis-only, style-preserving application of the 2026-10-09 slash rule.
 No numerical scale conversion, translation, variable rewriting or global regex.
-Only unambiguous terminal SINGLE unit tokens are automatic. Compound units and
-unknown parenthetical content are left for a semantic unit parser, not guessed.
+Recognized terminal unit expressions are automatic; unknown expressions are
+left for semantic review. No unit conversion or spelling correction occurs.
 """
 from __future__ import annotations
 import copy
@@ -12,7 +12,7 @@ AXIS_UNIT_RULE = {
     "id": "axis-quantity-slash-unit-20261009-v1",
     "source": "production-runtime/references/editorial-profile.md",
     "source_blob": "d588e694daf7a9e601fe9614da581755197e498a",
-    "scope": "axis-title, recognized terminal single-unit tokens only",
+    "scope": "axis-title, recognized terminal single and compound units",
 }
 # Case-sensitive: do not silently repair spelling or change a scale.
 _SIMPLE = {"%", "‰", "°", "°C", "℃", "dB", "dBm", "rad", "sr", "min", "h", "L", "l", "t"}
@@ -33,6 +33,19 @@ def is_known_single_unit(value: str) -> bool:
     return value in _SIMPLE or value in _BASE or any(value.startswith(p) and value[len(p):] in _BASE for p in _PREFIX)
 
 
+def is_known_compound_unit(value: str) -> bool:
+    # Parse only explicit multiplication/division of known unit atoms. An
+    # unknown term remains a review item rather than a guess at its meaning.
+    parts = re.split(r'\s*([/·*])\s*', value)
+    if len(parts) < 3 or len(parts) % 2 == 0:
+        return False
+    for atom in parts[::2]:
+        match = re.fullmatch(r'([^\s^⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+)(?:\^-?\d+|[⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)?', atom)
+        if not match or not (is_known_single_unit(match.group(1)) or match.group(1) in {'次','秒','分钟','小时'}):
+            return False
+    return True
+
+
 def _rewrite_plan(raw):
     match = _TERMINAL.search(raw)
     if not match:
@@ -47,11 +60,14 @@ def _rewrite_plan(raw):
     # identified as quantity names by this conservative fallback parser.
     if not quantity or quantity.endswith('/') or any(c in quantity for c in '=()（）\n'):
         return None
-    if not is_known_single_unit(unit):
+    compound = is_known_compound_unit(unit)
+    if not compound and not is_known_single_unit(unit):
         return None
     ustart = match.start('unit') + len(match['unit']) - len(match['unit'].lstrip())
     uend = match.end('unit') - len(match['unit']) + len(match['unit'].rstrip())
-    return qend, ustart, uend, quantity + '/' + unit
+    formatted_unit = '次 / 分钟' if re.fullmatch(r'次\s*/\s*分钟', unit) else unit
+    normalized = quantity + ('/（' + formatted_unit + '）' if compound else '/' + unit)
+    return qend, ustart, uend, normalized, compound
 
 
 def _slice_parts(parts, start, end):
@@ -71,10 +87,18 @@ def normalize_axis_title(content, role='axis-title'):
     raw=plain_content(content);plan=_rewrite_plan(raw)
     if plan is None:
         return copy.deepcopy(content)
-    qend,ustart,uend,normalized=plan
+    qend,ustart,uend,normalized,compound=plan
     if isinstance(content,str): return normalized
     # Preserve variable italics, subscripts, and the existing unit's style. The
     # inserted separator alone uses ordinary baseline and upright Roman type.
+    if compound and re.fullmatch(r'次\s*/\s*分钟',raw[ustart:uend]):
+        minute=raw.index('分钟',ustart,uend)
+        return (_slice_parts(content,0,qend) + [{'text':'/（','style':'regular'}]
+                + _slice_parts(content,ustart,ustart+1) + [{'text':' / ','style':'regular'}]
+                + _slice_parts(content,minute,minute+2) + [{'text':'）','style':'regular'}])
+    if compound:
+        return (_slice_parts(content,0,qend) + [{'text':'/（','style':'regular'}]
+                + _slice_parts(content,ustart,uend) + [{'text':'）','style':'regular'}])
     return _slice_parts(content,0,qend) + [{'text':'/','style':'regular'}] + _slice_parts(content,ustart,uend)
 
 
@@ -103,4 +127,4 @@ def audit_axis_titles(scene, actual_text):
         checks.append({'id':item['id'],**ev,'actual_pdf_contains_expected':expected in actual,'scene_matches_rule':scene_display==expected})
         if not ok: issues.append({'code':'axis_unit_rule_violation','id':item['id'],'expected':ev['display'],'scene_display':item['measurement']['text']})
     return {'rule':AXIS_UNIT_RULE,'checks':checks,'issues':issues,'ok':not issues,
-            'scope_note':'Confirmed simple unit labels only; not a global dimensional-consistency audit.'}
+            'scope_note':'Recognized explicit unit expressions only; not a global dimensional-consistency audit.'}

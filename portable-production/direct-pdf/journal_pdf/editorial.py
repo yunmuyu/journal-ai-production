@@ -178,6 +178,7 @@ def scale_scene(scene, factor):
     for a in scene.assets:a['rect']=[v*factor for v in a['rect']]
     for group in scene.measurement_groups.values():
         if 'cell_width_pt' in group:group['cell_width_pt']*=factor
+        if 'cell_height_pt' in group:group['cell_height_pt']*=factor
     for t in scene.texts:
         m=copy.deepcopy(t['measurement'])
         for key in ('width','height','size'):m[key]*=factor

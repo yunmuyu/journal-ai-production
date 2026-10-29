@@ -11,7 +11,8 @@ from journal_pdf.editorial import display_content
  ('电阻（kΩ）','电阻/kΩ'),('Accuracy(%)','Accuracy/%'),
  ('Freq/Hz','Freq/Hz'),('MCC','MCC'),('AUC','AUC'),('train/loss','train/loss'),
  ('P(x)','P(x)'),('理想线（y=x）','理想线（y=x）'),
- ('f(x) (Hz)','f(x) (Hz)'),('速度(m/s)','速度(m/s)'),
+ ('f(x) (Hz)','f(x) (Hz)'),('速度(m/s)','速度/（m/s）'),
+ ('密度（kg/m³）','密度/（kg/m³）'),('电量（kW·h）','电量/（kW·h）'),
  ('Freq(Hz）','Freq(Hz）'),('Freq/（Hz）','Freq/（Hz）'),
 ])
 def test_axis_only_normalization(source,expected):
@@ -48,8 +49,33 @@ def test_audit_accepts_actual_normalized_text():
 
 
 def test_unsupported_formula_is_not_claimed_as_completed():
- assert axis_title_evidence('速度(m/s)')['status']=='semantic_review_needed'
+ assert axis_title_evidence('速度(未知/秒)')['status']=='semantic_review_needed'
  assert not axis_title_evidence('Freq(Hz)')['numeric_scale_changed']
+
+
+@pytest.mark.parametrize('source', [
+ 'getfileinfo 速率（次 / 分钟）',
+ 'getfileinfo 速率(次/分钟)',
+])
+def test_confirmed_occurrence_rate_axis_normalizes_without_changing_quantity(source):
+ expected = 'getfileinfo 速率/（次 / 分钟）'
+ assert normalize_axis_title(source) == expected
+ assert normalize_axis_title(expected) == expected
+ assert normalize_axis_title(source, 'label') == source
+ assert axis_title_evidence(source)['status'] == 'normalized'
+
+
+def test_occurrence_rate_rich_text_preserves_quantity_styles():
+ source = [{'text':'getfileinfo','style':'italic'}, {'text':' 速率（次 / 分钟）'}]
+ result = normalize_axis_title(source)
+ assert result[0] == source[0]
+ assert plain_content(result) == 'getfileinfo 速率/（次 / 分钟）'
+ assert source[1]['text'] == ' 速率（次 / 分钟）'
+
+
+@pytest.mark.parametrize('source', ['说明（次 / 分钟的情况）', '速度（米 / 秒）', 'f(x)（次 / 分钟）'])
+def test_unknown_compound_or_formula_does_not_get_guessed(source):
+ assert normalize_axis_title(source) == source
 
 
 def test_chart_measures_normalized_title_before_placement(reg,tmp_path):

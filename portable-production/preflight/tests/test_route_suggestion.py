@@ -106,3 +106,38 @@ def test_case_method_is_not_prefiltered_and_disagreement_is_visible():
     assert result['case_refs'][0]['applicability'] == 'contrast_only'
     assert result['case_refs'][0]['differences']
     assert result['blocking']
+
+
+def test_diagram_source_symbols_remain_explicit_preservation_obligations():
+    source = review('node_link')
+    source.update(data_preservation='not_applicable', topology='reconstructable')
+    source['source_graphics'] = {'status':'identified', 'objects':[
+        {'source_id':'source', 'source_sha256':'a'*64, 'object_id':'shape-7', 'kind':'symbol'}]}
+    result = suggest_route(source, [])
+    assert result['candidate_route'] == 'structural_redraw'
+    assert result['source_graphics']['objects'][0]['object_id'] == 'shape-7'
+    assert any('preserv' in item.lower() for item in result['blocking'])
+    assert result['ready_for_processing'] is False
+
+
+def test_undocumented_source_symbols_are_not_silently_treated_as_absent():
+    source = review('node_link')
+    source.update(data_preservation='not_applicable', topology='reconstructable')
+    result = suggest_route(source, [])
+    assert result['source_graphics']['status'] == 'unknown'
+    assert any('graphic' in item.lower() for item in result['blocking'])
+
+
+@pytest.mark.parametrize('change', ['stale_hash','empty_identified','duplicate','false_absence'])
+def test_source_graphic_obligations_are_bound_and_not_ambiguous(change):
+    from journal_preflight.editorial_route import ContractError
+    source = review('node_link')
+    source.update(data_preservation='not_applicable', topology='reconstructable')
+    item = {'source_id':'source', 'source_sha256':'a'*64, 'object_id':'shape-7', 'kind':'symbol'}
+    source['source_graphics'] = {'status':'identified', 'objects':[item]}
+    if change == 'stale_hash': item['source_sha256'] = 'f'*64
+    elif change == 'empty_identified': source['source_graphics']['objects'] = []
+    elif change == 'duplicate': source['source_graphics']['objects'].append(dict(item))
+    else: source['source_graphics']['status'] = 'none'
+    with pytest.raises(ContractError):
+        suggest_route(source, [])

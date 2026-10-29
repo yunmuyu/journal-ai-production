@@ -55,7 +55,8 @@ def run(out: Path, src: Path | None, column, mode, font_levels, allow_bitmap, sp
     }
 
 
-HELP = """Usage: python -m figure_audit.guard --out FILE [--src FILE] [--column 80|110|159] [--mode trace|redraw] [--json REPORT]
+HELP = """Usage: python -m figure_audit.guard --out FILE [--src FILE] [--column 80|110|159] [--mode trace|redraw] [--allow-bitmap N] [--json REPORT]
+--allow-bitmap N sets the maximum image count; it does not verify image content or source fidelity.
 Results are incomplete pending source and visual review. Exit 1: flagged; 3: no flags but incomplete; 2: invalid input.
 """
 

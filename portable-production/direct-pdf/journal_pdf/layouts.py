@@ -268,6 +268,13 @@ def primitive(spec,reg,size):
         widths=[m['width']+2*padx for _,m in members];heights=[m['height']+2*pady for _,m in members]
         if axis=='row':
             heights=[max(heights)]*len(heights)
+            if 'target_height_pt' in group:
+                target_height=group['target_height_pt']
+                if (isinstance(target_height,bool) or not isinstance(target_height,(int,float))
+                        or not math.isfinite(target_height) or target_height<max(heights)):
+                    raise FigureError('measured_group_target_height','目标高度不足以保留文字和框内留白')
+                heights=[target_height]*len(heights)
+                s.measurement_groups[group['id']]['cell_height_pt']=target_height
             if equal_width:widths=[max(widths)]*len(widths)
             if 'target_width_pt' in group:
                 cell_width=(target_width-gap*(len(widths)-1))/len(widths)
@@ -275,7 +282,9 @@ def primitive(spec,reg,size):
                     raise FigureError('measured_group_target_width','目标组宽不足以保留文字与框内留白',group=group.get('id'))
                 widths=[cell_width]*len(widths)
                 s.measurement_groups[group['id']]['cell_width_pt']=cell_width
-        else:widths=[max(widths)]*len(widths)
+        else:
+            if 'target_height_pt' in group:raise FigureError('measured_group_target_height','目标高度仅支持横排')
+            widths=[max(widths)]*len(widths)
         for index,((n,_),w,h) in enumerate(zip(members,widths,heights)):
             kind=n['shape'] if n.get('shape') in ('roundrect','terminator') and n.get('semantic_shape') else 'rectangle'
             node=s.box(n['id'],n['text'],x,y,w,h,kind,wrap_chars=n.get('wrap_chars'),flow_role=n.get('role'))

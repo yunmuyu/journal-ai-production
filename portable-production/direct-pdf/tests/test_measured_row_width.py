@@ -29,6 +29,35 @@ def test_requested_width_stretches_equal_cells_without_changing_gap(reg):
     assert not audit_scene(scene)
 
 
+def test_requested_height_aligns_cells_and_rejects_too_small(reg):
+    spec = spec_for_width()
+    spec['measured_groups'][0]['target_height_pt'] = 22
+    scene = primitive(spec, reg, 8)
+    assert [n['rect'][3] - n['rect'][1] for n in scene.nodes] == pytest.approx([22, 22, 22])
+    assert not audit_scene(scene)
+    spec['measured_groups'][0]['target_height_pt'] = 2
+    with pytest.raises(FigureError):
+        primitive(spec, reg, 8)
+    scale_scene(scene, .8)
+    assert not audit_scene(scene)
+
+
+@pytest.mark.parametrize('height', [None, True, -1, 0, float('nan'), float('inf'), 2])
+def test_invalid_requested_height_is_rejected(reg, height):
+    spec = spec_for_width()
+    spec['measured_groups'][0]['target_height_pt'] = height
+    with pytest.raises(FigureError):
+        primitive(spec, reg, 8)
+
+
+def test_requested_height_tampering_remains_audited(reg):
+    spec = spec_for_width()
+    spec['measured_groups'][0]['target_height_pt'] = 22
+    scene = primitive(spec, reg, 8)
+    scene.nodes[1]['rect'][3] += 1
+    assert any(issue['code'] == 'primitive_box_measurement_mismatch' for issue in audit_scene(scene))
+
+
 @pytest.mark.parametrize('width', [None, True, -1, 0, float('nan'), float('inf'), 30])
 def test_invalid_or_too_narrow_requested_width_is_rejected(reg, width):
     with pytest.raises(FigureError):
