@@ -22,6 +22,9 @@ class Scene:
         self.legend_series_checks=[]
         self.axis_label_gap_checks=[]
         self.legend_frame_gap_checks=[]
+        self.legend_backgrounds=[]
+        self.axis_tick_gap_checks=[]
+        self.source_tick_gap_checks=[]
         self.measurement_groups={};self.source_bindings={};self.verified_source_bindings={};self.source_root=None
         self._ids=set();self.node_groups={}
     def ident(self,id):
@@ -457,8 +460,13 @@ def audit_scene(s:Scene):
         title=text_map.get(check['title_id']);ticks=[text_map.get(i) for i in check['tick_ids']]
         if title is None or any(t is None for t in ticks):
             issues.append({'code':'axis_gap_text_missing','id':check['title_id']});continue
-        gap=title['position']['bbox'][1]-max(t['position']['bbox'][3] for t in ticks)
-        axis_evidence.append({'title_id':check['title_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
+        if check['side']=='left':
+            gap=min(t['position']['bbox'][0] for t in ticks)-title['position']['bbox'][2]
+        elif check['side']=='right':
+            gap=title['position']['bbox'][0]-max(t['position']['bbox'][2] for t in ticks)
+        else:
+            gap=title['position']['bbox'][1]-max(t['position']['bbox'][3] for t in ticks)
+        axis_evidence.append({'title_id':check['title_id'],'side':check['side'],'gap_pt':gap,'expected_pt':check['gap_pt']})
         if abs(gap-check['gap_pt'])>.15:
             issues.append({'code':'axis_label_gap_mismatch','id':check['title_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
     s.layout_evidence['axis_label_gap_checks']=axis_evidence
@@ -475,6 +483,27 @@ def audit_scene(s:Scene):
         if abs(gap-check['gap_pt'])>.15:
             issues.append({'code':'legend_frame_gap_mismatch','id':check['frame_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
     s.layout_evidence['legend_frame_gap_checks']=legend_gap_evidence
+    tick_gap_evidence=[]
+    for check in s.axis_tick_gap_checks:
+        label=text_map.get(check['text_id']);tick=path_map.get(check['path_id'])
+        if label is None or tick is None:
+            issues.append({'code':'axis_tick_gap_missing','id':check['text_id']});continue
+        bbox=label['position']['bbox'];points=tick['points'];width=tick['width']
+        if (len(points)!=2 or width is None
+                or (check['side']=='bottom' and (abs(points[0][0]-points[1][0])>.01 or abs(points[0][1]-points[1][1])<.01))
+                or (check['side'] in ('left','right') and (abs(points[0][1]-points[1][1])>.01 or abs(points[0][0]-points[1][0])<.01))):
+            issues.append({'code':'axis_tick_gap_invalid','id':check['path_id']});continue
+        if check['side']=='bottom':
+            gap=bbox[1]-(max(p[1] for p in points)+width/2)
+        elif check['side']=='right':
+            gap=bbox[0]-(max(p[0] for p in points)+width/2)
+        else:
+            gap=min(p[0] for p in points)-width/2-bbox[2]
+        tick_gap_evidence.append({'text_id':check['text_id'],'path_id':check['path_id'],'side':check['side'],
+                                  'gap_pt':gap,'expected_pt':check['gap_pt']})
+        if abs(gap-check['gap_pt'])>.15:
+            issues.append({'code':'axis_tick_gap_mismatch','id':check['text_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
+    s.layout_evidence['axis_tick_gap_checks']=tick_gap_evidence
     for a in s.assets:
         if not contains(page,a['rect'],.02):issues.append({'code':'asset_outside_page','id':a['id']})
     return issues

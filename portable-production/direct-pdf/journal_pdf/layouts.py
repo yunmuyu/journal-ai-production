@@ -7,7 +7,7 @@ import math, json, subprocess, shutil, re
 from pathlib import Path
 from .common import FigureError, PT_PER_MM, finite
 from .scene import Scene, port, ray_ellipse
-from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, STROKE, COMPACT_GAP, display_content, wrap_text
+from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, TICK_CLEARANCE, STROKE, COMPACT_GAP, display_content, wrap_text
 from .label_fit import plan as plan_label
 from .fonts import position_text
 
@@ -405,14 +405,16 @@ def primitive(spec,reg,size):
     axis_checks=spec.get('axis_label_gap_checks',[])
     if not isinstance(axis_checks,list):raise FigureError('axis_gap_invalid','轴题间距检查须为数组')
     for item in axis_checks:
-        if (not isinstance(item,dict) or set(item)-{'title_id','tick_ids','gap_pt'} or not isinstance(item.get('title_id'),str)
+        if (not isinstance(item,dict) or set(item)-{'title_id','tick_ids','gap_pt','side'} or not isinstance(item.get('title_id'),str)
                 or not item['title_id'] or not isinstance(item.get('tick_ids'),list) or not item['tick_ids']
                 or any(not isinstance(i,str) or not i for i in item['tick_ids'])):
             raise FigureError('axis_gap_invalid','轴题间距检查须指定轴题与刻度')
         gap=item.get('gap_pt',LABEL_CLEARANCE)
         if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
             raise FigureError('axis_gap_invalid','轴题间距须为有限非负数')
-        s.axis_label_gap_checks.append({'title_id':item['title_id'],'tick_ids':item['tick_ids'],'gap_pt':float(gap)})
+        side=item.get('side','bottom')
+        if side not in ('bottom','left','right'):raise FigureError('axis_gap_invalid','轴题间距方向须为 bottom、left 或 right')
+        s.axis_label_gap_checks.append({'title_id':item['title_id'],'tick_ids':item['tick_ids'],'gap_pt':float(gap),'side':side})
     legend_gaps=spec.get('legend_frame_gap_checks',[])
     if not isinstance(legend_gaps,list):raise FigureError('legend_frame_gap_invalid','图例框间距检查须为数组')
     for item in legend_gaps:
@@ -424,6 +426,51 @@ def primitive(spec,reg,size):
         if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
             raise FigureError('legend_frame_gap_invalid','图例框间距须为有限非负数')
         s.legend_frame_gap_checks.append({'frame_id':item['frame_id'],'text_ids':item['text_ids'],'gap_pt':float(gap)})
+    tick_checks=spec.get('axis_tick_gap_checks',[])
+    if not isinstance(tick_checks,list):raise FigureError('axis_tick_gap_invalid','刻度间距检查须为数组')
+    for item in tick_checks:
+        if (not isinstance(item,dict) or set(item)-{'text_id','path_id','side','gap_pt'}
+                or any(not isinstance(item.get(k),str) or not item[k] for k in ('text_id','path_id'))
+                or item.get('side') not in ('left','right','bottom')):
+            raise FigureError('axis_tick_gap_invalid','刻度间距检查须指定文字、刻度线和方向')
+        gap=item.get('gap_pt',TICK_CLEARANCE)
+        if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
+            raise FigureError('axis_tick_gap_invalid','刻度间距须为有限非负数')
+        s.axis_tick_gap_checks.append({'text_id':item['text_id'],'path_id':item['path_id'],'side':item['side'],'gap_pt':float(gap)})
+    backgrounds=spec.get('legend_backgrounds',[])
+    if not isinstance(backgrounds,list):raise FigureError('legend_background_invalid','图例白底须为数组')
+    path_map={p['id']:p for p in s.paths};text_ids={t['id'] for t in s.texts};node_ids={n['id'] for n in s.nodes}
+    foreground=set();foreground_text=set();foreground_nodes=set()
+    for item in backgrounds:
+        if (not isinstance(item,dict) or set(item)!={'frame_id','foreground_path_ids','foreground_text_ids','foreground_node_ids'} or not isinstance(item.get('frame_id'),str)
+                or not isinstance(item.get('foreground_path_ids'),list) or not item['foreground_path_ids']
+                or any(not isinstance(i,str) or not i or i not in path_map or i in foreground for i in item['foreground_path_ids'])
+                or not isinstance(item.get('foreground_text_ids'),list) or any(not isinstance(i,str) or i not in text_ids or i in foreground_text for i in item['foreground_text_ids'])
+                or not isinstance(item.get('foreground_node_ids'),list) or any(not isinstance(i,str) or i not in node_ids or i in foreground_nodes for i in item['foreground_node_ids'])
+                or any(len(set(item[k]))!=len(item[k]) for k in ('foreground_path_ids','foreground_text_ids','foreground_node_ids'))
+                or item['frame_id'] not in item['foreground_path_ids']):
+            raise FigureError('legend_background_invalid','图例白底须绑定框线和全部前景路径')
+        frame=path_map[item['frame_id']];pts=frame['points']
+        if len(pts)!=5 or pts[0]!=pts[-1] or any(a[0]!=b[0] and a[1]!=b[1] for a,b in zip(pts,pts[1:])):
+            raise FigureError('legend_background_invalid','图例白底只支持真实闭合矩形框')
+        xs=[p[0] for p in pts];ys=[p[1] for p in pts];rect=[min(xs),min(ys),max(xs),max(ys)]
+        if set(tuple(p) for p in pts[:-1])!={(rect[0],rect[1]),(rect[2],rect[1]),(rect[2],rect[3]),(rect[0],rect[3])}:
+            raise FigureError('legend_background_invalid','图例白底框线必须为矩形')
+        if any(rect[0]<b['rect'][2] and rect[2]>b['rect'][0] and rect[1]<b['rect'][3] and rect[3]>b['rect'][1] for b in s.legend_backgrounds):
+            raise FigureError('legend_background_invalid','多个图例白底不能互相遮盖')
+        def contained(box):return box[0]>=rect[0]-.01 and box[1]>=rect[1]-.01 and box[2]<=rect[2]+.01 and box[3]<=rect[3]+.01
+        for path_id in item['foreground_path_ids']:
+            points=path_map[path_id]['points'];box=[min(p[0] for p in points),min(p[1] for p in points),max(p[0] for p in points),max(p[1] for p in points)]
+            if not contained(box):raise FigureError('legend_background_invalid','图例前景线越过白底框',id=path_id)
+        for node_id in item['foreground_node_ids']:
+            node=next(n for n in s.nodes if n['id']==node_id)
+            if not contained(node['rect']):raise FigureError('legend_background_invalid','图例标记越过白底框',id=node_id)
+        for text_id in item['foreground_text_ids']:
+            text=next(t for t in s.texts if t['id']==text_id)
+            if not contained(text['position']['bbox']):raise FigureError('legend_background_invalid','图例文字越过白底框',id=text_id)
+        foreground.update(item['foreground_path_ids']);foreground_text.update(item['foreground_text_ids']);foreground_nodes.update(item['foreground_node_ids'])
+        s.legend_backgrounds.append({'frame_id':item['frame_id'],'foreground_path_ids':item['foreground_path_ids'],
+            'foreground_text_ids':item['foreground_text_ids'],'foreground_node_ids':item['foreground_node_ids'],'rect':rect})
     return s.finish(spec['width_pt'],spec['height_pt'])
 
 

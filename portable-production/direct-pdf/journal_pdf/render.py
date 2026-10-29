@@ -178,6 +178,7 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
             for path in scene.paths:
                 if path['id']==binding.get('path_id'):path['source_legend_swatch']=True
     scene=scale_scene(scene,factor)
+    scene.source_tick_gap_checks=spec.get('source_tick_gap_checks',[])
     if 'source_legend_bindings' in spec:
         from .source_legend import validate_source_legends
         validate_source_legends(scene,spec['source_legend_bindings'])
@@ -240,6 +241,8 @@ def pdf_audit(path:Path,scene,reg):
     from .source_icons import audit_icon_paths
     icon_audit=audit_icon_paths(p,scene.assets,scene)
     stroke_bad=icon_audit['stroke_violations']
+    from .source_tick_gap import audit_source_tick_gaps
+    source_tick_gap=audit_source_tick_gaps(p,scene,scene.source_tick_gap_checks)
     result={'page_count':len(d),'width_mm':p.rect.width/PT_PER_MM,'height_mm':p.rect.height/PT_PER_MM,
             'expected_text_characters':sum(expected.values()),'actual_text_characters':sum(actual.values()),
             'expected_scene_text_characters':sum(scene_expected.values()),
@@ -249,7 +252,7 @@ def pdf_audit(path:Path,scene,reg):
             'font_descriptors':descriptors,
             'neutral_rgb_300dpi':color_ok,'nonneutral_pixels':off,'max_channel_difference':max(i for i,v in enumerate(hist) if v),
             'image_resource_count':len(p.get_images()),'vector_drawing_count':len(p.get_drawings()),
-            'axis_unit_notation':axis_units,'quantity_unit_spacing':quantity_spacing,'numeric_grouping_in_actual_pdf':not numeric_missing,'numeric_missing':numeric_missing,
+            'axis_unit_notation':axis_units,'quantity_unit_spacing':quantity_spacing,'source_tick_gap':source_tick_gap,'numeric_grouping_in_actual_pdf':not numeric_missing,'numeric_missing':numeric_missing,
             'editable_text_pure_black':black_ok,'editable_text_declared_black_white_exact':declared_colors_ok,'effective_path_strokes_05pt':not stroke_bad,
             'editable_text_rotation_exact':rotation_audit['ok'],'text_rotation':rotation_audit,
             'editable_text_font_styles_exact':font_style_audit['ok'],'text_font_styles':font_style_audit,
@@ -267,7 +270,7 @@ def pdf_audit(path:Path,scene,reg):
             'stroke_scope':'Visible PDF stroke paths only; raster curves, fills and glyph outlines are not stroke-width checks',
             'not_pdfx_certified':True,'font_profile_is_preview':reg.is_preview,
             'requires_semantic_visual_review':True,'requires_indesign_placement_test':True}
-    if not content_ok or not color_ok or not result['all_fonts_embedded'] or numeric_missing or not text_color_ok or not rotation_audit['ok'] or not font_style_audit['ok'] or stroke_bad or not axis_units['ok'] or not quantity_spacing['ok']:
+    if not content_ok or not color_ok or not result['all_fonts_embedded'] or numeric_missing or not text_color_ok or not rotation_audit['ok'] or not font_style_audit['ok'] or stroke_bad or not axis_units['ok'] or not quantity_spacing['ok'] or not source_tick_gap['ok']:
         raise FigureError('actual_pdf_audit_failed','实际PDF检查失败',audit=result)
     d.close();return result,img
 
@@ -310,13 +313,34 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
             page.insert_font(fontname='JFW_'+face,fontbuffer=buffer)
         for a in scene.assets:
             if a['role']!='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
-        for p in scene.paths:draw_path(page,p)
-        for n in scene.nodes:
-            if n.get('invisible'):continue      # 无边框节点只用于承接箭头，不落笔
-            draw_node(page,n)
-        for a in scene.assets:
-            if a['role']=='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
-        for t in scene.texts:draw_text(page,reg,t)
+        if scene.legend_backgrounds:
+            if any(a['role']=='legend-swatch' for a in scene.assets):
+                raise FigureError('legend_background_asset_unsupported','白底图例暂不支持未显式分组的图例资产')
+            legend_foreground={i for bg in scene.legend_backgrounds for i in bg['foreground_path_ids']}
+            legend_nodes={i for bg in scene.legend_backgrounds for i in bg['foreground_node_ids']}
+            legend_texts={i for bg in scene.legend_backgrounds for i in bg['foreground_text_ids']}
+            for p in scene.paths:
+                if p['id'] not in legend_foreground:draw_path(page,p)
+            for n in scene.nodes:
+                if not n.get('invisible') and n['id'] not in legend_nodes:draw_node(page,n)
+            for t in scene.texts:
+                if t['id'] not in legend_texts:draw_text(page,reg,t)
+            for bg in scene.legend_backgrounds:
+                page.draw_rect(fitz.Rect(bg['rect']),color=None,fill=(1,1,1),width=0,overlay=True)
+                for p in scene.paths:
+                    if p['id'] in bg['foreground_path_ids']:draw_path(page,p)
+                for n in scene.nodes:
+                    if n['id'] in bg['foreground_node_ids'] and not n.get('invisible'):draw_node(page,n)
+                for t in scene.texts:
+                    if t['id'] in bg['foreground_text_ids']:draw_text(page,reg,t)
+            scene.layout_evidence['legend_backgrounds']=[{'frame_id':bg['frame_id'],'rect':bg['rect'],'fill':'opaque-white'} for bg in scene.legend_backgrounds]
+        else:
+            for p in scene.paths:draw_path(page,p)
+            for n in scene.nodes:
+                if not n.get('invisible'):draw_node(page,n)
+            for a in scene.assets:
+                if a['role']=='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
+            for t in scene.texts:draw_text(page,reg,t)
         doc.set_metadata({'title':id,'author':'Journal Direct PDF candidate','subject':'实验样张；须真实字体和本机终检，不自动发布',
                           'creator':f'journal-direct-pdf {__version__}','producer':'PyMuPDF direct vector/mixed renderer; no Adobe runtime'})
         crop_pix=page.get_pixmap(dpi=300,colorspace=fitz.csRGB,alpha=False)
