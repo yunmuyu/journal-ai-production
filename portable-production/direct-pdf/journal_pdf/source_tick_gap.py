@@ -37,10 +37,17 @@ def audit_source_tick_gaps(page,scene,checks):
                         possible.append(row)
                 if len(possible)!=1:
                     raise FigureError('source_tick_gap_unproven','无法唯一确认标签对应的原始刻度',id=text_id,count=len(possible))
-                tick=possible[0];actual=top-(tick['rect'].y1+tick['width']/2)
+                tick=possible[0];items=tick.get('items',[]);caps=tick.get('lineCap')
+                if (len(items)!=1 or items[0][0]!='l' or not isinstance(caps,(tuple,list)) or len(caps)<2
+                        or caps[0] not in (0,1,2) or caps[1] not in (0,1,2)):
+                    raise FigureError('source_tick_gap_unproven','源刻度线端形状或路径不明确',id=text_id)
+                start,end=items[0][1],items[0][2]
+                cap=caps[1] if end.y>start.y else caps[0]
+                extension=0. if cap==0 else tick['width']/2
+                actual=top-(tick['rect'].y1+extension)
                 from .source_icons import path_record,consume_paths
                 consume_paths([path_record(tick)],[path_record(row) for row in page.get_drawings()])
-                results.append({'asset_id':asset_id,'text_id':text_id,'gap_pt':actual,'expected_pt':gap,
+                results.append({'asset_id':asset_id,'text_id':text_id,'gap_pt':actual,'expected_pt':gap,'line_cap':cap,
                                 'source_sha256':assets[asset_id]['asset'].source_hash,'ok':abs(actual-gap)<=.15})
         finally:placer.close()
     return {'checks':results,'ok':all(r['ok'] for r in results)}

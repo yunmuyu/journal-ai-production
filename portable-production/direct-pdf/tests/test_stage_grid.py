@@ -28,6 +28,16 @@ def test_group_connection_stays_single_edge(reg):
     assert not audit_scene(scene)
 
 
+def test_column_fill_aligns_parallel_nodes_to_measured_column_without_touching_neighbors(reg):
+    spec={'columns':[{'id':'a','blocks':[{'id':'wide','kind':'node','text':'相同列宽样例'},
+          {'id':'short','kind':'node','text':'短','fill_column':True}]}], 'edges':[]}
+    scene=DIAGRAMS['stage-grid'](spec,reg,8)
+    nodes={n['id']:n for n in scene.nodes}
+    assert nodes['short']['rect'][0]==pytest.approx(nodes['wide']['rect'][0])
+    assert nodes['short']['rect'][2]==pytest.approx(nodes['wide']['rect'][2])
+    assert not audit_scene(scene)
+
+
 def test_long_text_changes_measured_stage_width(reg):
     spec = example()
     small = DIAGRAMS['stage-grid'](spec, reg, 8)
@@ -235,6 +245,8 @@ def test_panel_edge_draws_one_centred_arrow(reg):
     right = next(n for n in scene.nodes if n['id'] == 'p2')['rect']
     assert abs(arrows[0]['points'][0][0] - left[2]) < 0.01
     assert abs(arrows[0]['points'][-1][0] - right[0]) < 0.01
+    label=next(t for t in scene.texts if t['id']=='flow:label')
+    assert arrows[0]['points'][0][1]-arrows[0]['width']/2-label['position']['bbox'][3]==pytest.approx(3,abs=.05)
     assert not audit_scene(scene)
 
 

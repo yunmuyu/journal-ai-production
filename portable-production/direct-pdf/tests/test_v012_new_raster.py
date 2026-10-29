@@ -51,6 +51,18 @@ def _synthetic(tmp_path):
  'series':[{'id':'s','label':'simulate','swatch_clip':[260,59,301,62]},{'id':'m','label':'measure','swatch_clip':[260,87,301,94]}],
  'policy':{'column':'single','design_font_size_pt':8}}
 
+
+def test_chart_framed_legend_measures_text_rows_and_vertical_padding(reg,tmp_path):
+ s=_synthetic(tmp_path);s['legend_frame']=True;a=Assets()
+ try:
+  scene=compile_figure(s,reg,a,tmp_path)
+  frame=next(n for n in scene.nodes if n['id']=='legend-frame')
+  labels=sorted((t['position']['bbox'] for t in scene.texts if t['role']=='legend-label'),key=lambda b:b[1])
+  assert labels[0][1]-frame['rect'][1]-frame['width']/2==pytest.approx(2.7,abs=.15)
+  assert frame['rect'][3]-frame['width']/2-labels[-1][3]==pytest.approx(2.7,abs=.15)
+  assert labels[1][1]-labels[0][3]==pytest.approx(3,abs=.15)
+ finally:a.close()
+
 def test_corner_avoidance_keeps_8pt_and_source_x_anchors(reg,tmp_path):
  s=_synthetic(tmp_path);a=Assets()
  try:
@@ -63,6 +75,30 @@ def test_corner_avoidance_keeps_8pt_and_source_x_anchors(reg,tmp_path):
   plot=scene.assets[0]['rect'];tick=next(t for t in scene.texts if t['id']=='xtick0')
   assert tick['x']==pytest.approx(plot[0]+(50-48)*175/406)
  finally:a.close()
+
+def test_chart_axis_titles_are_checked_and_unverified_raster_ticks_are_flagged(reg,tmp_path):
+ spec=_synthetic(tmp_path);assets=Assets()
+ try:
+  scene=compile_figure(spec,reg,assets,tmp_path)
+  evidence=scene.layout_evidence['axis_label_gap_checks']
+  assert {v['title_id'] for v in evidence}=={'xtitle','ytitle'}
+  assert all(v['gap_pt']==pytest.approx(3,abs=.15) for v in evidence)
+  assert any(v['code']=='axis_tick_source_unverified' for v in scene.notes)
+  ticks=[v for v in scene.layout_evidence['annotation_clearance_checks'] if v['kind']=='ticks']
+  assert {tuple(v['ids']) for v in ticks}=={('xtick0','xtick1'),('ytick0','ytick1'),('xtick0','ytick0'),('xtick0','ytick1'),('xtick1','ytick0'),('xtick1','ytick1')}
+  assert any(v['code']=='legend_marker_alignment_unverified' for v in scene.notes)
+ finally:assets.close()
+
+def test_framed_chart_measures_label_before_sizing_legend(reg,tmp_path):
+ spec=_synthetic(tmp_path);spec['legend_frame']=True
+ assets=Assets()
+ try:
+  scene=compile_figure(spec,reg,assets,tmp_path)
+  frame=next(n for n in scene.nodes if n['id']=='legend-frame')
+  labels=[t for t in scene.texts if t['role']=='legend-label']
+  assert frame['rect'][2]-frame['width']/2-max(t['position']['bbox'][2] for t in labels)==pytest.approx(4.5)
+  assert any(n['code']=='legend_swatch_ink_review' for n in scene.notes)
+ finally:assets.close()
 
 def test_dense_x_ticks_reflow_without_losing_labels_or_source_anchors(reg,tmp_path):
  # Given: numeric labels overlap horizontally, but their rotated ink fits.

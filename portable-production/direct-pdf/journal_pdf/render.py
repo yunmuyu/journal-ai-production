@@ -178,7 +178,14 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
             for path in scene.paths:
                 if path['id']==binding.get('path_id'):path['source_legend_swatch']=True
     scene=scale_scene(scene,factor)
-    scene.source_tick_gap_checks=spec.get('source_tick_gap_checks',[])
+    source_tick_checks=spec.get('source_tick_gap_checks',[])
+    if not isinstance(source_tick_checks,list):raise FigureError('source_tick_gap_invalid','源刻度检查须为数组')
+    for item in source_tick_checks:
+        if not isinstance(item,dict):raise FigureError('source_tick_gap_invalid','源刻度检查须为对象')
+        gap=item.get('gap_pt',2.5)
+        if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
+            raise FigureError('source_tick_gap_invalid','源刻度净距须为有限非负数')
+        scene.source_tick_gap_checks.append(dict(item,gap_pt=gap*factor))
     if 'source_legend_bindings' in spec:
         from .source_legend import validate_source_legends
         validate_source_legends(scene,spec['source_legend_bindings'])
@@ -292,6 +299,13 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
     if not bindings and not spec.get('synthetic',False):raise FigureError('source_identity_missing','真实图件必须绑定原始素材哈希')
     scene=compile_figure(spec,reg,assets,source_root,
                          verified_sources={b['path']:b['sha256'] for b in bindings})
+    if spec.get('kind')=='scene':
+        frames=[x['id'] for x in scene.paths+scene.nodes if x['id']=='legend-frame']
+        bound={bg['frame_id'] for bg in scene.legend_backgrounds}
+        if any(frame not in bound for frame in frames):
+            scene.notes.append({'code':'legend_background_unverified','message':'图例框未声明遮底和前景分组；白底、边距与覆盖范围须核对。'})
+        if scene.legend_backgrounds:
+            scene.notes.append({'code':'legend_data_overlap_unverified','message':'白底可能遮住源数据；未完成完整数据覆盖证明，须对照原图复核。'})
     allowed={str(resolve_source(source_root,b['path'])):b['sha256'] for b in bindings}
     for a in scene.assets:
         asset=a['asset']
@@ -388,7 +402,9 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         if unverified_assets:
             warnings.append({'code':'source_text_coverage','message':'原图路径或像素中的文字尚未逐项核对；原生文字替换通过不等于全图字号、字体与布局合格。'})
         editorial_codes={'base_font_below_8_requires_review','reduced_nonscript_text_requires_review',
-                         'axis_decimal_precision_mismatch','axis_tick_group_missing'}
+                         'axis_decimal_precision_mismatch','axis_tick_group_missing','legend_swatch_ink_review','legend_background_unverified',
+                         'legend_data_overlap_unverified','legend_row_spacing_unverified','legend_data_clearance_review','legend_dash_length_review','data_label_placement_review','annotation_spacing_review','legend_marker_alignment_review','legend_marker_alignment_unverified','icon_ink_unverified','icon_ink_spacing_review','data_curve_unverified','data_curve_spacing_review',
+                         'axis_tick_source_unverified','axis_tick_corner_exception','straight_connection_spacing_review','icon_group_center_review','container_spacing_review','container_exception_unverified','parallel_slant_review'}
         editorial_review=[w['code'] for w in warnings if w.get('code') in editorial_codes]
         candidate_status=('candidate-unverified-source-text' if unverified_assets else
                           'candidate-editorial-review' if editorial_review else 'candidate-rendered')

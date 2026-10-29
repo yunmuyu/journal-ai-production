@@ -116,14 +116,14 @@ def chart(spec,reg,size,assets,root):
     bottom=25.;right=3.;x0=left;y0=top
     # SVG tick endpoints must be identified in source units, not guessed from frame.
     tick_len=float(spec.get('tick_length_source_units',0))*scale
-    tick_gap=TICK_CLEARANCE+STROKE/2
+    tick_gap=TICK_CLEARANCE if spec.get('restore_verified_tick_stubs') else TICK_CLEARANCE+STROKE/2
     axis=spec.get('axis_frame_source',clip)
     x_tick_edge=y0+(axis[3]-clip[1])*scale+tick_len+tick_gap
     y_tick_edge=x0+(axis[0]-clip[0])*scale-tick_len-tick_gap
     # Keep source tick x anchors. If the lower-left labels collide, move the
     # x-label ROW outward just enough rather than shrinking 8pt or moving data.
     original_x_tick_edge=x_tick_edge
-    corner_gap=float(spec.get('corner_tick_clearance_pt',1.))
+    corner_gap=float(spec.get('corner_tick_clearance_pt',2.*size/8))
     if not math.isfinite(corner_gap) or corner_gap<0:raise FigureError('corner_tick_clearance','角部刻度净距必须非负且有限')
     for xv,xwidth in zip(spec['x_ticks'],xwidths):
         xx=x0+(xv['position']-clip[0])*scale
@@ -157,13 +157,33 @@ def chart(spec,reg,size,assets,root):
     for i,v in enumerate(spec['y_ticks']):
         pos=y0+(v['position']-clip[1])*scale
         s.text('ytick'+str(i),tick_content(v,size),y_tick_edge,pos,align='right',role='axis-tick')
+    for axis_name in ('x','y'):
+        ordered=sorted(range(len(spec[axis_name+'_ticks'])),key=lambda i:spec[axis_name+'_ticks'][i]['position'])
+        s.annotation_clearance_checks.extend({'kind':'ticks','first_id':f'{axis_name}tick{a}',
+            'second_id':f'{axis_name}tick{b}','target_pt':2.,'reason':None} for a,b in zip(ordered,ordered[1:]))
+    s.annotation_clearance_checks.extend({'kind':'ticks','first_id':f'xtick{i}','second_id':f'ytick{j}',
+        'target_pt':2.,'reason':None} for i in range(len(spec['x_ticks'])) for j in range(len(spec['y_ticks'])))
     xtitle_top=x_tick_edge+max(xheights)+LABEL_CLEARANCE
     s.text('xtitle',spec['x_title'],x0+((axis[0]+axis[2])/2-clip[0])*scale if spec['source_kind']=='registered-outline-svg' else x0+pw/2,xtitle_top+xtitlem['height']/2,role='axis-title')
     # The title's rotated ink height is the unrotated width; measured centering avoids baselines guessed by eye.
     s.text('ytitle',spec['y_title'],y_tick_edge-max(m['width'] for m in yms)-LABEL_CLEARANCE-titlem['height']/2,y0+((axis[1]+axis[3])/2-clip[1])*scale if spec['source_kind']=='registered-outline-svg' else y0+ph/2,rotation=90,role='axis-title')
+    s.axis_label_gap_checks.extend([
+        {'title_id':'xtitle','tick_ids':[f'xtick{i}' for i in range(len(spec['x_ticks']))],'gap_pt':LABEL_CLEARANCE,'side':'bottom'},
+        {'title_id':'ytitle','tick_ids':[f'ytick{i}' for i in range(len(spec['y_ticks']))],'gap_pt':LABEL_CLEARANCE,'side':'left'}])
+    if spec.get('restore_verified_tick_stubs'):
+        s.axis_tick_gap_checks.extend({'path_id':f'source-ytick-{i}','text_id':f'ytick{i}',
+                                       'side':'left','gap_pt':TICK_CLEARANCE} for i in range(len(spec['y_ticks'])))
+        if abs(x_tick_edge-original_x_tick_edge)<.15:
+            s.axis_tick_gap_checks.extend({'path_id':f'source-xtick-{i}','text_id':f'xtick{i}',
+                                           'side':'bottom','gap_pt':TICK_CLEARANCE} for i in range(len(spec['x_ticks'])))
+        else:s.notes.append({'code':'axis_tick_corner_exception','message':'角部避让使横轴刻度文字位置改变，需复核净距。'})
+    else:
+        s.notes.append({'code':'axis_tick_source_unverified','message':'源图刻度线端未绑定核验，不能据布局参数认定刻度净距通过。'})
     entries=spec['series'];ids=[e['id'] for e in entries]
     if len(ids)!=len(set(ids)):raise FigureError('legend_duplicate_series','图例系列ID重复')
     if entries:
+        s.notes.append({'code':'legend_marker_alignment_unverified',
+                        'message':'图例样例保留源素材；若含点或方块，是否居中需人工复核。'})
         labelms=[reg.measure(e['label'],size) for e in entries]
         swatches=[]
         for e in entries:
@@ -174,13 +194,23 @@ def chart(spec,reg,size,assets,root):
                 a=assets.pdf(path,spec.get('page',0),e['swatch_clip'])
             swatches.append(a)
         samplew=max((a.rect[2]-a.rect[0])*scale for a in swatches)
-        sampleh=max((a.rect[3]-a.rect[1])*scale for a in swatches)
         framed=spec.get('legend_frame',True)
         if not isinstance(framed,bool):raise FigureError('legend_frame_type','legend_frame必须为布尔值')
-        pad=float(spec.get('legend_padding_pt',PAD_X if spec['source_kind']=='registered-outline-svg' else (3. if framed else 0.)))
+        pad=float(spec.get('legend_padding_pt',(2.7*size/8+STROKE/2) if framed else 0.))
         if not math.isfinite(pad) or pad<0:raise FigureError('legend_padding','图例内边距必须非负且有限')
-        sgap=3.;rowh=max(max(m['height'] for m in labelms),sampleh)+3
-        lw=2*pad+samplew+sgap+max(m['width'] for m in labelms);lh=2*pad+len(entries)*rowh-3
+        pad_x=PAD_X*size/8+STROKE/2 if framed else 0.
+        sgap=3.*size/8
+        ink=[position_text(m,0,0)['bbox'] for m in labelms]
+        swatch_heights=[(a.rect[3]-a.rect[1])*scale for a in swatches]
+        row_top=[min(b[1],-h/2) for b,h in zip(ink,swatch_heights)]
+        row_bottom=[max(b[3],h/2) for b,h in zip(ink,swatch_heights)]
+        centers=[pad-row_top[0]]
+        for i in range(1,len(entries)):
+            ink_step=ink[i-1][3]-ink[i][1]+3.*size/8
+            swatch_step=(swatch_heights[i-1]+swatch_heights[i])/2
+            centers.append(centers[-1]+max(ink_step,swatch_step))
+        lw=2*pad_x+samplew+sgap+max(m['width'] for m in labelms)
+        lh=centers[-1]+row_bottom[-1]+pad
         placement=spec.get('legend_placement','upper-right')
         if placement=='upper-right':lx=x0+pw-lw-4;ly=y0+5
         elif placement=='lower-right':lx=x0+pw-lw-4;ly=y0+ph-lh-5
@@ -197,7 +227,7 @@ def chart(spec,reg,size,assets,root):
             # Only the approved width may grow. Never silently move or heighten the legend.
             if not contains(capacity,[lx,ly,lx+lw,ly+lh]):
                 raise FigureError('legend_source_region_capacity','8pt实测图例超出原高度或明确允许的宽度；不自动迁移或降字号',required=[lw,lh],capacity=capacity)
-            lw=max(lw,(original[2]-original[0])*scale);lh=(original[3]-original[1])*scale
+            lh=(original[3]-original[1])*scale
         elif placement=='source-region':
             region=spec['legend_safe_region'];lx=x0+(region[2]-clip[0])*scale-lw-1;ly=y0+(region[1]-clip[1])*scale+1
         else:raise FigureError('legend_placement','未知图例位置')
@@ -237,11 +267,14 @@ def chart(spec,reg,size,assets,root):
         # Figure background patch is explicitly an opaque legend, not an erased data region.
         if framed:
             n=s.shape('legend-frame',legendbox,container=True,width=.5);n['fill']=1.;n['gray']=.75
+            s.notes.append({'code':'legend_swatch_ink_review','message':'图例样例沿用源素材裁切边界；需核实裁切边缘是否就是符号真实墨迹，再确认左侧4.5 pt净距。'})
+            if len(entries)>1:
+                s.notes.append({'code':'legend_row_spacing_unverified','message':'文字行已按墨迹排布；源样例裁片与固定源区域的真实上下净距仍须人工复核。'})
         for i,(e,m,sw) in enumerate(zip(entries,labelms,swatches)):
-            cy=ly+pad+rowh*i+max(m['height'],sampleh)/2
+            cy=ly+centers[i]
             w=(sw.rect[2]-sw.rect[0])*scale;h=(sw.rect[3]-sw.rect[1])*scale
-            s.embed('swatch:'+e['id'],sw,[lx+pad+(samplew-w)/2,cy-h/2,lx+pad+(samplew+w)/2,cy+h/2],role='legend-swatch')
-            s.text('legend:'+e['id'],e['label'],lx+pad+samplew+sgap,cy,align='left',owner='legend-frame' if framed else None,role='legend-label')
+            s.embed('swatch:'+e['id'],sw,[lx+pad_x+(samplew-w)/2,cy-h/2,lx+pad_x+(samplew+w)/2,cy+h/2],role='legend-swatch')
+            s.text('legend:'+e['id'],e['label'],lx+pad_x+samplew+sgap,cy,align='left',owner='legend-frame' if framed else None,role='legend-label')
     else:
         # Explicit series=[] means no legend: do not invent a frame, swatch,
         # background mask or a safe-region requirement for a heatmap.

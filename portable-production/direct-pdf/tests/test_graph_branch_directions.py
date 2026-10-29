@@ -23,6 +23,10 @@ def test_branch_bus_uses_flow_direction_without_crossing_nodes(reg,direction,bra
   assert binding['to_port']==target_port
  assert {(b['from'],b['to']) for b in scene.layout_evidence['edge_bindings']}=={
   (edge['from'],edge['to']) for edge in edges}
+ if branch_kind=='merge':
+  import math
+  legs=[p for p in scene.paths if p.get('semantic_role')=='merge-leg']
+  assert legs and all(math.dist(*p['points'])==pytest.approx(6.) for p in legs)
  nodes={node['id']:node for node in scene.nodes}
  if branch_kind=='fanout':
   for edge in edges:

@@ -1,0 +1,7 @@
+{
+  "platform": "Windows",
+  "full_regression": "1233 passed, 3 failed, 7 subtests passed, 2 warnings; 249.85 seconds",
+  "known_limit": "Three tests could not create actual symbolic links (WinError 1314); link scenarios remain unverified, not passed. Developer Mode unchanged at user request.",
+  "source_regressions": "Five private original-input scenarios: Word/EMF, SVG, PNG, Word/VSDX, PPT native graphics; applicable visuals compared at 144 dpi. Source data and accepted figures excluded from public package.",
+  "review_scope": "Unbound source data and editorial-review warnings still require manual review."
+}

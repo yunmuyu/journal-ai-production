@@ -156,9 +156,10 @@ class FontRegistry:
         self.stats['measure_calls']+=1
         if not isinstance(size,(int,float)) or isinstance(size,bool) or not math.isfinite(size) or size<6-1e-6 or size>8+1e-6:
             raise FigureError('font_size_out_of_policy','当前候选统一字号范围为6—8pt',size=size)
+        ink_spacing=leading is None and role=='label'
         leading=float(size*1.2 if leading is None else leading)
         if not math.isfinite(leading) or leading<=0:raise FigureError('line_height_invalid','行距必须是有限正数')
-        key=digest_json([self.fingerprint,content,size,leading])
+        key=digest_json([self.fingerprint,content,size,leading,'label-ink-gap-3-v1' if ink_spacing else 'explicit-leading'])
         if key in self._measure_memory:
             self.stats['measure_memory_hits']+=1;return self._measure_memory[key]
         row=self.db.execute('SELECT v FROM measurements WHERE k=?',(key,)).fetchone()
@@ -182,6 +183,19 @@ class FontRegistry:
                 glyphs.append({'ch':ch,'face':role,'size':s,'x':x,'y':y+shift,'advance':adv*s,'ink':box,'line':line_no})
                 x+=adv*s
         if not boxes: raise FigureError('empty_text','不绘制空文本')
+        if ink_spacing:
+            # Align actual visible rows, preserving intentional blank rows and explicit leading.
+            previous_bottom=None;previous_line=None;offset=0.
+            for number in range(line_no+1):
+                line=[g for g in glyphs if g['line']==number]
+                visible=[g for g in line if not g['ch'].isspace()]
+                if visible and previous_line==number-1:
+                    top=min(g['ink'][1] for g in visible)+offset
+                    offset+=previous_bottom+3*size/8-top
+                for g in line:
+                    g['y']+=offset;g['ink'][1]+=offset;g['ink'][3]+=offset
+                if visible:
+                    previous_bottom=max(g['ink'][3] for g in visible);previous_line=number
         # Center every explicit line by its ink, not merely the entire multiline block.
         line_bounds={}
         for g in glyphs:

@@ -178,6 +178,8 @@ def scale_scene(scene, factor):
         p['dash']=[v*factor for v in p['dash']];p['width']=p['width']*factor if p.get('source_legend_swatch') else STROKE;p['arrow_scale']=1
     for a in scene.assets:a['rect']=[v*factor for v in a['rect']]
     for background in scene.legend_backgrounds:background['rect']=[v*factor for v in background['rect']]
+    for check in scene.axis_label_gap_checks+scene.axis_tick_gap_checks:
+        check['gap_pt']*=factor
     for group in scene.measurement_groups.values():
         if 'cell_width_pt' in group:group['cell_width_pt']*=factor
         if 'cell_height_pt' in group:group['cell_height_pt']*=factor

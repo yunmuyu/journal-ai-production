@@ -7,6 +7,21 @@ def endpoint_issues(scene):
     return [item for item in audit_scene(scene) if 'endpoint' in item['code']]
 
 
+@pytest.mark.parametrize('direction,gap', [('horizontal',21),('vertical',15),('horizontal',8.503937),('vertical',8.503937)])
+def test_ordinary_bound_straight_arrow_checks_spacing_without_claiming_every_long_arrow_wrong(reg,direction,gap):
+    scene=Scene(reg).finish(150,150)
+    scene.shape('first',[20,20,40,40])
+    if direction=='horizontal':
+        scene.shape('second',[40+gap,20,60+gap,40]);points=[[40,30],[40+gap,30]]
+    else:
+        scene.shape('second',[20,40+gap,40,60+gap]);points=[[30,40],[30,40+gap]]
+    scene.line('direct',points,arrow=True,endpoint_nodes=['first','second'])
+    audit_scene(scene)
+    entry=next(v for v in scene.layout_evidence['straight_connection_spacing'] if v['id']=='direct')
+    assert entry['gap_pt']==pytest.approx(gap)
+    assert any(n['code']=='straight_connection_spacing_review' for n in scene.notes)==(gap>10)
+
+
 def test_explicit_fraction_accepts_real_rect_edge_when_not_midpoint(reg):
     # Given a real collector and a source node.
     scene = Scene(reg).finish(250, 160)
@@ -52,13 +67,28 @@ def test_declared_straight_row_spacing_uses_editor_approved_default(reg):
             'paths': [{'id': 'vertical', 'points': [[70, 30], [70, 53]], 'arrow': True,
                        'endpoint_nodes': [{'node': 'a', 'side': 'bottom', 'fraction': 5/6},
                                           {'node': 'b', 'side': 'top', 'fraction': 1/6}]}],
-            'straight_vertical_spacing': [{'paths': ['vertical']}]}
+            'straight_vertical_spacing': [{'paths': ['vertical'],'gap_pt':23}]}
     scene = primitive(spec, reg, 8)
     assert not any(i['code'].startswith('vertical_spacing_') for i in audit_scene(scene))
     assert scene.layout_evidence['straight_vertical_spacing'][0]['expected_pt'] == 23
     spec['paths'][0]['points'][1][1] = 58
     scene = primitive(spec, reg, 8)
     assert any(i['code'] == 'vertical_spacing_mismatch' for i in audit_scene(scene))
+
+
+def test_straight_row_default_uses_existing_three_mm(reg):
+    from journal_pdf.layouts import primitive
+    from journal_pdf.editorial import ARROW_LENGTH
+    end=30+ARROW_LENGTH
+    spec={'width_pt':100,'height_pt':80,'nodes':[{'id':'a','rect':[20,10,80,30]},
+          {'id':'b','rect':[20,end,80,end+20]}],
+          'paths':[{'id':'vertical','points':[[50,30],[50,end]],'arrow':True,
+                    'endpoint_nodes':['a','b']}],
+          'straight_vertical_spacing':[{'paths':['vertical']}]}
+    scene=primitive(spec,reg,8)
+    assert scene.layout_evidence.get('straight_vertical_spacing') is None
+    assert not any(i['code'].startswith('vertical_spacing_') for i in audit_scene(scene))
+    assert scene.layout_evidence['straight_vertical_spacing'][0]['expected_pt']==pytest.approx(ARROW_LENGTH)
 
 
 @pytest.mark.parametrize('declaration', [

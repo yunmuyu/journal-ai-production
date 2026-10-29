@@ -24,7 +24,21 @@ class Scene:
         self.legend_frame_gap_checks=[]
         self.legend_backgrounds=[]
         self.axis_tick_gap_checks=[]
+        self.new_tick_length_checks=[]
         self.source_tick_gap_checks=[]
+        self.image_row_gap_checks=[]
+        self.image_label_gap_checks=[]
+        self.legend_data_checks=[]
+        self.confirmed_spacing_checks=[]
+        self.container_spacing_exceptions=[]
+        self.parallel_slant_checks=[]
+        self.route_clearance_checks=[]
+        self.annotation_clearance_checks=[]
+        self.icon_ink_checks=[]
+        self.icon_group_centers=[]
+        self._icon_ink_cache={}
+        self.curve_label_checks=[]
+        self.legend_marker_centers=[]
         self.measurement_groups={};self.source_bindings={};self.verified_source_bindings={};self.source_root=None
         self._ids=set();self.node_groups={}
     def ident(self,id):
@@ -417,6 +431,27 @@ def audit_scene(s:Scene):
             if abs(actual-expected)>.15:
                 issues.append({'code':'vertical_spacing_mismatch','id':path_id,'actual_pt':actual,'expected_pt':expected})
     s.layout_evidence['straight_vertical_spacing']=spacing_evidence
+    straight_evidence=[]
+    for path in s.paths:
+        points=path['points'];ends=path.get('endpoint_nodes')
+        if (not path.get('arrow') or path.get('both') or len(points)!=2 or not isinstance(ends,list) or len(ends)!=2
+                or path.get('semantic_role')!='connection'):continue
+        ids=[end.get('node') if isinstance(end,dict) else end for end in ends]
+        if any(not isinstance(identifier,str) or identifier not in nmap or nmap[identifier]['kind']!='rectangle' for identifier in ids):continue
+        dx=abs(points[1][0]-points[0][0]);dy=abs(points[1][1]-points[0][1])
+        if dx>.01 and dy>.01:continue
+        actual=max(dx,dy);reference=ARROW_LENGTH*s.layout_evidence.get('whole_artwork_scale',1.)
+        entry={'id':path['id'],'gap_pt':actual,'reference_pt':reference,'direction':'horizontal' if dx>dy else 'vertical'}
+        straight_evidence.append(entry)
+        if actual>reference+.15 and not any(n.get('code')=='straight_connection_spacing_review' and n.get('id')==path['id'] for n in s.notes):
+            s.notes.append({'code':'straight_connection_spacing_review',**entry,
+                'message':'普通直连超过默认间距；请核对是否需要走线、对齐或其他空间。'})
+    s.layout_evidence['straight_connection_spacing']=straight_evidence
+    from .parallel_slants import audit_parallel_slants
+    slants=audit_parallel_slants(s)
+    s.layout_evidence['parallel_slant_checks']=slants['checks'];issues.extend(slants['issues'])
+    s.notes[:]=[n for n in s.notes if n.get('code')!='parallel_slant_review']
+    s.notes.extend(slants['notes'])
     dash_evidence=[]
     for check in s.legend_dash_checks:
         path=next((p for p in s.paths if p['id']==check['path_id']),None)
@@ -435,13 +470,49 @@ def audit_scene(s:Scene):
             if end is None or a>end:hidden+=b-a;end=b
             elif b>end:hidden+=b-end;end=b
         visible=length-hidden
+        preferred=check['min_length_pt']*s.size/8
         valid_dash=len(dash)>=2 and all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) and v>0 for v in dash)
-        ok=(len(pts)==2 and valid_dash and visible>=check['min_length_pt'] and visible>=2*sum(dash))
-        dash_evidence.append({'id':check['path_id'],'length_pt':length,'uncovered_length_pt':visible,'dash_pt':dash,'mechanical_check_passed':ok})
-        if not ok:issues.append({'code':'legend_dash_sample_too_short','id':check['path_id'],'length_pt':length,'dash_pt':dash})
+        from .legend_collision import visible_dash_ink
+        horizontal=len(pts)==2 and abs(pts[0][1]-pts[1][1])<.01
+        ink=visible_dash_ink(pts[0][0],pts[1][0],dash,intervals) if horizontal and valid_dash else None
+        ok=(horizontal and valid_dash and (ink is None or ink>1e-7))
+        dash_evidence.append({'id':check['path_id'],'length_pt':length,'uncovered_length_pt':visible,'dash_pt':dash,
+                              'visible_dash_ink_pt':ink,'preferred_length_pt':preferred,'mechanical_check_passed':ok})
+        if not ok:issues.append({'code':'legend_dash_invalid','id':check['path_id'],'length_pt':length,'dash_pt':dash})
+        elif ink is None:s.notes.append({'code':'legend_dash_length_review','id':check['path_id'],
+                                         'message':'样线片段过多，须人工核对图例线型。'})
+        elif length<preferred-.15:
+            s.notes.append({'code':'legend_dash_length_review','id':check['path_id'],'length_pt':length,
+                            'preferred_length_pt':preferred,'message':'样线短于默认起排长度，须核对线型可辨和遮挡。'})
     s.layout_evidence['legend_dash_checks']=dash_evidence
     series_evidence=[]
     path_map={p['id']:p for p in s.paths}
+    from .legend_collision import segment_intersects_box,segment_box_distance
+    legend_data_evidence=[]
+    for check in s.legend_data_checks:
+        frame=path_map.get(check['frame_id']);paths=[path_map.get(i) for i in check['data_path_ids']]
+        if frame is None or any(path is None for path in paths):
+            issues.append({'code':'legend_data_path_missing','id':check['frame_id']});continue
+        pts=frame['points']
+        if (len(pts)!=5 or pts[0]!=pts[-1] or len({tuple(p) for p in pts[:-1]})!=4
+                or len({p[0] for p in pts})!=2 or len({p[1] for p in pts})!=2
+                or any(a[0]!=b[0] and a[1]!=b[1] for a,b in zip(pts,pts[1:]))):
+            issues.append({'code':'legend_data_frame_invalid','id':check['frame_id']});continue
+        rect=[min(p[0] for p in pts),min(p[1] for p in pts),max(p[0] for p in pts),max(p[1] for p in pts)]
+        for path in paths:
+            pad=(frame['width']+path['width'])/2
+            box=[rect[0]-pad,rect[1]-pad,rect[2]+pad,rect[3]+pad]
+            collision=any(segment_intersects_box(a,b,box) for a,b in zip(path['points'],path['points'][1:]))
+            distance=min((segment_box_distance(a,b,rect) for a,b in zip(path['points'],path['points'][1:])),default=0.)-pad
+            target=1.*s.size/8
+            legend_data_evidence.append({'frame_id':frame['id'],'path_id':path['id'],'collision':collision,
+                                         'clearance_pt':distance,'preferred_minimum_pt':target})
+            if collision:issues.append({'code':'legend_data_collision','ids':[frame['id'],path['id']]})
+            elif distance < target:
+                s.notes.append({'code':'legend_data_clearance_review','frame_id':frame['id'],'path_id':path['id'],
+                                'clearance_pt':distance,'preferred_minimum_pt':target,
+                                'message':'图例距曲线不足建议值，优先调整并复核数据遮挡。'})
+    s.layout_evidence['legend_data_checks']=legend_data_evidence
     for check in s.legend_series_checks:
         series=path_map.get(check['series_path_id']);swatch=path_map.get(check['swatch_path_id'])
         if series is None or swatch is None:
@@ -454,6 +525,12 @@ def audit_scene(s:Scene):
                                 'line_style_matches':ok,'scope':'line only; marker symbols require separate review'})
         if not ok:issues.append({'code':'legend_series_style_mismatch','id':check['swatch_path_id']})
     s.layout_evidence['legend_series_checks']=series_evidence
+    from .legend_marker_alignment import audit_legend_marker_centers
+    marker_centers=audit_legend_marker_centers(s)
+    s.layout_evidence['legend_marker_centers']=marker_centers['checks']
+    for notice in marker_centers['notes']:
+        if not any(n.get('code')==notice['code'] and n.get('marker_node_id')==notice['marker_node_id'] for n in s.notes):
+            s.notes.append(notice)
     axis_evidence=[]
     text_map={t['id']:t for t in s.texts}
     for check in s.axis_label_gap_checks:
@@ -470,6 +547,136 @@ def audit_scene(s:Scene):
         if abs(gap-check['gap_pt'])>.15:
             issues.append({'code':'axis_label_gap_mismatch','id':check['title_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
     s.layout_evidence['axis_label_gap_checks']=axis_evidence
+    image_row_evidence=[]
+    asset_map={a['id']:a for a in s.assets}
+    for row in s.image_row_gap_checks:
+        members=[asset_map.get(i) for i in row['asset_ids']]
+        if any(a is None for a in members):
+            issues.append({'code':'image_row_asset_missing','ids':row['asset_ids']});continue
+        for a,b in zip(members,members[1:]):
+            x,y=a['rect'],b['rect']
+            if min(x[3],y[3])<=max(x[1],y[1]):
+                issues.append({'code':'image_row_not_aligned','ids':[a['id'],b['id']]});continue
+            gap=y[0]-x[2];expected=4*s.size/8
+            image_row_evidence.append({'ids':[a['id'],b['id']],'gap_pt':gap,'expected_pt':expected})
+            if abs(gap-expected)>.15:
+                issues.append({'code':'image_row_gap_mismatch','ids':[a['id'],b['id']],'gap_pt':gap,'expected_pt':expected})
+    s.layout_evidence['image_row_gap_checks']=image_row_evidence
+    image_label_evidence=[]
+    for check in s.image_label_gap_checks:
+        asset=asset_map.get(check['asset_id'])
+        for field in ('title_id','caption_id'):
+            if field not in check:continue
+            label=text_map.get(check[field])
+            if asset is None or label is None:
+                issues.append({'code':'image_label_gap_missing','ids':[check['asset_id'],check[field]]});continue
+            a=asset['rect'];b=label['position']['bbox']
+            if min(a[2],b[2])<=max(a[0],b[0]):
+                issues.append({'code':'image_label_gap_unaligned','ids':[asset['id'],label['id']]});continue
+            gap=a[1]-b[3] if field=='title_id' else b[1]-a[3]
+            expected_gap=6*s.size/8
+            image_label_evidence.append({'asset_id':asset['id'],'text_id':label['id'],'side':field,'gap_pt':gap,'expected_pt':expected_gap})
+            if abs(gap-expected_gap)>.15:
+                issues.append({'code':'image_label_gap_mismatch','ids':[asset['id'],label['id']],'gap_pt':gap,'expected_pt':expected_gap})
+    s.layout_evidence['image_label_gap_checks']=image_label_evidence
+    from .confirmed_spacing import audit_confirmed_spacing
+    confirmed_spacing=audit_confirmed_spacing(s)
+    s.layout_evidence['confirmed_spacing_checks']=confirmed_spacing['checks']
+    issues.extend(confirmed_spacing['issues'])
+    from .container_auto_spacing import audit_automatic_container_spacing
+    automatic_containers=audit_automatic_container_spacing(s)
+    s.layout_evidence['automatic_container_spacing']=automatic_containers['checks']
+    s.notes[:]=[n for n in s.notes if n.get('code') not in ('container_spacing_review','container_exception_unverified')]
+    for notice in automatic_containers['notes']:
+        if not any(n.get('code')==notice['code'] and n.get('id')==notice['id'] and n.get('side')==notice['side'] for n in s.notes):s.notes.append(notice)
+    from .route_clearances import audit_route_clearances
+    route_clearances=audit_route_clearances(s)
+    s.layout_evidence['route_clearance_checks']=route_clearances['checks']
+    issues.extend(route_clearances['issues'])
+    from .annotation_clearances import audit_annotation_clearances
+    annotation=audit_annotation_clearances(s)
+    s.layout_evidence['annotation_clearance_checks']=annotation['checks']
+    issues.extend(annotation['issues'])
+    for notice in annotation['notes']:
+        if not any(n.get('code')==notice['code'] and n.get('kind')==notice['kind'] and n.get('ids')==notice['ids'] for n in s.notes):
+            s.notes.append(notice)
+    from .icon_ink_spacing import audit_icon_ink_checks
+    icon_ink=audit_icon_ink_checks(s)
+    s.layout_evidence['icon_ink_checks']=icon_ink['checks']
+    issues.extend(icon_ink['issues'])
+    for notice in icon_ink['notes']:
+        if not any(n.get('code')==notice['code'] and n.get('kind')==notice.get('kind') and n.get('side')==notice.get('side') and n.get('ids')==notice['ids'] for n in s.notes):
+            s.notes.append(notice)
+    from .icon_ink_spacing import audit_icon_group_centers
+    centers=audit_icon_group_centers(s)
+    s.layout_evidence['icon_group_centers']=centers['checks']
+    issues.extend(centers['issues'])
+    for notice in centers['notes']:
+        if not any(n.get('code')==notice['code'] and n.get('ids')==notice['ids'] for n in s.notes):s.notes.append(notice)
+    from .curve_label_spacing import audit_curve_label_checks
+    curves=audit_curve_label_checks(s)
+    s.layout_evidence['curve_label_checks']=curves['checks']
+    issues.extend(curves['issues'])
+    for notice in curves['notes']:
+        if not any(n.get('code')==notice['code'] and n.get('ids')==notice['ids'] for n in s.notes):
+            s.notes.append(notice)
+    legend_clearance=[]
+    for bg in s.legend_backgrounds:
+        frame=path_map[bg['frame_id']]
+        labels=[text_map[i] for i in bg['foreground_text_ids']]
+        if not labels:
+            issues.append({'code':'legend_spacing_unverified','id':bg['frame_id']});continue
+        left=min(t['position']['bbox'][0] for t in labels)
+        right=max(t['position']['bbox'][2] for t in labels)
+        top=min(t['position']['bbox'][1] for t in labels)
+        bottom=max(t['position']['bbox'][3] for t in labels)
+        for path_id in bg['foreground_path_ids']:
+            if path_id==bg['frame_id']:continue
+            path=path_map[path_id]
+            if path.get('closed'):
+                from .confirmed_spacing import polygon_stroke_bounds
+                box=polygon_stroke_bounds(path['points'],path['width'])
+            elif len(path['points'])==2 and abs(path['points'][0][1]-path['points'][1][1])<.01:
+                from .confirmed_spacing import horizontal_stroke_bounds
+                box=horizontal_stroke_bounds(path)
+            else:
+                half=path['width']/2
+                box=[min(p[0] for p in path['points'])-half,min(p[1] for p in path['points'])-half,
+                     max(p[0] for p in path['points'])+half,max(p[1] for p in path['points'])+half]
+            left=min(left,box[0]);right=max(right,box[2])
+            top=min(top,box[1]);bottom=max(bottom,box[3])
+        for node_id in bg['foreground_node_ids']:
+            node=next(n for n in s.nodes if n['id']==node_id)
+            stroke=(node.get('width') or 0)/2
+            left=min(left,node['rect'][0]-stroke);right=max(right,node['rect'][2]+stroke)
+            top=min(top,node['rect'][1]-stroke);bottom=max(bottom,node['rect'][3]+stroke)
+        stroke=frame['width']/2
+        left_gap=left-(bg['rect'][0]+stroke)
+        right_gap=(bg['rect'][2]-stroke)-right
+        top_gap=top-(bg['rect'][1]+stroke)
+        bottom_gap=(bg['rect'][3]-stroke)-bottom
+        expected=4.5*s.size/8
+        vertical_expected=2.7*s.size/8
+        legend_clearance.append({'frame_id':bg['frame_id'],'left_pt':left_gap,'right_pt':right_gap,
+                                 'top_pt':top_gap,'bottom_pt':bottom_gap,'expected_pt':expected,
+                                 'vertical_expected_pt':vertical_expected})
+        for side,gap in (('left',left_gap),('right',right_gap)):
+            if abs(gap-expected)>.15:
+                issues.append({'code':'legend_content_padding_mismatch','id':bg['frame_id'],'side':side,'gap_pt':gap,'expected_pt':expected})
+        for side,gap in (('top',top_gap),('bottom',bottom_gap)):
+            if abs(gap-vertical_expected)>.15:
+                issues.append({'code':'legend_content_padding_mismatch','id':bg['frame_id'],'side':side,'gap_pt':gap,'expected_pt':vertical_expected})
+        ordered=sorted(labels,key=lambda t:t['position']['bbox'][1])
+        single_column=(len(ordered)<2 or (all(t['align']=='left' and '\n' not in t['measurement']['text'] for t in ordered)
+                       and max(t['position']['bbox'][0] for t in ordered)-min(t['position']['bbox'][0] for t in ordered)<.15))
+        if single_column:
+            for first,second in zip(ordered,ordered[1:]):
+                gap=second['position']['bbox'][1]-first['position']['bbox'][3];expected_row=3*s.size/8
+                if abs(gap-expected_row)>.15:
+                    issues.append({'code':'legend_row_gap_mismatch','ids':[first['id'],second['id']],'gap_pt':gap,'expected_pt':expected_row})
+        elif not any(n.get('code')=='legend_row_spacing_unverified' for n in s.notes):
+            s.notes.append({'code':'legend_row_spacing_unverified','message':'图例不是可确认的单列单行列表，行间距须人工核对。'})
+    s.layout_evidence['legend_clearance_measurements']=legend_clearance
     legend_gap_evidence=[]
     for check in s.legend_frame_gap_checks:
         frame=path_map.get(check['frame_id']);labels=[text_map.get(i) for i in check['text_ids']]
@@ -478,8 +685,10 @@ def audit_scene(s:Scene):
         pts=frame['points']
         if len(pts)!=5 or pts[0]!=pts[-1] or any(a[0]!=b[0] and a[1]!=b[1] for a,b in zip(pts,pts[1:])):
             issues.append({'code':'legend_frame_gap_invalid','id':check['frame_id']});continue
-        gap=max(p[1] for p in pts)-max(t['position']['bbox'][3] for t in labels)
-        legend_gap_evidence.append({'frame_id':check['frame_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
+        side=check.get('side','bottom')
+        gap=(max(p[0] for p in pts)-frame['width']/2-max(t['position']['bbox'][2] for t in labels) if side=='right'
+             else max(p[1] for p in pts)-max(t['position']['bbox'][3] for t in labels))
+        legend_gap_evidence.append({'frame_id':check['frame_id'],'side':side,'gap_pt':gap,'expected_pt':check['gap_pt']})
         if abs(gap-check['gap_pt'])>.15:
             issues.append({'code':'legend_frame_gap_mismatch','id':check['frame_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
     s.layout_evidence['legend_frame_gap_checks']=legend_gap_evidence
@@ -494,16 +703,27 @@ def audit_scene(s:Scene):
                 or (check['side'] in ('left','right') and (abs(points[0][1]-points[1][1])>.01 or abs(points[0][0]-points[1][0])<.01))):
             issues.append({'code':'axis_tick_gap_invalid','id':check['path_id']});continue
         if check['side']=='bottom':
-            gap=bbox[1]-(max(p[1] for p in points)+width/2)
+            gap=bbox[1]-max(p[1] for p in points)
         elif check['side']=='right':
-            gap=bbox[0]-(max(p[0] for p in points)+width/2)
+            gap=bbox[0]-max(p[0] for p in points)
         else:
-            gap=min(p[0] for p in points)-width/2-bbox[2]
+            gap=min(p[0] for p in points)-bbox[2]
         tick_gap_evidence.append({'text_id':check['text_id'],'path_id':check['path_id'],'side':check['side'],
                                   'gap_pt':gap,'expected_pt':check['gap_pt']})
         if abs(gap-check['gap_pt'])>.15:
             issues.append({'code':'axis_tick_gap_mismatch','id':check['text_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
     s.layout_evidence['axis_tick_gap_checks']=tick_gap_evidence
+    new_ticks=[]
+    for check in s.new_tick_length_checks:
+        path=path_map.get(check['path_id']);points=path.get('points',[]) if path else []
+        if (not path or len(points)!=2 or path.get('dash') or path.get('arrow') or path.get('both')
+                or (abs(points[0][0]-points[1][0])>.01 and abs(points[0][1]-points[1][1])>.01)):
+            issues.append({'code':'new_tick_length_invalid','id':check['path_id']});continue
+        length=math.dist(points[0],points[1]);expected=check['length_pt']*s.size/8
+        result={'id':check['path_id'],'length_pt':length,'expected_pt':expected,'reason':check.get('reason')}
+        new_ticks.append(result)
+        if abs(length-expected)>.15:issues.append({'code':'new_tick_length_mismatch',**result})
+    s.layout_evidence['new_tick_length_checks']=new_ticks
     for a in s.assets:
         if not contains(page,a['rect'],.02):issues.append({'code':'asset_outside_page','id':a['id']})
     return issues

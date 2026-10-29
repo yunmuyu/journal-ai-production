@@ -29,7 +29,7 @@ def stage_grid(spec, reg, size, assets=None, root=None):
     _need(isinstance(columns, list) and 1 <= len(columns) <= 8, '阶段布局只支持1至8列')
     _need(all(isinstance(b.get('band', 1), int) and b.get('band', 1) >= 1 for b in (x for c in columns for x in c['blocks'])), 'band须为正整数')
     blocks = {}; owners = {}; ids = set(); members = {}; kid_top = {}
-    allowed = {'id', 'kind', 'title', 'items', 'text', 'align_with', 'after', 'cover', 'fill', 'valign', 'vertical', 'band', 'icon', 'span', 'stretch', 'justify', 'direction', 'frame'}
+    allowed = {'id', 'kind', 'title', 'items', 'text', 'align_with', 'after', 'cover', 'fill', 'valign', 'vertical', 'band', 'icon', 'span', 'stretch', 'justify', 'direction', 'frame', 'fill_column'}
     for ci, column in enumerate(columns):
         _need(set(column) <= {'id', 'blocks', 'align'} and column.get('blocks'), '每列须明确非空blocks')
         _need(column.get('align') in (None, 'top', 'center'), '列align只接受top或center')
@@ -40,6 +40,8 @@ def stage_grid(spec, reg, size, assets=None, root=None):
             ids.add(identifier); blocks[identifier] = block; owners[identifier] = ci
             kind = block.get('kind')
             _need(kind in ('stage', 'node', 'label', 'group', 'note'), '只支持stage、node、label、group、note')
+            _need('fill_column' not in block or (kind=='node' and isinstance(block['fill_column'],bool)),
+                  'fill_column只接受节点布尔值')
             if 'icon' in block:
                 icon = block['icon']
                 _need(kind in ('node', 'label'), '只有node或label块可放图标')
@@ -128,7 +130,8 @@ def stage_grid(spec, reg, size, assets=None, root=None):
     column_gap = spec.get('policy', {}).get('column_gap', 2 * arrow_gap)
     _need(isinstance(column_gap, (int, float)) and not isinstance(column_gap, bool) and arrow_gap <= column_gap <= 40,
           'column_gap须介于箭头最小长度与40pt之间')
-    icon_gap = 2.0 * scale
+    icon_gap = 3.0 * scale
+    icon_side_gap = 3.0 * scale
     node_size = {}
     justified = set()
 
@@ -201,13 +204,13 @@ def stage_grid(spec, reg, size, assets=None, root=None):
             icon_wh[identifier] = (iw, ih)
             padx = 2 * px if block['kind'] == 'node' else 0
             pady = 2 * py if block['kind'] == 'node' else 0
-            icon_side_gap = icon.get('gap', icon_gap)
+            side_gap = icon.get('gap', icon_side_gap)
             if icon.get('side') == 'left':
-                widths[identifier] = m['width'] + padx + iw + icon_side_gap
-                heights[identifier] = max(m['height'] + pady, ih)
+                widths[identifier] = m['width'] + padx + iw + side_gap
+                heights[identifier] = max(m['height'], ih) + pady
             else:
                 widths[identifier] = max(widths[identifier], iw + padx)
-                heights[identifier] = m['height'] + pady + ih + icon_gap
+                heights[identifier] = m['height'] + pady + ih + icon.get('gap',icon_gap)
     parent = {i: i for i in blocks}
     def root(identifier):
         while parent[identifier] != identifier:
@@ -406,6 +409,7 @@ def stage_grid(spec, reg, size, assets=None, root=None):
 
     for identifier, block in blocks.items():
         ci = owners[identifier]; width, height = widths[identifier], heights[identifier]
+        if block.get('fill_column'):width=col_widths[ci]
         band = band_of[identifier]
         x = col_left[ci] + (col_widths[ci] - width) / 2
         if block.get('span') or block.get('stretch'):
@@ -439,17 +443,28 @@ def stage_grid(spec, reg, size, assets=None, root=None):
                 iw, ih = icon_wh[identifier]
                 tw = measures[identifier]['width']
                 if block['icon'].get('side') == 'left':
-                    gap_i = block['icon'].get('gap', icon_gap)
+                    gap_i = block['icon'].get('gap', icon_side_gap)
+                    from .icon_ink_spacing import _visible_ink
+                    ink=_visible_ink(icon_asset(block['icon']),iw,ih,scene._icon_ink_cache)
+                    if 'gap' not in block['icon']:
+                        if ink is not None:gap_i=max(gap_i-(iw-ink[2]),iw-tw-width)
                     left = x + (width - (iw + gap_i + tw)) / 2
+                    if ink is not None:left-=ink[0]/2
                     scene.embed(identifier+':icon', icon_asset(block['icon']),
                                 [left, y + (height - ih) / 2, left + iw, y + (height + ih) / 2], role='icon')
                     scene.text(identifier+':text', block['text'], left + iw + gap_i + tw / 2, y + height / 2)
                 else:
                     th = measures[identifier]['height']
-                    top = y + (height - (ih + icon_gap + th)) / 2
+                    gap_i = block['icon'].get('gap',icon_gap)
+                    from .icon_ink_spacing import _visible_ink
+                    ink=_visible_ink(icon_asset(block['icon']),iw,ih,scene._icon_ink_cache)
+                    if 'gap' not in block['icon']:
+                        if ink is not None:gap_i=max(gap_i-(ih-ink[3]),ih-th-height)
+                    top = y + (height - (ih + gap_i + th)) / 2
+                    if ink is not None:top-=ink[1]/2
                     scene.embed(identifier+':icon', icon_asset(block['icon']),
                                 [x + (width - iw) / 2, top, x + (width + iw) / 2, top + ih], role='icon')
-                    scene.text(identifier+':text', block['text'], x + width / 2, top + ih + icon_gap + th / 2)
+                    scene.text(identifier+':text', block['text'], x + width / 2, top + ih + gap_i + th / 2)
             else:
                 scene.text(identifier+':text', block['text'], x + width / 2, y + height / 2)
         elif 'icon' in block:
@@ -462,8 +477,13 @@ def stage_grid(spec, reg, size, assets=None, root=None):
             text_h = measures[identifier]['height']
             if block['icon'].get('side') == 'left':
                 # 图标在左、文字在右，整体在框内居中对齐
-                gap_i = block['icon'].get('gap', icon_gap)
+                gap_i = block['icon'].get('gap', icon_side_gap)
+                from .icon_ink_spacing import _visible_ink
+                ink=_visible_ink(icon_asset(block['icon']),iw,ih,scene._icon_ink_cache)
+                if 'gap' not in block['icon']:
+                    if ink is not None:gap_i=max(gap_i-(iw-ink[2]),iw-measures[identifier]['width']-width)
                 left = x + (width - (iw + gap_i + measures[identifier]['width'])) / 2
+                if ink is not None:left-=ink[0]/2
                 scene.embed(identifier+':icon', icon_asset(block['icon']),
                             [left, y + (height - ih) / 2, left + iw, y + (height + ih) / 2], role='icon')
                 scene.text(identifier+':text', block['text'],
@@ -471,12 +491,18 @@ def stage_grid(spec, reg, size, assets=None, root=None):
             else:
                 # 图标与文字作为一个整体在框内居中，避免高框里两者被拉开
                 left = x + (width - iw) / 2
-                block_h = ih + icon_gap + text_h
+                gap_i = block['icon'].get('gap',icon_gap)
+                from .icon_ink_spacing import _visible_ink
+                ink=_visible_ink(icon_asset(block['icon']),iw,ih,scene._icon_ink_cache)
+                if 'gap' not in block['icon']:
+                    if ink is not None:gap_i=max(gap_i-(ih-ink[3]),ih-text_h-height)
+                block_h = ih + gap_i + text_h
                 top = y + (height - block_h) / 2
+                if ink is not None:top-=ink[1]/2
                 scene.embed(identifier+':icon', icon_asset(block['icon']),
                             [left, top, left + iw, top + ih], role='icon')
-                scene.text(identifier+':text', block['text'], x+width/2, top + ih + icon_gap + text_h/2)
-        elif block['kind'] == 'node' and (block.get('span') or block.get('stretch')):
+                scene.text(identifier+':text', block['text'], x+width/2, top + ih + gap_i + text_h/2)
+        elif block['kind'] == 'node' and (block.get('span') or block.get('stretch') or block.get('fill_column')):
             # 拉高/跨行的框不再套自然尺寸契约，自身就是被拉伸的容器
             placed[identifier] = scene.shape(identifier, [x, y, x+width, y+height], 'rectangle', width=.5)
             if 'fill' in block: placed[identifier]['fill'] = block['fill']
@@ -504,6 +530,20 @@ def stage_grid(spec, reg, size, assets=None, root=None):
                 cursor_y += ih+spacing
     figure_top = band_top[band_ids[0]] + band_off[band_ids[0]]
     figure_bottom = band_bottom[band_ids[-1]] + band_off[band_ids[-1]]
+    from .icon_ink_spacing import parse_icon_ink_checks
+    icon_checks=[]
+    for identifier,block in blocks.items():
+        if 'icon' not in block:continue
+        if block['icon'].get('side')=='left':
+            icon_checks.append({'kind':'icon_text','asset_id':identifier+':icon','text_id':identifier+':text','side':'right'})
+        else:
+            icon_checks.append({'kind':'icon_text','asset_id':identifier+':icon','text_id':identifier+':text','side':'bottom'})
+        if block['kind']=='node' and block.get('frame') is not False:
+            icon_checks.extend({'kind':'icon_frame','asset_id':identifier+':icon','frame_id':identifier,'side':side}
+                               for side in ('left','right','top','bottom'))
+            scene.icon_group_centers.append({'asset_id':identifier+':icon','text_id':identifier+':text',
+                                             'frame_id':identifier,'axis':'horizontal' if block['icon'].get('side')=='left' else 'vertical'})
+    scene.icon_ink_checks.extend(parse_icon_ink_checks(icon_checks))
     for panel in panels:
         members = [placed[b] for b in panel['blocks']]
         tm = reg.measure(display_content(panel['title']), size)
@@ -535,16 +575,22 @@ def stage_grid(spec, reg, size, assets=None, root=None):
         if flat:
             mid_x = (seg[0][0] + seg[1][0]) / 2
             if vertical_label:
-                scene.text(edge['id']+':label', edge['label'], mid_x,
+                placed_label=scene.text(edge['id']+':label', edge['label'], mid_x,
                            seg[0][1] - lm['height'] / 2 - 2.6, role='edge-label', vertical=True)
             else:
-                scene.text(edge['id']+':label', edge['label'], mid_x,
+                placed_label=scene.text(edge['id']+':label', edge['label'], mid_x,
                            min(seg[0][1], seg[1][1]) - lm['height'] / 2 - 1.6, role='edge-label')
+            delta=min(seg[0][1],seg[1][1])-.25-3*scale-placed_label['position']['bbox'][3]
+            placed_label['y']+=delta
         else:
             # 只有竖段时才把标签贴在竖段右侧，避免压住自身的横向折段
             mid_y = (seg[0][1] + seg[1][1]) / 2
-            scene.text(edge['id']+':label', edge['label'], seg[0][0] + lm['width'] / 2 + 2.2,
+            placed_label=scene.text(edge['id']+':label', edge['label'], seg[0][0] + lm['width'] / 2 + 2.2,
                        mid_y, role='edge-label', vertical=vertical_label)
+            delta=seg[0][0]+.25+3*scale-placed_label['position']['bbox'][0]
+            placed_label['x']+=delta
+        from .fonts import position_text
+        placed_label['position']=position_text(placed_label['measurement'],placed_label['x'],placed_label['y'],align=placed_label['align'])
 
     records=[]
     panel_ids = {p['id'] for p in panels}
@@ -560,8 +606,11 @@ def stage_grid(spec, reg, size, assets=None, root=None):
         if edge.get('label'):
             lm = (reg.measure_vertical(display_content(edge['label'], 'edge-label'), size)
                   if edge.get('label_vertical') else reg.measure(display_content(edge['label'], 'edge-label'), size))
-            scene.text(edge['id']+':label', edge['label'], (a[2] + b[0]) / 2,
+            placed_label=scene.text(edge['id']+':label', edge['label'], (a[2] + b[0]) / 2,
                        y - lm['height'] / 2 - 2.6, role='edge-label', vertical=bool(edge.get('label_vertical')))
+            placed_label['y']+=y-.25-3*scale-placed_label['position']['bbox'][3]
+            from .fonts import position_text
+            placed_label['position']=position_text(placed_label['measurement'],placed_label['x'],placed_label['y'],align=placed_label['align'])
         records.append({'edge': edge['id'], 'from': edge['from_panel'], 'to': edge['to_panel'], 'panel_edge': True})
     merge_groups={}; split_groups={}
     for edge in edges:

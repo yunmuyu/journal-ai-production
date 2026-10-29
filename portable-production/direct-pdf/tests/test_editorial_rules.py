@@ -83,7 +83,8 @@ def test_graph_branch_buses_keep_real_arrow5_shaft_and_one_merge_arrow(reg):
                 {'id':'merge-left','from':'left','to':'target'},
                 {'id':'merge-right','from':'right','to':'target'}]}
  s=graph(spec,reg,8)
- branch_gap=ARROW_LENGTH+2*PT_PER_MM
+ # The approved no-arrow branch stub is 6 pt; the terminal arrow still needs 3 mm.
+ branch_gap=ARROW_LENGTH+6
  assert s.layout_evidence['rank_gaps_pt']==pytest.approx({0:branch_gap,1:branch_gap})
  arrow_paths=[p for p in s.paths if p['arrow']]
  terminal_segments=[(tuple(p['points'][-2]),tuple(p['points'][-1])) for p in arrow_paths]
