@@ -43,6 +43,24 @@ def test_two_offset_boxes_can_connect_straight_at_distinct_edge_fractions(reg, t
         assert len(document[0].get_drawings()) == 4
 
 
+def test_declared_straight_row_spacing_uses_editor_approved_default(reg):
+    from journal_pdf.layouts import primitive
+
+    spec = {'width_pt': 140, 'height_pt': 100,
+            'nodes': [{'id': 'a', 'rect': [20, 10, 80, 30]},
+                      {'id': 'b', 'rect': [60, 53, 120, 73]}],
+            'paths': [{'id': 'vertical', 'points': [[70, 30], [70, 53]], 'arrow': True,
+                       'endpoint_nodes': [{'node': 'a', 'side': 'bottom', 'fraction': 5/6},
+                                          {'node': 'b', 'side': 'top', 'fraction': 1/6}]}],
+            'straight_vertical_spacing': [{'paths': ['vertical']}]}
+    scene = primitive(spec, reg, 8)
+    assert not any(i['code'].startswith('vertical_spacing_') for i in audit_scene(scene))
+    assert scene.layout_evidence['straight_vertical_spacing'][0]['expected_pt'] == 23
+    spec['paths'][0]['points'][1][1] = 58
+    scene = primitive(spec, reg, 8)
+    assert any(i['code'] == 'vertical_spacing_mismatch' for i in audit_scene(scene))
+
+
 @pytest.mark.parametrize('declaration', [
     'collect',
     {'node': 'collect', 'side': 'bottom', 'fraction': .2},
