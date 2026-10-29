@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "2026.10.29-r40-node-ports",
-  "createdAt": "2026-10-29T04:51:52.097Z",
+  "createdAt": "2026-10-29T04:54:19.103Z",
   "status": "released",
   "constraints": {
     "fontSizePt": {
@@ -12,10 +12,10 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "scope": "Spacing defaults unchanged; noncentral rectangular ports require explicit declarations",
-    "integration": "Source-bound private offset-box scene rendered locally",
-    "platform": "Windows",
-    "focused": "88 boundary-port and editorial rule tests passed"
+    "focused": "89 boundary-port and editorial rule tests passed",
+    "scope": "23 pt applies only to explicitly declared straight downward groups; existing stage spacing unchanged",
+    "integration": "Private source-bound offset-box scene rendered locally with 23 pt check",
+    "platform": "Windows"
   },
   "files": [
     {
@@ -890,8 +890,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/layouts.py",
-      "sha256": "44b94df9767801efde87cb42648a4d06e577beb2d17cbcc06ad3caa8a217c9a9",
-      "bytes": 25828
+      "sha256": "bea0ebf03801bfbacb33deeaced89592c6360a41ecd7568402223b1cf19851e3",
+      "bytes": 26875
     },
     {
       "path": "direct-pdf/journal_pdf/numeric_audit.py",
@@ -930,8 +930,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/scene.py",
-      "sha256": "657a510d630269a53a8e38bff3f89c33c2a7c76893eb630046553ee8851cf87c",
-      "bytes": 27204
+      "sha256": "8439ce922bb8b385172bb7a76ea90df48b4821e84999b0706cc0754ad4e8b861",
+      "bytes": 28140
     },
     {
       "path": "direct-pdf/journal_pdf/scientific_text.py",
@@ -1040,8 +1040,8 @@
     },
     {
       "path": "direct-pdf/README.md",
-      "sha256": "8bf4d3cd945c7cb0452dcd687b95a45a93bc995522492908b13f6bc7ca8e78e1",
-      "bytes": 7147
+      "sha256": "12c9824ea32e2afd3af97a0d81a78deb8ed00516ef0966aad8b2d4debb78a5f5",
+      "bytes": 7860
     },
     {
       "path": "direct-pdf/RELEASE-CANDIDATE.json",
@@ -1110,8 +1110,8 @@
     },
     {
       "path": "direct-pdf/tests/test_boundary_ports.py",
-      "sha256": "82a98c1b895d2f05ff9d2b9d26ed1a8a127506697b379b59dbfddf202d3f95d7",
-      "bytes": 7965
+      "sha256": "626ebda9b88c24fbd902d9b3f64b5f206988fcc077cb98639ac23935be1b3631",
+      "bytes": 8974
     },
     {
       "path": "direct-pdf/tests/test_checkbox_glyph.py",
