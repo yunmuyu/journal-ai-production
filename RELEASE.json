@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "2026.10.28-r38-prescan",
-  "createdAt": "2026-10-28T10:02:19.659Z",
+  "createdAt": "2026-10-29T01:19:16.121Z",
   "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
@@ -13,7 +13,7 @@
   },
   "validation": {
     "status": "release-candidate",
-    "focused": "38 prescan and figure-audit contract tests passed on Windows; broader release validation pending",
+    "focused": "83 PDF prescan, source assets, guard contract and font-resource regression tests passed on Windows; broader release validation pending",
     "deployment": "not deployed"
   },
   "files": [
@@ -529,8 +529,8 @@
     },
     {
       "path": "direct-pdf/docs/FIGURE-AUDIT.md",
-      "sha256": "5a250f4bacd2e3cc337be83dcf78368d591dbcc1ffeb500f28ed78a1e04f2171",
-      "bytes": 5165
+      "sha256": "87d680f392fd843dfdc694cd968d0a313527561edf3da5c66dec403ee3e177d5",
+      "bytes": 5386
     },
     {
       "path": "direct-pdf/docs/FIRST-PASS-SPEED.md",
@@ -704,8 +704,8 @@
     },
     {
       "path": "direct-pdf/figure_audit/guard.py",
-      "sha256": "0b63314f41fcc310d15eb975b60ac65a1551334b87f6ad09a32475339fcce6bd",
-      "bytes": 5030
+      "sha256": "0a7174182a7da589691d579ca10fab736afec780534dc3fb96c6b4ab1dbf2bf5",
+      "bytes": 5149
     },
     {
       "path": "direct-pdf/figure_audit/prescan.py",
@@ -914,8 +914,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/render.py",
-      "sha256": "442fe4ff775a9e9d4e225189b6f6ba59f07b5028b12322ed334dc9b9bed624b0",
-      "bytes": 28870
+      "sha256": "00efacb1bfe333e3b8ba173887eb607461b0137ef7f11c6fa56f4423594f655a",
+      "bytes": 29149
     },
     {
       "path": "direct-pdf/journal_pdf/rules_registry.py",
@@ -1181,6 +1181,11 @@
       "path": "direct-pdf/tests/test_grouped_chains.py",
       "sha256": "34c55992cfae16786bf90de290e865be7529a689531f2a873700ea50a2650c29",
       "bytes": 14479
+    },
+    {
+      "path": "direct-pdf/tests/test_imported_font_collision.py",
+      "sha256": "44eb8adcbc7c5542be778285d9ed8a2c4848668db298f44db0005ea9f7da4a90",
+      "bytes": 1789
     },
     {
       "path": "direct-pdf/tests/test_ingest_v020.py",
