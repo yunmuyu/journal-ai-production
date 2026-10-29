@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "2026.10.29-r41-figure-spacing",
-  "createdAt": "2026-10-29T10:27:02.515Z",
+  "createdAt": "2026-10-29T10:30:14.736Z",
   "status": "released",
   "constraints": {
     "fontSizePt": {
@@ -14,7 +14,7 @@
   "validation": {
     "platform": "Windows",
     "full_regression": "1233 passed, 3 failed, 7 subtests passed, 2 warnings; 249.85 seconds",
-    "known_limit": "Three tests could not create actual symbolic links (WinError 1314); link scenarios remain unverified, not passed. Developer Mode unchanged at user request.",
+    "known_limit": "Three local tests could not create symbolic links (WinError 1314). GitHub Windows CI subsequently ran relevant security cases: 11 passed, including all three. Local Developer Mode unchanged at user request.",
     "source_regressions": "Five private original-input scenarios: Word/EMF, SVG, PNG, Word/VSDX, PPT native graphics; applicable visuals compared at 144 dpi. Source data and accepted figures excluded from public package.",
     "review_scope": "Unbound source data and editorial-review warnings still require manual review."
   },
