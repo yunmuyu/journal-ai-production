@@ -16,5 +16,6 @@ def test_group_separation_is_twice_sibling_clearance(reg,size):
         return b['rect'][1]-a['rect'][3]-(a['width']+b['width'])/2
     # Then group whitespace is twice the unchanged within-group whitespace.
     normal=clear_gap('leaf0-0','leaf0-1')
+    assert normal==pytest.approx(2.5*size/8)
     assert clear_gap('leaf0-2','leaf1-0')==pytest.approx(2*normal)
     assert len(nodes)==8

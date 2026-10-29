@@ -13,6 +13,7 @@ import unittest
 from unittest.mock import patch
 from typing import Any
 from journal_pdf.boundary_ports import BoundaryGeometry, rectangular_path_bounds
+from journal_pdf.scene import Scene
 
 
 SOURCE = Path(__file__).resolve().parents[1] / 'journal_pdf'
@@ -37,11 +38,11 @@ class FinalLayoutRegressions(unittest.TestCase):
         load_functions('server.py', {'apply_changes'}, self.context)
 
     def scene(self, bbox, *, container=False, owner=None):
-        return types.SimpleNamespace(width=100, height=100, size=8, template='', paths=[], assets=[],
-            nodes=[{'id': 'frame', 'rect': [20, 20, 50, 50], 'kind': 'rectangle',
-                    'container': container, 'width': .5}],
-            texts=[{'id': 'label', 'owner': owner, 'position': {'bbox': bbox}}],
-            node_groups=[], layout_evidence={})
+        scene=Scene(None).finish(100,100)
+        scene.nodes=[{'id': 'frame', 'rect': [20, 20, 50, 50], 'kind': 'rectangle',
+                      'container': container, 'width': .5}]
+        scene.texts=[{'id': 'label', 'owner': owner, 'position': {'bbox': bbox}}]
+        return scene
 
     def test_unbound_label_crossing_rectangle_border_is_blocked(self):
         for bbox in ([15, 25, 25, 35], [25, 15, 35, 25],

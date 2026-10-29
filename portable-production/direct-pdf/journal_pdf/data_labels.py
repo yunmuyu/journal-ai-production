@@ -49,8 +49,12 @@ def validate_data_label_bindings(scene, bindings):
     seen_labels, seen_sources, evidence = set(), set(), []
     cache = {}
     for row in bindings:
-        if not isinstance(row, dict) or set(row) != {'text_id', 'asset_id', 'source_label_id', 'marker_index'}:
+        required = {'text_id', 'asset_id', 'source_label_id', 'marker_index'}
+        if not isinstance(row, dict) or not required <= set(row) or set(row) - (required | {'leader_path_id','placement_reason'}):
             _fail('数据标签绑定字段不完整或未知')
+        reason=row.get('placement_reason')
+        if 'placement_reason' in row and (not isinstance(reason,str) or not reason.strip()):
+            _fail('数据标签避让原因须为非空文字')
         text_id, asset_id, source_id, index = (row['text_id'], row['asset_id'], row['source_label_id'], row['marker_index'])
         if not all(isinstance(v, str) and v for v in (text_id, asset_id, source_id)) or type(index) is not int or index < 0:
             _fail('数据标签或源点标识无效')
@@ -143,11 +147,28 @@ def validate_data_label_bindings(scene, bindings):
         if not (target[0] <= box[0] <= box[2] <= target[2] and target[1] <= box[1] <= box[3] <= target[3]):
             _fail('目标数值必须完整位于绘图区内')
         dx = max(box[0]-px, 0, px-box[2]); dy = max(box[1]-py, 0, py-box[3])
-        if math.hypot(dx, dy) > 14 or abs((box[0]+box[2])/2-px) > 5:
-            _fail('目标数值离源点过远或偏向相邻点')
+        leader_id=row.get('leader_path_id')
+        if leader_id is not None:
+            if not isinstance(leader_id,str) or not leader_id:
+                _fail('数据标签引线编号无效')
+            leader=next((p for p in scene.paths if p['id']==leader_id),None)
+            if leader is None or len(leader['points']) < 2 or math.dist(leader['points'][-1],(px,py))>.2:
+                _fail('数据标签引线末端未指向对应源点')
+            start=leader['points'][0]
+            ldx=max(box[0]-start[0],0,start[0]-box[2]);ldy=max(box[1]-start[1],0,start[1]-box[3])
+            leader_gap=math.hypot(ldx,ldy)-leader['width']/2
+            reference=scene.size/8
+            if leader_gap < reference-.15 or leader_gap > 4*reference:
+                scene.notes.append({'code':'data_label_placement_review','id':text_id,'reason':reason,
+                    'leader_start_gap_pt':leader_gap,'reference_pt':reference,
+                    'message':'标签与引线起点的距离需结合文字墨迹和遮挡情况复核。'})
+        elif math.hypot(dx, dy) > 14 or abs((box[0]+box[2])/2-px) > 5:
+            if not reason:_fail('目标数值离源点过远或偏向相邻点')
+            scene.notes.append({'code':'data_label_placement_review','id':text_id,'reason':reason,
+                                'message':'标签为避让而移开，须在实际图中核对数据点归属。'})
         evidence.append({'text_id': text_id, 'asset_id': asset_id, 'source_label_id': source_id,
                          'source_group': receipt['source_group'], 'source_sha256': asset.source_hash,
-                         'marker_index': index, 'source_marker': [mx,my],
-                         'marker_target_pt': [px,py], 'target_bbox_pt': list(box),
+                         'marker_index': index, 'leader_path_id':leader_id,'leader_start_gap_pt':leader_gap if leader_id is not None else None,'source_marker': [mx,my],
+                         'marker_target_pt': [px,py], 'target_bbox_pt': list(box), 'placement_reason':reason,
                          'scope': 'declared direct SVG marker and same-color source label; design coordinates'})
     scene.layout_evidence['data_label_bindings'] = evidence

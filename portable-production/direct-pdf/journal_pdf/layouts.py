@@ -7,7 +7,7 @@ import math, json, subprocess, shutil, re
 from pathlib import Path
 from .common import FigureError, PT_PER_MM, finite
 from .scene import Scene, port, ray_ellipse
-from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, STROKE, COMPACT_GAP, display_content, wrap_text
+from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, TICK_CLEARANCE, STROKE, COMPACT_GAP, display_content, wrap_text
 from .label_fit import plan as plan_label
 from .fonts import position_text
 
@@ -161,7 +161,7 @@ def tree(spec,reg,size):
         from .bilateral_tree import bilateral_tree
         return bilateral_tree(spec,reg,size)
     if layout!='right':raise FigureError('tree_layout','树布局仅支持right或bilateral')
-    s=Scene(reg,size);s.template='hierarchy-tree';p=2.;padx=4.5*size/8;padv=2.7*size/8;gapx=2*float(spec.get('bus_leg_mm',2))*PT_PER_MM;gapy=COMPACT_GAP*size/8
+    s=Scene(reg,size);s.template='hierarchy-tree';p=2.;padx=4.5*size/8;padv=2.7*size/8;gapx=2*float(spec.get('bus_leg_mm',2))*PT_PER_MM;gapy=2.5*size/8+STROKE
     # Whitespace is measured between visible box edges, including half strokes.
     groupgap=2*(gapy-STROKE)+STROKE
     branches=spec['branches'];roottext=spec['root']
@@ -253,7 +253,12 @@ def primitive(spec,reg,size):
         if 'gap_pts' in group and (axis!='column' or 'gap_pt' in group or not isinstance(gaps,list) or
                 len(gaps)!=len(ids)-1 or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or v<0 for v in gaps)):
             raise FigureError('measured_group_gaps','gap_pts仅适用于column，须有n-1个有限非负数且不能与gap_pt并用',group=group.get('id'))
-        padx=4.5*size/8;pady=2.7*size/8;gap=float(group.get('gap_pt',9));x,y=map(float,origin)
+        connected=any(e.get('from') in ids and e.get('to') in ids for e in spec.get('connections',[]))
+        # Unbound line paths make connectivity ambiguous; retain the older
+        # larger spacing unless this is clearly a group without connections.
+        ambiguous=any(p.get('semantic_role','connection')=='connection' for p in spec.get('paths',[]))
+        default_gap=9 if connected or ambiguous else 2.5*size/8+STROKE
+        padx=4.5*size/8;pady=2.7*size/8;gap=float(group.get('gap_pt',default_gap));x,y=map(float,origin)
         equal_width=group.get('equal_width',False)
         if not isinstance(equal_width,bool):
             raise FigureError('measured_group_equal_width','equal_width须为布尔值',group=group.get('id'))
@@ -299,7 +304,7 @@ def primitive(spec,reg,size):
         kind='terminator' if terminal else n.get('shape','rectangle')
         if kind=='roundrect' and not n.get('semantic_shape') and not terminal:
             kind='rectangle'
-        nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),width=n.get('width',.5),dash=n.get('dash'),checked=n.get('checked',False),fill=n.get('fill'))
+        nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),width=n.get('width',.5),dash=n.get('dash'),checked=n.get('checked',False),fill=n.get('fill'),gray=n.get('gray',0))
         if terminal:nodes[n['id']]['flow_terminal']=True
         if kind in ('rectangle','roundrect','terminator') and not n.get('container',False):
             nodes[n['id']]['padding_pt']=[4.5*size/8,2.7*size/8]
@@ -347,6 +352,49 @@ def primitive(spec,reg,size):
             'lines':list(planned['lines']),'angle':planned['angle'],'reason':planned['reason'],
             'width_pt':round(planned['width_pt'],3),'availability_pt':planned['availability_pt'],'anchor':anchor})
     for t in spec.get('texts',[]):place_text(t)
+    from .confirmed_spacing import parse_confirmed_spacing
+    s.confirmed_spacing_checks=parse_confirmed_spacing(spec.get('confirmed_spacing_checks',[]))
+    from .route_clearances import parse_route_clearances
+    s.route_clearance_checks=parse_route_clearances(spec.get('route_clearance_checks',[]))
+    from .annotation_clearances import parse_annotation_clearances
+    s.annotation_clearance_checks=parse_annotation_clearances(spec.get('annotation_clearance_checks',[]))
+    from .icon_ink_spacing import parse_icon_ink_checks
+    s.icon_ink_checks=parse_icon_ink_checks(spec.get('icon_ink_checks',[]))
+    from .icon_ink_spacing import parse_icon_group_centers
+    s.icon_group_centers=parse_icon_group_centers(spec.get('icon_group_centers',[]))
+    from .container_auto_spacing import parse_container_spacing_exceptions
+    s.container_spacing_exceptions=parse_container_spacing_exceptions(spec.get('container_spacing_exceptions',[]))
+    from .parallel_slants import parse_parallel_slants
+    s.parallel_slant_checks=parse_parallel_slants(spec.get('parallel_slant_checks',[]))
+    from .curve_label_spacing import parse_curve_label_checks
+    s.curve_label_checks=parse_curve_label_checks(spec.get('curve_label_checks',[]))
+    rows=spec.get('image_row_gap_checks',[])
+    if not isinstance(rows,list):raise FigureError('image_row_gap_invalid','图片行间距检查须为数组')
+    for row in rows:
+        if (not isinstance(row,dict) or set(row)!={'asset_ids'} or not isinstance(row['asset_ids'],list)
+                or len(row['asset_ids'])<2 or any(not isinstance(x,str) or not x for x in row['asset_ids'])
+                or len(set(row['asset_ids']))!=len(row['asset_ids'])):
+            raise FigureError('image_row_gap_invalid','图片行须列出至少两个不同的素材编号')
+        s.image_row_gap_checks.append({'asset_ids':row['asset_ids']})
+    checks=spec.get('image_label_gap_checks',[])
+    if not isinstance(checks,list):raise FigureError('image_label_gap_invalid','图片说明间距检查须为数组')
+    for check in checks:
+        if (not isinstance(check,dict) or set(check)-{'asset_id','title_id','caption_id'}
+                or not isinstance(check.get('asset_id'),str) or not check['asset_id']
+                or not any(k in check for k in ('title_id','caption_id'))
+                or any(not isinstance(check[k],str) or not check[k] for k in ('title_id','caption_id') if k in check)):
+            raise FigureError('image_label_gap_invalid','须明确绑定图片与上方或下方说明')
+        s.image_label_gap_checks.append(dict(check))
+    checks=spec.get('legend_data_checks',[])
+    if not isinstance(checks,list):raise FigureError('legend_data_check_invalid','图例数据避让检查须为数组')
+    for check in checks:
+        if (not isinstance(check,dict) or set(check)!={'frame_id','data_path_ids'}
+                or not isinstance(check['frame_id'],str) or not check['frame_id']
+                or not isinstance(check['data_path_ids'],list) or not check['data_path_ids']
+                or any(not isinstance(i,str) or not i for i in check['data_path_ids'])
+                or len(set(check['data_path_ids']))!=len(check['data_path_ids'])):
+            raise FigureError('legend_data_check_invalid','须明确绑定图例框和真实数据路径')
+        s.legend_data_checks.append(dict(check))
     node_groups=spec.get('node_groups',[])
     if not isinstance(node_groups,list):
         raise FigureError('node_group_invalid','node_groups须为明确成员清单')
@@ -371,6 +419,8 @@ def primitive(spec,reg,size):
             s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
                    exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'),
                    shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'))
+    from .legend_marker_alignment import prepare_legend_marker_centers
+    s.legend_marker_centers=prepare_legend_marker_centers(s,spec.get('legend_marker_centers',[]))
     from .tick_precision import scene_axis_notices
     s.notes.extend(scene_axis_notices(s,spec.get('axis_tick_groups')))
     spacing=spec.get('straight_vertical_spacing',[])
@@ -380,12 +430,111 @@ def primitive(spec,reg,size):
     for group in spacing:
         if not isinstance(group,dict) or set(group)-{'paths','gap_pt'} or not isinstance(group.get('paths'),list) or not group['paths']:
             raise FigureError('vertical_spacing_invalid','直连跨行间距组须列出路径')
-        ids=group['paths'];gap=group.get('gap_pt',23.)
+        ids=group['paths'];gap=group.get('gap_pt',ARROW_LENGTH)
         if any(not isinstance(item,str) or not item or item in seen for item in ids) or len(set(ids))!=len(ids):
             raise FigureError('vertical_spacing_invalid','直连路径编号无效或重复')
         if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<ARROW_LENGTH:
             raise FigureError('vertical_spacing_invalid','直连间距必须是满足箭头最小长度的有限值')
         seen.update(ids);s.straight_vertical_spacing.append({'paths':ids,'gap_pt':float(gap)})
+    legend_checks=spec.get('legend_dash_checks',[])
+    if not isinstance(legend_checks,list):raise FigureError('legend_dash_invalid','虚线图例检查须为数组')
+    for item in legend_checks:
+        if not isinstance(item,dict) or set(item)-{'path_id','min_length_pt'} or not isinstance(item.get('path_id'),str) or not item['path_id']:
+            raise FigureError('legend_dash_invalid','虚线图例检查须指定线段')
+        length=item.get('min_length_pt',12.)
+        if isinstance(length,bool) or not isinstance(length,(int,float)) or not math.isfinite(length) or length<=0:
+            raise FigureError('legend_dash_invalid','虚线图例最小长度必须为有限正数')
+        s.legend_dash_checks.append({'path_id':item['path_id'],'min_length_pt':float(length)})
+    series_checks=spec.get('legend_series_checks',[])
+    if not isinstance(series_checks,list):raise FigureError('legend_series_invalid','图例线型绑定须为数组')
+    for item in series_checks:
+        if (not isinstance(item,dict) or set(item)!={'series_path_id','swatch_path_id'}
+                or any(not isinstance(v,str) or not v for v in item.values())):
+            raise FigureError('legend_series_invalid','须指定数据曲线与图例线段')
+        s.legend_series_checks.append(item.copy())
+    axis_checks=spec.get('axis_label_gap_checks',[])
+    if not isinstance(axis_checks,list):raise FigureError('axis_gap_invalid','轴题间距检查须为数组')
+    for item in axis_checks:
+        if (not isinstance(item,dict) or set(item)-{'title_id','tick_ids','gap_pt','side'} or not isinstance(item.get('title_id'),str)
+                or not item['title_id'] or not isinstance(item.get('tick_ids'),list) or not item['tick_ids']
+                or any(not isinstance(i,str) or not i for i in item['tick_ids'])):
+            raise FigureError('axis_gap_invalid','轴题间距检查须指定轴题与刻度')
+        gap=item.get('gap_pt',LABEL_CLEARANCE)
+        if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
+            raise FigureError('axis_gap_invalid','轴题间距须为有限非负数')
+        side=item.get('side','bottom')
+        if side not in ('bottom','left','right'):raise FigureError('axis_gap_invalid','轴题间距方向须为 bottom、left 或 right')
+        s.axis_label_gap_checks.append({'title_id':item['title_id'],'tick_ids':item['tick_ids'],'gap_pt':float(gap),'side':side})
+    legend_gaps=spec.get('legend_frame_gap_checks',[])
+    if not isinstance(legend_gaps,list):raise FigureError('legend_frame_gap_invalid','图例框间距检查须为数组')
+    for item in legend_gaps:
+        if (not isinstance(item,dict) or set(item)-{'frame_id','text_ids','gap_pt','side'} or not isinstance(item.get('frame_id'),str)
+                or not item['frame_id'] or not isinstance(item.get('text_ids'),list) or not item['text_ids']
+                or any(not isinstance(i,str) or not i for i in item['text_ids'])):
+            raise FigureError('legend_frame_gap_invalid','图例框间距检查须指定框线与文字')
+        gap=item.get('gap_pt',LABEL_CLEARANCE)
+        if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
+            raise FigureError('legend_frame_gap_invalid','图例框间距须为有限非负数')
+        side=item.get('side','bottom')
+        if side not in ('bottom','right'):raise FigureError('legend_frame_gap_invalid','图例框间距方向须为 bottom 或 right')
+        s.legend_frame_gap_checks.append({'frame_id':item['frame_id'],'text_ids':item['text_ids'],'gap_pt':float(gap),'side':side})
+    tick_checks=spec.get('axis_tick_gap_checks',[])
+    if not isinstance(tick_checks,list):raise FigureError('axis_tick_gap_invalid','刻度间距检查须为数组')
+    for item in tick_checks:
+        if (not isinstance(item,dict) or set(item)-{'text_id','path_id','side','gap_pt'}
+                or any(not isinstance(item.get(k),str) or not item[k] for k in ('text_id','path_id'))
+                or item.get('side') not in ('left','right','bottom')):
+            raise FigureError('axis_tick_gap_invalid','刻度间距检查须指定文字、刻度线和方向')
+        gap=item.get('gap_pt',TICK_CLEARANCE)
+        if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
+            raise FigureError('axis_tick_gap_invalid','刻度间距须为有限非负数')
+        s.axis_tick_gap_checks.append({'text_id':item['text_id'],'path_id':item['path_id'],'side':item['side'],'gap_pt':float(gap)})
+    new_ticks=spec.get('new_tick_length_checks',[])
+    if not isinstance(new_ticks,list):raise FigureError('new_tick_length_invalid','新绘刻度检查须为数组')
+    for item in new_ticks:
+        if (not isinstance(item,dict) or set(item)-{'path_id','length_pt','reason'}
+                or not isinstance(item.get('path_id'),str) or not item['path_id']):
+            raise FigureError('new_tick_length_invalid','新绘刻度须明确指定路径')
+        length=item.get('length_pt',2.5);reason=item.get('reason')
+        if (isinstance(length,bool) or not isinstance(length,(int,float)) or not math.isfinite(length) or length<=0
+                or ('length_pt' in item and (not isinstance(reason,str) or not reason.strip()))
+                or ('reason' in item and 'length_pt' not in item)):
+            raise FigureError('new_tick_length_invalid','新绘刻度例外须指定正长度与原因')
+        s.new_tick_length_checks.append({'path_id':item['path_id'],'length_pt':float(length),'reason':reason})
+    backgrounds=spec.get('legend_backgrounds',[])
+    if not isinstance(backgrounds,list):raise FigureError('legend_background_invalid','图例白底须为数组')
+    path_map={p['id']:p for p in s.paths};text_ids={t['id'] for t in s.texts};node_ids={n['id'] for n in s.nodes}
+    foreground=set();foreground_text=set();foreground_nodes=set()
+    for item in backgrounds:
+        if (not isinstance(item,dict) or set(item)!={'frame_id','foreground_path_ids','foreground_text_ids','foreground_node_ids'} or not isinstance(item.get('frame_id'),str)
+                or not isinstance(item.get('foreground_path_ids'),list) or not item['foreground_path_ids']
+                or any(not isinstance(i,str) or not i or i not in path_map or i in foreground for i in item['foreground_path_ids'])
+                or not isinstance(item.get('foreground_text_ids'),list) or any(not isinstance(i,str) or i not in text_ids or i in foreground_text for i in item['foreground_text_ids'])
+                or not isinstance(item.get('foreground_node_ids'),list) or any(not isinstance(i,str) or i not in node_ids or i in foreground_nodes for i in item['foreground_node_ids'])
+                or any(len(set(item[k]))!=len(item[k]) for k in ('foreground_path_ids','foreground_text_ids','foreground_node_ids'))
+                or item['frame_id'] not in item['foreground_path_ids']):
+            raise FigureError('legend_background_invalid','图例白底须绑定框线和全部前景路径')
+        frame=path_map[item['frame_id']];pts=frame['points']
+        if len(pts)!=5 or pts[0]!=pts[-1] or any(a[0]!=b[0] and a[1]!=b[1] for a,b in zip(pts,pts[1:])):
+            raise FigureError('legend_background_invalid','图例白底只支持真实闭合矩形框')
+        xs=[p[0] for p in pts];ys=[p[1] for p in pts];rect=[min(xs),min(ys),max(xs),max(ys)]
+        if set(tuple(p) for p in pts[:-1])!={(rect[0],rect[1]),(rect[2],rect[1]),(rect[2],rect[3]),(rect[0],rect[3])}:
+            raise FigureError('legend_background_invalid','图例白底框线必须为矩形')
+        if any(rect[0]<b['rect'][2] and rect[2]>b['rect'][0] and rect[1]<b['rect'][3] and rect[3]>b['rect'][1] for b in s.legend_backgrounds):
+            raise FigureError('legend_background_invalid','多个图例白底不能互相遮盖')
+        def contained(box):return box[0]>=rect[0]-.01 and box[1]>=rect[1]-.01 and box[2]<=rect[2]+.01 and box[3]<=rect[3]+.01
+        for path_id in item['foreground_path_ids']:
+            points=path_map[path_id]['points'];box=[min(p[0] for p in points),min(p[1] for p in points),max(p[0] for p in points),max(p[1] for p in points)]
+            if not contained(box):raise FigureError('legend_background_invalid','图例前景线越过白底框',id=path_id)
+        for node_id in item['foreground_node_ids']:
+            node=next(n for n in s.nodes if n['id']==node_id)
+            if not contained(node['rect']):raise FigureError('legend_background_invalid','图例标记越过白底框',id=node_id)
+        for text_id in item['foreground_text_ids']:
+            text=next(t for t in s.texts if t['id']==text_id)
+            if not contained(text['position']['bbox']):raise FigureError('legend_background_invalid','图例文字越过白底框',id=text_id)
+        foreground.update(item['foreground_path_ids']);foreground_text.update(item['foreground_text_ids']);foreground_nodes.update(item['foreground_node_ids'])
+        s.legend_backgrounds.append({'frame_id':item['frame_id'],'foreground_path_ids':item['foreground_path_ids'],
+            'foreground_text_ids':item['foreground_text_ids'],'foreground_node_ids':item['foreground_node_ids'],'rect':rect})
     return s.finish(spec['width_pt'],spec['height_pt'])
 
 

@@ -126,6 +126,9 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
             if 'data_label_bindings' in spec:
                 from .data_labels import validate_data_label_bindings
                 validate_data_label_bindings(value, spec['data_label_bindings'])
+            if 'source_plot_frame' in spec:
+                from .source_plot_frame import validate_source_plot_frame
+                validate_source_plot_frame(value, spec['source_plot_frame'])
             if any(row['asset'].audit.get('source_shape_bindings') for row in value.assets):
                 import copy
                 value.source_shape_target_declarations={node['id']:copy.deepcopy(node) for node in spec.get('nodes',[])}
@@ -166,7 +169,26 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
     if scene.size*factor<6-1e-7:
         raise FigureError('layout_reflow_required','完整图件缩后低于6pt；先重新布局，不自动改双栏或只缩字',
                           design_size=size,width_pt=scene.width,column_mm=col,proposed_size=scene.size*factor)
+    legend_bindings=spec.get('source_legend_bindings',[])
+    if isinstance(legend_bindings,list):
+        for binding in legend_bindings:
+            if not isinstance(binding,dict):continue
+            for node in scene.nodes:
+                if node['id']==binding.get('marker_node_id'):node['source_legend_marker']=True
+            for path in scene.paths:
+                if path['id']==binding.get('path_id'):path['source_legend_swatch']=True
     scene=scale_scene(scene,factor)
+    source_tick_checks=spec.get('source_tick_gap_checks',[])
+    if not isinstance(source_tick_checks,list):raise FigureError('source_tick_gap_invalid','源刻度检查须为数组')
+    for item in source_tick_checks:
+        if not isinstance(item,dict):raise FigureError('source_tick_gap_invalid','源刻度检查须为对象')
+        gap=item.get('gap_pt',2.5)
+        if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
+            raise FigureError('source_tick_gap_invalid','源刻度净距须为有限非负数')
+        scene.source_tick_gap_checks.append(dict(item,gap_pt=gap*factor))
+    if 'source_legend_bindings' in spec:
+        from .source_legend import validate_source_legends
+        validate_source_legends(scene,spec['source_legend_bindings'])
     issues=audit_scene(scene)
     if scene.height>policy.get('max_height_mm',240)*PT_PER_MM:issues.append({'code':'page_height_overflow'})
     attempts=[{'column_mm':col,'design_font_size_pt':size,'font_size_pt':scene.size,'whole_artwork_scale':factor,
@@ -224,8 +246,10 @@ def pdf_audit(path:Path,scene,reg):
     declared_colors_ok=(actual_colors==expected_colors and all(all(abs(v-t['color'][0])<1e-8 for v in t['color']) and min(abs(t['color'][0]),abs(t['color'][0]-1))<1e-8 for t in trace))
     text_color_ok=black_ok or (any(t.get('gray',0)==1 for t in scene.texts) and declared_colors_ok)
     from .source_icons import audit_icon_paths
-    icon_audit=audit_icon_paths(p,scene.assets)
+    icon_audit=audit_icon_paths(p,scene.assets,scene)
     stroke_bad=icon_audit['stroke_violations']
+    from .source_tick_gap import audit_source_tick_gaps
+    source_tick_gap=audit_source_tick_gaps(p,scene,scene.source_tick_gap_checks)
     result={'page_count':len(d),'width_mm':p.rect.width/PT_PER_MM,'height_mm':p.rect.height/PT_PER_MM,
             'expected_text_characters':sum(expected.values()),'actual_text_characters':sum(actual.values()),
             'expected_scene_text_characters':sum(scene_expected.values()),
@@ -235,7 +259,7 @@ def pdf_audit(path:Path,scene,reg):
             'font_descriptors':descriptors,
             'neutral_rgb_300dpi':color_ok,'nonneutral_pixels':off,'max_channel_difference':max(i for i,v in enumerate(hist) if v),
             'image_resource_count':len(p.get_images()),'vector_drawing_count':len(p.get_drawings()),
-            'axis_unit_notation':axis_units,'quantity_unit_spacing':quantity_spacing,'numeric_grouping_in_actual_pdf':not numeric_missing,'numeric_missing':numeric_missing,
+            'axis_unit_notation':axis_units,'quantity_unit_spacing':quantity_spacing,'source_tick_gap':source_tick_gap,'numeric_grouping_in_actual_pdf':not numeric_missing,'numeric_missing':numeric_missing,
             'editable_text_pure_black':black_ok,'editable_text_declared_black_white_exact':declared_colors_ok,'effective_path_strokes_05pt':not stroke_bad,
             'editable_text_rotation_exact':rotation_audit['ok'],'text_rotation':rotation_audit,
             'editable_text_font_styles_exact':font_style_audit['ok'],'text_font_styles':font_style_audit,
@@ -253,7 +277,7 @@ def pdf_audit(path:Path,scene,reg):
             'stroke_scope':'Visible PDF stroke paths only; raster curves, fills and glyph outlines are not stroke-width checks',
             'not_pdfx_certified':True,'font_profile_is_preview':reg.is_preview,
             'requires_semantic_visual_review':True,'requires_indesign_placement_test':True}
-    if not content_ok or not color_ok or not result['all_fonts_embedded'] or numeric_missing or not text_color_ok or not rotation_audit['ok'] or not font_style_audit['ok'] or stroke_bad or not axis_units['ok'] or not quantity_spacing['ok']:
+    if not content_ok or not color_ok or not result['all_fonts_embedded'] or numeric_missing or not text_color_ok or not rotation_audit['ok'] or not font_style_audit['ok'] or stroke_bad or not axis_units['ok'] or not quantity_spacing['ok'] or not source_tick_gap['ok']:
         raise FigureError('actual_pdf_audit_failed','实际PDF检查失败',audit=result)
     d.close();return result,img
 
@@ -275,6 +299,13 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
     if not bindings and not spec.get('synthetic',False):raise FigureError('source_identity_missing','真实图件必须绑定原始素材哈希')
     scene=compile_figure(spec,reg,assets,source_root,
                          verified_sources={b['path']:b['sha256'] for b in bindings})
+    if spec.get('kind')=='scene':
+        frames=[x['id'] for x in scene.paths+scene.nodes if x['id']=='legend-frame']
+        bound={bg['frame_id'] for bg in scene.legend_backgrounds}
+        if any(frame not in bound for frame in frames):
+            scene.notes.append({'code':'legend_background_unverified','message':'图例框未声明遮底和前景分组；白底、边距与覆盖范围须核对。'})
+        if scene.legend_backgrounds:
+            scene.notes.append({'code':'legend_data_overlap_unverified','message':'白底可能遮住源数据；未完成完整数据覆盖证明，须对照原图复核。'})
     allowed={str(resolve_source(source_root,b['path'])):b['sha256'] for b in bindings}
     for a in scene.assets:
         asset=a['asset']
@@ -296,13 +327,34 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
             page.insert_font(fontname='JFW_'+face,fontbuffer=buffer)
         for a in scene.assets:
             if a['role']!='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
-        for p in scene.paths:draw_path(page,p)
-        for n in scene.nodes:
-            if n.get('invisible'):continue      # 无边框节点只用于承接箭头，不落笔
-            draw_node(page,n)
-        for a in scene.assets:
-            if a['role']=='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
-        for t in scene.texts:draw_text(page,reg,t)
+        if scene.legend_backgrounds:
+            if any(a['role']=='legend-swatch' for a in scene.assets):
+                raise FigureError('legend_background_asset_unsupported','白底图例暂不支持未显式分组的图例资产')
+            legend_foreground={i for bg in scene.legend_backgrounds for i in bg['foreground_path_ids']}
+            legend_nodes={i for bg in scene.legend_backgrounds for i in bg['foreground_node_ids']}
+            legend_texts={i for bg in scene.legend_backgrounds for i in bg['foreground_text_ids']}
+            for p in scene.paths:
+                if p['id'] not in legend_foreground:draw_path(page,p)
+            for n in scene.nodes:
+                if not n.get('invisible') and n['id'] not in legend_nodes:draw_node(page,n)
+            for t in scene.texts:
+                if t['id'] not in legend_texts:draw_text(page,reg,t)
+            for bg in scene.legend_backgrounds:
+                page.draw_rect(fitz.Rect(bg['rect']),color=None,fill=(1,1,1),width=0,overlay=True)
+                for p in scene.paths:
+                    if p['id'] in bg['foreground_path_ids']:draw_path(page,p)
+                for n in scene.nodes:
+                    if n['id'] in bg['foreground_node_ids'] and not n.get('invisible'):draw_node(page,n)
+                for t in scene.texts:
+                    if t['id'] in bg['foreground_text_ids']:draw_text(page,reg,t)
+            scene.layout_evidence['legend_backgrounds']=[{'frame_id':bg['frame_id'],'rect':bg['rect'],'fill':'opaque-white'} for bg in scene.legend_backgrounds]
+        else:
+            for p in scene.paths:draw_path(page,p)
+            for n in scene.nodes:
+                if not n.get('invisible'):draw_node(page,n)
+            for a in scene.assets:
+                if a['role']=='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
+            for t in scene.texts:draw_text(page,reg,t)
         doc.set_metadata({'title':id,'author':'Journal Direct PDF candidate','subject':'实验样张；须真实字体和本机终检，不自动发布',
                           'creator':f'journal-direct-pdf {__version__}','producer':'PyMuPDF direct vector/mixed renderer; no Adobe runtime'})
         crop_pix=page.get_pixmap(dpi=300,colorspace=fitz.csRGB,alpha=False)
@@ -350,7 +402,9 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         if unverified_assets:
             warnings.append({'code':'source_text_coverage','message':'原图路径或像素中的文字尚未逐项核对；原生文字替换通过不等于全图字号、字体与布局合格。'})
         editorial_codes={'base_font_below_8_requires_review','reduced_nonscript_text_requires_review',
-                         'axis_decimal_precision_mismatch','axis_tick_group_missing'}
+                         'axis_decimal_precision_mismatch','axis_tick_group_missing','legend_swatch_ink_review','legend_background_unverified',
+                         'legend_data_overlap_unverified','legend_row_spacing_unverified','legend_data_clearance_review','legend_dash_length_review','data_label_placement_review','annotation_spacing_review','legend_marker_alignment_review','legend_marker_alignment_unverified','icon_ink_unverified','icon_ink_spacing_review','data_curve_unverified','data_curve_spacing_review',
+                         'axis_tick_source_unverified','axis_tick_corner_exception','straight_connection_spacing_review','icon_group_center_review','container_spacing_review','container_exception_unverified','parallel_slant_review'}
         editorial_review=[w['code'] for w in warnings if w.get('code') in editorial_codes]
         candidate_status=('candidate-unverified-source-text' if unverified_assets else
                           'candidate-editorial-review' if editorial_review else 'candidate-rendered')

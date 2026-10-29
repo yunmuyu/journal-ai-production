@@ -84,3 +84,43 @@ def test_binding_rejects_ambiguous_or_overridden_source(tmp_path, reg, change):
         assert error.value.code == 'data_label_binding_invalid'
     finally:
         assets.close()
+
+
+@pytest.mark.parametrize('endpoint,ok', [([45,45],True), ([65,55],False)])
+def test_moved_label_leader_must_end_on_the_declared_source_marker(tmp_path,reg,endpoint,ok):
+    spec=_spec(tmp_path)
+    spec['texts'][0].update(x=45,y=15)
+    spec['paths']=[{'id':'leader','points':[[45,20],endpoint],'semantic_role':'data-annotation'}]
+    spec['data_label_bindings'][0]['leader_path_id']='leader'
+    assets=Assets()
+    try:
+        if ok:
+            scene=compile_figure(spec,reg,assets,tmp_path)
+            assert scene.layout_evidence['data_label_bindings'][0]['leader_path_id']=='leader'
+        else:
+            with pytest.raises(FigureError):compile_figure(spec,reg,assets,tmp_path)
+    finally:assets.close()
+def test_distant_data_label_with_reason_requires_visual_review(reg,tmp_path):
+    spec=_spec(tmp_path)
+    spec['texts'][0].update(x=45,y=10)
+    spec['data_label_bindings'][0]['placement_reason']='密集点位，避让相邻标签'
+    assets=Assets()
+    try:
+        scene=compile_figure(spec,reg,assets,tmp_path)
+        assert any(n['code']=='data_label_placement_review' for n in scene.notes)
+        assert scene.layout_evidence['data_label_bindings'][0]['placement_reason']
+    finally:assets.close()
+
+
+def test_leader_start_gap_is_measured_and_long_gap_requests_review(reg,tmp_path):
+    spec=_spec(tmp_path)
+    spec['texts'][0].update(x=45,y=15)
+    spec['paths']=[{'id':'leader','points':[[45,26],[45,45]],'semantic_role':'data-annotation'}]
+    spec['data_label_bindings'][0]['leader_path_id']='leader'
+    assets=Assets()
+    try:
+        scene=compile_figure(spec,reg,assets,tmp_path)
+        row=scene.layout_evidence['data_label_bindings'][0]
+        assert row['leader_start_gap_pt']>4
+        assert any(n['code']=='data_label_placement_review' and n.get('reference_pt')==1 for n in scene.notes)
+    finally:assets.close()

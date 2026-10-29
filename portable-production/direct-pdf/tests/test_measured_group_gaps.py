@@ -60,3 +60,12 @@ def test_zero_gap_is_a_valid_nonnegative_value(reg):
     scene=primitive(spec,reg,8)
     # Then: zero is retained exactly; existing downstream audits still own geometry policy.
     assert scene.nodes[1]['rect'][1] == scene.nodes[0]['rect'][3]
+
+
+@pytest.mark.parametrize('size',[6,8])
+def test_unconnected_measured_group_defaults_to_visible_clearance(reg,size):
+    spec={'width_pt':120,'height_pt':80,'nodes':[{'id':'a','text':'First'},{'id':'b','text':'Second'}],
+          'measured_groups':[{'id':'g','axis':'row','nodes':['a','b'],'origin':[5,5]}]}
+    scene=primitive(spec,reg,size)
+    a,b=scene.nodes
+    assert b['rect'][0]-a['rect'][2]-(a['width']+b['width'])/2==pytest.approx(2.5*size/8)
