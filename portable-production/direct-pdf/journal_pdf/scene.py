@@ -232,8 +232,13 @@ def audit_scene(s:Scene):
             if (axis!='both' or isinstance(target,bool) or not isinstance(target,(int,float)) or
                     not math.isfinite(target) or target+1e-7<width):return None
             width=target
-        return [width,
-                max(v[1] for v in peers) if axis in ('row','both') else own[1]]
+        height=max(v[1] for v in peers) if axis in ('row','both') else own[1]
+        if 'cell_height_pt' in definition:
+            target=definition['cell_height_pt']
+            if (axis not in ('row','both') or isinstance(target,bool) or not isinstance(target,(int,float)) or
+                    not math.isfinite(target) or target+1e-7<height):return None
+            height=target
+        return [width,height]
     def fixed_valid(node,contract):
         fixed=contract.get('fixed_size');constraints={'table-cell':'tabular-grid','code-panel':'source-code-viewport',
             'device-glyph':'source-symbol-bounds','source-locked-viewport':'source-artwork-bounds'}
