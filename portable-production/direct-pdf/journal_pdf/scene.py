@@ -17,6 +17,7 @@ class Scene:
         self.registry=registry;self.size=size
         self.nodes=[];self.texts=[];self.paths=[];self.assets=[];self.notes=[]
         self.width=0.;self.height=0.;self.template='';self.layout_evidence={}
+        self.straight_vertical_spacing=[]
         self.measurement_groups={};self.source_bindings={};self.verified_source_bindings={};self.source_root=None
         self._ids=set();self.node_groups={}
     def ident(self,id):
@@ -315,6 +316,7 @@ def audit_scene(s:Scene):
                     issues.append({'code':'text_shape_collision','text':t['id'],'shape':n['id']})
     s.layout_evidence['source_path_ports']=[]
     s.layout_evidence['page_external_ports']=[]
+    s.layout_evidence['node_boundary_ports']=[]
     for p in s.paths:
         pts=p['points'];protection=p['width']/2+.1
         endpoint_nodes=p.get('endpoint_nodes')
@@ -336,6 +338,7 @@ def audit_scene(s:Scene):
                         else:
                             matched=boundaries.matches(node_id,tuple(point),tuple(pts[1] if start else pts[-2]))
                             if matched and 'page' in node_id:s.layout_evidence['page_external_ports'].append({'path':p['id'],'at_start':start,'declaration':node_id,'point':point,'verified':True})
+                            if matched and 'node' in node_id:s.layout_evidence['node_boundary_ports'].append({'path':p['id'],'at_start':start,'declaration':node_id,'point':point,'verified':True})
                         if not matched:
                             issues.append({'code':'arrow_endpoint_boundary_mismatch','id':p['id'],
                                            'at_start':start,'declaration':node_id,'point':point})
@@ -390,6 +393,21 @@ def audit_scene(s:Scene):
                     overlap=max(overlap,_collinear_overlap_length(a,b,c,d))
             if overlap>.15:
                 issues.append({'code':'path_collinear_overlap','ids':[p['id'],q['id']],'overlap_pt':overlap})
+    spacing_evidence=[]
+    for group in s.straight_vertical_spacing:
+        paths={path['id']:path for path in s.paths}
+        for path_id in group['paths']:
+            path=paths.get(path_id)
+            points=path['points'] if path else []
+            if not path or not path['arrow'] or len(points)!=2 or abs(points[0][0]-points[1][0])>.01 or points[1][1]<=points[0][1]:
+                issues.append({'code':'vertical_spacing_path_invalid','id':path_id})
+                continue
+            actual=points[1][1]-points[0][1]
+            expected=group['gap_pt']
+            spacing_evidence.append({'id':path_id,'gap_pt':actual,'expected_pt':expected})
+            if abs(actual-expected)>.15:
+                issues.append({'code':'vertical_spacing_mismatch','id':path_id,'actual_pt':actual,'expected_pt':expected})
+    s.layout_evidence['straight_vertical_spacing']=spacing_evidence
     for a in s.assets:
         if not contains(page,a['rect'],.02):issues.append({'code':'asset_outside_page','id':a['id']})
     return issues

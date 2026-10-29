@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.29-r39-editorial-feedback",
-  "createdAt": "2026-10-29T04:44:59.103Z",
+  "id": "2026.10.29-r40-node-ports",
+  "createdAt": "2026-10-29T04:54:19.103Z",
   "status": "released",
   "constraints": {
     "fontSizePt": {
@@ -12,13 +12,10 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "platform": "Windows 11",
-    "preflight": "138 passed",
-    "scope": "Manual review required; spacing defaults unchanged pending editor input",
-    "task_quality": "43 passed",
-    "direct_pdf_focused": "93 passed, including optional Shapely clip geometry",
-    "direct_pdf_full": "1075 passed, 3 Windows symlink tests blocked by WinError 1314, one changed expectation subsequently passed in focused run",
-    "integration": "Private source-bound 12-label SVG case rendered and audited locally"
+    "focused": "89 boundary-port and editorial rule tests passed",
+    "scope": "23 pt applies only to explicitly declared straight downward groups; existing stage spacing unchanged",
+    "integration": "Private source-bound offset-box scene rendered locally with 23 pt check",
+    "platform": "Windows"
   },
   "files": [
     {
@@ -423,7 +420,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.28-r38-prescan",
+  "supersedes": "2026.10.29-r39-editorial-feedback",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -893,8 +890,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/layouts.py",
-      "sha256": "44b94df9767801efde87cb42648a4d06e577beb2d17cbcc06ad3caa8a217c9a9",
-      "bytes": 25828
+      "sha256": "bea0ebf03801bfbacb33deeaced89592c6360a41ecd7568402223b1cf19851e3",
+      "bytes": 26875
     },
     {
       "path": "direct-pdf/journal_pdf/numeric_audit.py",
@@ -933,8 +930,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/scene.py",
-      "sha256": "8766da5da5e17d5168d4d6b49811ba2ceebc2c912c5a27d83e22be5c2bfc1276",
-      "bytes": 26960
+      "sha256": "8439ce922bb8b385172bb7a76ea90df48b4821e84999b0706cc0754ad4e8b861",
+      "bytes": 28140
     },
     {
       "path": "direct-pdf/journal_pdf/scientific_text.py",
@@ -1043,8 +1040,8 @@
     },
     {
       "path": "direct-pdf/README.md",
-      "sha256": "33c28ced4b9efbd3262572a24707cc1bf866f8a547d46f0d486e9987351df6ed",
-      "bytes": 6492
+      "sha256": "12c9824ea32e2afd3af97a0d81a78deb8ed00516ef0966aad8b2d4debb78a5f5",
+      "bytes": 7860
     },
     {
       "path": "direct-pdf/RELEASE-CANDIDATE.json",
@@ -1113,8 +1110,8 @@
     },
     {
       "path": "direct-pdf/tests/test_boundary_ports.py",
-      "sha256": "ad7f4d51b597c7099054f628bf19fe7ebc2d8a2bc86eb626b2c6bf59fe8d399f",
-      "bytes": 6773
+      "sha256": "626ebda9b88c24fbd902d9b3f64b5f206988fcc077cb98639ac23935be1b3631",
+      "bytes": 8974
     },
     {
       "path": "direct-pdf/tests/test_checkbox_glyph.py",

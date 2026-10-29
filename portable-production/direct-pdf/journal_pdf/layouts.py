@@ -373,6 +373,19 @@ def primitive(spec,reg,size):
                    shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'))
     from .tick_precision import scene_axis_notices
     s.notes.extend(scene_axis_notices(s,spec.get('axis_tick_groups')))
+    spacing=spec.get('straight_vertical_spacing',[])
+    if not isinstance(spacing,list):
+        raise FigureError('vertical_spacing_invalid','直连跨行间距组必须是数组')
+    seen=set()
+    for group in spacing:
+        if not isinstance(group,dict) or set(group)-{'paths','gap_pt'} or not isinstance(group.get('paths'),list) or not group['paths']:
+            raise FigureError('vertical_spacing_invalid','直连跨行间距组须列出路径')
+        ids=group['paths'];gap=group.get('gap_pt',23.)
+        if any(not isinstance(item,str) or not item or item in seen for item in ids) or len(set(ids))!=len(ids):
+            raise FigureError('vertical_spacing_invalid','直连路径编号无效或重复')
+        if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<ARROW_LENGTH:
+            raise FigureError('vertical_spacing_invalid','直连间距必须是满足箭头最小长度的有限值')
+        seen.update(ids);s.straight_vertical_spacing.append({'paths':ids,'gap_pt':float(gap)})
     return s.finish(spec['width_pt'],spec['height_pt'])
 
 
