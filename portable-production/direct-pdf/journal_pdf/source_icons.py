@@ -98,7 +98,7 @@ def write_icon(source: Path,page_no: int,clip: list[float],output: Path) -> None
     output.with_suffix(output.suffix+'.json').write_text(value.receipt_json,encoding='utf-8')
 
 
-def audit_icon_paths(page, placements):
+def audit_icon_paths(page, placements, scene=None):
     """Match actual saved paths against source-bound placements, consuming each instance."""
     from .assets import Assets
     icons=[row for row in placements if row['asset'].audit.get('mode') in ('source-bound-vector-icon','source-vector-body','source-svg-group','source-vector-glyph','source-mixed-body','registered-outlined-svg-chart','registered-native-pdf-text')]
@@ -134,6 +134,15 @@ def audit_icon_paths(page, placements):
                 bindings.append({'id':row['id'],'mode':receipt['mode'],'source_sha256':asset.source_hash,'source_page':receipt['source_page'],
                                  'source_clip':receipt['source_clip'],'prepared_sha256':receipt['prepared_sha256'],
                                  'target_pt':list(row['rect'])})
+            if scene is not None:
+                from .render import draw_node, draw_path
+                legend=scene.layout_evidence.get('source_legend_bindings',[])
+                marker_ids={v['marker_node_id'] for v in legend if v.get('verified')}
+                swatch_ids={v['path_id'] for v in legend if v.get('verified')}
+                for node in scene.nodes:
+                    if node['id'] in marker_ids:draw_node(refpage,node)
+                for path in scene.paths:
+                    if path['id'] in swatch_ids:draw_path(refpage,path)
             refpage.set_cropbox(page.cropbox)
             refpage.set_rotation(page.rotation)
             # Save/reopen the reference using the same final serialization as production.

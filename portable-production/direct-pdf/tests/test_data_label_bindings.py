@@ -84,3 +84,19 @@ def test_binding_rejects_ambiguous_or_overridden_source(tmp_path, reg, change):
         assert error.value.code == 'data_label_binding_invalid'
     finally:
         assets.close()
+
+
+@pytest.mark.parametrize('endpoint,ok', [([45,45],True), ([65,55],False)])
+def test_moved_label_leader_must_end_on_the_declared_source_marker(tmp_path,reg,endpoint,ok):
+    spec=_spec(tmp_path)
+    spec['texts'][0].update(x=45,y=15)
+    spec['paths']=[{'id':'leader','points':[[45,20],endpoint],'semantic_role':'data-annotation'}]
+    spec['data_label_bindings'][0]['leader_path_id']='leader'
+    assets=Assets()
+    try:
+        if ok:
+            scene=compile_figure(spec,reg,assets,tmp_path)
+            assert scene.layout_evidence['data_label_bindings'][0]['leader_path_id']=='leader'
+        else:
+            with pytest.raises(FigureError):compile_figure(spec,reg,assets,tmp_path)
+    finally:assets.close()

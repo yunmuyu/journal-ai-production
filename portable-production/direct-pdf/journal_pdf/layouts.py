@@ -299,7 +299,7 @@ def primitive(spec,reg,size):
         kind='terminator' if terminal else n.get('shape','rectangle')
         if kind=='roundrect' and not n.get('semantic_shape') and not terminal:
             kind='rectangle'
-        nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),width=n.get('width',.5),dash=n.get('dash'),checked=n.get('checked',False),fill=n.get('fill'))
+        nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),width=n.get('width',.5),dash=n.get('dash'),checked=n.get('checked',False),fill=n.get('fill'),gray=n.get('gray',0))
         if terminal:nodes[n['id']]['flow_terminal']=True
         if kind in ('rectangle','roundrect','terminator') and not n.get('container',False):
             nodes[n['id']]['padding_pt']=[4.5*size/8,2.7*size/8]
@@ -386,6 +386,33 @@ def primitive(spec,reg,size):
         if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<ARROW_LENGTH:
             raise FigureError('vertical_spacing_invalid','直连间距必须是满足箭头最小长度的有限值')
         seen.update(ids);s.straight_vertical_spacing.append({'paths':ids,'gap_pt':float(gap)})
+    legend_checks=spec.get('legend_dash_checks',[])
+    if not isinstance(legend_checks,list):raise FigureError('legend_dash_invalid','虚线图例检查须为数组')
+    for item in legend_checks:
+        if not isinstance(item,dict) or set(item)-{'path_id','min_length_pt'} or not isinstance(item.get('path_id'),str) or not item['path_id']:
+            raise FigureError('legend_dash_invalid','虚线图例检查须指定线段')
+        length=item.get('min_length_pt',12.)
+        if isinstance(length,bool) or not isinstance(length,(int,float)) or not math.isfinite(length) or length<=0:
+            raise FigureError('legend_dash_invalid','虚线图例最小长度必须为有限正数')
+        s.legend_dash_checks.append({'path_id':item['path_id'],'min_length_pt':float(length)})
+    series_checks=spec.get('legend_series_checks',[])
+    if not isinstance(series_checks,list):raise FigureError('legend_series_invalid','图例线型绑定须为数组')
+    for item in series_checks:
+        if (not isinstance(item,dict) or set(item)!={'series_path_id','swatch_path_id'}
+                or any(not isinstance(v,str) or not v for v in item.values())):
+            raise FigureError('legend_series_invalid','须指定数据曲线与图例线段')
+        s.legend_series_checks.append(item.copy())
+    axis_checks=spec.get('axis_label_gap_checks',[])
+    if not isinstance(axis_checks,list):raise FigureError('axis_gap_invalid','轴题间距检查须为数组')
+    for item in axis_checks:
+        if (not isinstance(item,dict) or set(item)-{'title_id','tick_ids','gap_pt'} or not isinstance(item.get('title_id'),str)
+                or not item['title_id'] or not isinstance(item.get('tick_ids'),list) or not item['tick_ids']
+                or any(not isinstance(i,str) or not i for i in item['tick_ids'])):
+            raise FigureError('axis_gap_invalid','轴题间距检查须指定轴题与刻度')
+        gap=item.get('gap_pt',LABEL_CLEARANCE)
+        if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
+            raise FigureError('axis_gap_invalid','轴题间距须为有限非负数')
+        s.axis_label_gap_checks.append({'title_id':item['title_id'],'tick_ids':item['tick_ids'],'gap_pt':float(gap)})
     return s.finish(spec['width_pt'],spec['height_pt'])
 
 

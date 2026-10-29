@@ -169,12 +169,13 @@ def scale_scene(scene, factor):
         raise FigureError('layout_reflow_required','完整图件缩后低于6pt，必须重新布局',scale=factor)
     for n in scene.nodes:
         # width=None 是"只填充不描边"的语义，不是线宽，归一化时原样保留。
-        n['rect']=[v*factor for v in n['rect']]; n['width']=None if n.get('width') is None else STROKE
+        n['rect']=[v*factor for v in n['rect']]
+        n['width']=None if n.get('width') is None else n['width']*factor if n.get('source_legend_marker') else STROKE
         if 'dash' in n:n['dash']=[v*factor for v in n['dash']]
         if 'padding_pt' in n:n['padding_pt']=[v*factor for v in n['padding_pt']]
     for p in scene.paths:
         p['points']=[[v*factor for v in q] for q in p['points']]
-        p['dash']=[v*factor for v in p['dash']];p['width']=STROKE;p['arrow_scale']=1
+        p['dash']=[v*factor for v in p['dash']];p['width']=p['width']*factor if p.get('source_legend_swatch') else STROKE;p['arrow_scale']=1
     for a in scene.assets:a['rect']=[v*factor for v in a['rect']]
     for group in scene.measurement_groups.values():
         if 'cell_width_pt' in group:group['cell_width_pt']*=factor

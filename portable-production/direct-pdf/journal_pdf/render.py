@@ -126,6 +126,9 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
             if 'data_label_bindings' in spec:
                 from .data_labels import validate_data_label_bindings
                 validate_data_label_bindings(value, spec['data_label_bindings'])
+            if 'source_plot_frame' in spec:
+                from .source_plot_frame import validate_source_plot_frame
+                validate_source_plot_frame(value, spec['source_plot_frame'])
             if any(row['asset'].audit.get('source_shape_bindings') for row in value.assets):
                 import copy
                 value.source_shape_target_declarations={node['id']:copy.deepcopy(node) for node in spec.get('nodes',[])}
@@ -166,7 +169,18 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
     if scene.size*factor<6-1e-7:
         raise FigureError('layout_reflow_required','完整图件缩后低于6pt；先重新布局，不自动改双栏或只缩字',
                           design_size=size,width_pt=scene.width,column_mm=col,proposed_size=scene.size*factor)
+    legend_bindings=spec.get('source_legend_bindings',[])
+    if isinstance(legend_bindings,list):
+        for binding in legend_bindings:
+            if not isinstance(binding,dict):continue
+            for node in scene.nodes:
+                if node['id']==binding.get('marker_node_id'):node['source_legend_marker']=True
+            for path in scene.paths:
+                if path['id']==binding.get('path_id'):path['source_legend_swatch']=True
     scene=scale_scene(scene,factor)
+    if 'source_legend_bindings' in spec:
+        from .source_legend import validate_source_legends
+        validate_source_legends(scene,spec['source_legend_bindings'])
     issues=audit_scene(scene)
     if scene.height>policy.get('max_height_mm',240)*PT_PER_MM:issues.append({'code':'page_height_overflow'})
     attempts=[{'column_mm':col,'design_font_size_pt':size,'font_size_pt':scene.size,'whole_artwork_scale':factor,
@@ -224,7 +238,7 @@ def pdf_audit(path:Path,scene,reg):
     declared_colors_ok=(actual_colors==expected_colors and all(all(abs(v-t['color'][0])<1e-8 for v in t['color']) and min(abs(t['color'][0]),abs(t['color'][0]-1))<1e-8 for t in trace))
     text_color_ok=black_ok or (any(t.get('gray',0)==1 for t in scene.texts) and declared_colors_ok)
     from .source_icons import audit_icon_paths
-    icon_audit=audit_icon_paths(p,scene.assets)
+    icon_audit=audit_icon_paths(p,scene.assets,scene)
     stroke_bad=icon_audit['stroke_violations']
     result={'page_count':len(d),'width_mm':p.rect.width/PT_PER_MM,'height_mm':p.rect.height/PT_PER_MM,
             'expected_text_characters':sum(expected.values()),'actual_text_characters':sum(actual.values()),

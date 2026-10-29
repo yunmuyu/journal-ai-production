@@ -18,6 +18,9 @@ class Scene:
         self.nodes=[];self.texts=[];self.paths=[];self.assets=[];self.notes=[]
         self.width=0.;self.height=0.;self.template='';self.layout_evidence={}
         self.straight_vertical_spacing=[]
+        self.legend_dash_checks=[]
+        self.legend_series_checks=[]
+        self.axis_label_gap_checks=[]
         self.measurement_groups={};self.source_bindings={};self.verified_source_bindings={};self.source_root=None
         self._ids=set();self.node_groups={}
     def ident(self,id):
@@ -35,7 +38,7 @@ class Scene:
             p=position_text(m,x,y,align,p['rotation'],rotated_ink=self.registry.rotated_ink_bounds(m,p['rotation']))
         t={'id':id,'content':content,'source_content':source_content,'measurement':m,'position':p,'owner':owner,'role':role,'x':x,'y':y,'align':align,'gray':gray}
         self.texts.append(t);return t
-    def shape(self,id,rect,kind='rectangle',container=False,width=.5,dash=None,checked=False,fill=None):
+    def shape(self,id,rect,kind='rectangle',container=False,width=.5,dash=None,checked=False,fill=None,gray=0):
         self.ident(id)
         if kind not in ('rectangle','ellipse','diamond','roundrect','terminator','inputOutput','checkbox'):raise FigureError('unsupported_shape','形状未支持',kind=kind)
         if not finite(rect) or rect[2]<=rect[0] or rect[3]<=rect[1]:raise FigureError('invalid_node_rect','节点矩形无效',id=id)
@@ -49,7 +52,9 @@ class Scene:
             if container:raise FigureError('node_fill_container','容器不参与填充，避免遮住层内对象',id=id)
         if width is not None and (isinstance(width,bool) or not isinstance(width,(int,float)) or not math.isfinite(width) or width<0):
             raise FigureError('node_width_invalid','节点描边宽度须为有限非负数，或显式 None 表示只填充不描边',id=id)
-        n={'id':id,'rect':list(rect),'kind':kind,'container':container,'width':width}
+        if isinstance(gray,bool) or not isinstance(gray,(int,float)) or not math.isfinite(gray) or not 0<=gray<=1:
+            raise FigureError('node_gray_invalid','节点描边灰度须为 0 到 1 的有限值',id=id)
+        n={'id':id,'rect':list(rect),'kind':kind,'container':container,'width':width,'gray':float(gray)}
         if kind=='checkbox':n['checked']=checked
         if fill is not None:n['fill']=float(fill)
         if dash is not None:n['dash']=list(dash)
@@ -408,6 +413,54 @@ def audit_scene(s:Scene):
             if abs(actual-expected)>.15:
                 issues.append({'code':'vertical_spacing_mismatch','id':path_id,'actual_pt':actual,'expected_pt':expected})
     s.layout_evidence['straight_vertical_spacing']=spacing_evidence
+    dash_evidence=[]
+    for check in s.legend_dash_checks:
+        path=next((p for p in s.paths if p['id']==check['path_id']),None)
+        if path is None:
+            issues.append({'code':'legend_dash_sample_missing','id':check['path_id']});continue
+        pts=path['points'];length=sum(math.dist(a,b) for a,b in zip(pts,pts[1:]));dash=path.get('dash') or []
+        intervals=[]
+        if len(pts)==2 and abs(pts[0][1]-pts[1][1])<.01:
+            lo,hi=sorted((pts[0][0],pts[1][0]));y=pts[0][1]
+            for node in s.nodes:
+                if node.get('fill') is None or node.get('container'):continue
+                x0,y0,x1,y1=node['rect']
+                if y0<=y<=y1 and x1>lo and x0<hi:intervals.append((max(lo,x0),min(hi,x1)))
+        hidden=0.;end=None
+        for a,b in sorted(intervals):
+            if end is None or a>end:hidden+=b-a;end=b
+            elif b>end:hidden+=b-end;end=b
+        visible=length-hidden
+        valid_dash=len(dash)>=2 and all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) and v>0 for v in dash)
+        ok=(len(pts)==2 and valid_dash and visible>=check['min_length_pt'] and visible>=2*sum(dash))
+        dash_evidence.append({'id':check['path_id'],'length_pt':length,'uncovered_length_pt':visible,'dash_pt':dash,'mechanical_check_passed':ok})
+        if not ok:issues.append({'code':'legend_dash_sample_too_short','id':check['path_id'],'length_pt':length,'dash_pt':dash})
+    s.layout_evidence['legend_dash_checks']=dash_evidence
+    series_evidence=[]
+    path_map={p['id']:p for p in s.paths}
+    for check in s.legend_series_checks:
+        series=path_map.get(check['series_path_id']);swatch=path_map.get(check['swatch_path_id'])
+        if series is None or swatch is None:
+            issues.append({'code':'legend_series_path_missing','id':check['swatch_path_id']});continue
+        a,b=series.get('dash') or [],swatch.get('dash') or []
+        numeric=lambda values:all(isinstance(x,(int,float)) and not isinstance(x,bool) and math.isfinite(x) for x in values)
+        ok=(len(a)==len(b) and numeric(a) and numeric(b) and all(abs(x-y)<.04 for x,y in zip(a,b))
+            and abs(series['width']-swatch['width'])<.04 and abs(series.get('gray',0)-swatch.get('gray',0))<.01)
+        series_evidence.append({'series_path_id':check['series_path_id'],'swatch_path_id':check['swatch_path_id'],
+                                'line_style_matches':ok,'scope':'line only; marker symbols require separate review'})
+        if not ok:issues.append({'code':'legend_series_style_mismatch','id':check['swatch_path_id']})
+    s.layout_evidence['legend_series_checks']=series_evidence
+    axis_evidence=[]
+    text_map={t['id']:t for t in s.texts}
+    for check in s.axis_label_gap_checks:
+        title=text_map.get(check['title_id']);ticks=[text_map.get(i) for i in check['tick_ids']]
+        if title is None or any(t is None for t in ticks):
+            issues.append({'code':'axis_gap_text_missing','id':check['title_id']});continue
+        gap=title['position']['bbox'][1]-max(t['position']['bbox'][3] for t in ticks)
+        axis_evidence.append({'title_id':check['title_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
+        if abs(gap-check['gap_pt'])>.15:
+            issues.append({'code':'axis_label_gap_mismatch','id':check['title_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
+    s.layout_evidence['axis_label_gap_checks']=axis_evidence
     for a in s.assets:
         if not contains(page,a['rect'],.02):issues.append({'code':'asset_outside_page','id':a['id']})
     return issues
