@@ -285,6 +285,10 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
     try:
         reg.prepare_document_fonts(scene.texts)
         doc=fitz.open();page=doc.new_page(width=scene.width,height=scene.height);asset_reports=[]
+        # Register scene subsets first: imported PDF forms may already expose the
+        # same resource names with different, incomplete glyph subsets.
+        for face, buffer in reg.document_fonts.items():
+            page.insert_font(fontname='JFW_'+face,fontbuffer=buffer)
         for a in scene.assets:
             if a['role']!='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
         for p in scene.paths:draw_path(page,p)
