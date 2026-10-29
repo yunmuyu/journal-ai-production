@@ -77,4 +77,3 @@ python -m journal_pdf serve private-samples/batch.json --profile config/fonts.pr
 对于散点或折线图，可在 scene 规格中逐条声明 `data_label_bindings`，包含 `text_id`、`asset_id`、`source_label_id` 和从零开始的 `marker_index`。工具只对所声明的标注检查原文、原 SVG 图组与点的颜色和坐标、目标文本位置；同色同位置无法区分时拒绝。它不能证明未声明的标注或整个图表都正确，仍须核查原图及重合点。
 
 轴题支持由已识别单位组成的乘除表达式，例如 `速度(m/s)` 转为 `速度/（m/s）`；未知单位、公式或含义不确定的括号留待检查。普通文本中的常见多字符单位（如 `15kHz`、`10mm`）与数字之间会加空格；代码、路径及易混淆的单字符单位不做推断。规则不会转换单位或更改数值。
-

@@ -84,3 +84,6 @@ actor/user、reference、quote、带时区recorded_at和当前source_snapshot。
 文字需求也必须一致。缺失结构审核、未知事实、或节点结构/统计图事实与纯灰度路线冲突，
 都不能放行。旧 preflight `route` 只产候选，其字体/PDF检查仍待核；不能把它或
 suggest-route 的输出直接当正式制作审核通过。
+# 原图图元检查
+
+路线建议的 `source_review` 可增加 `source_graphics`：`status` 为 `identified`、`none` 或 `unknown`，`objects` 中每项记录 `source_id`、对应 `source_sha256`、`object_id` 和 `kind`（`symbol` 或 `data`）。`identified` 必须列出对象并匹配来源哈希；`none` 是检查者声明，并非程序识别结果。未登记时按 `unknown` 处理。框图的图元未核查或已发现需保留的原图元，会形成进一步复核提示；路线推荐本身不能证明图标、箭头和数据已正确保留。

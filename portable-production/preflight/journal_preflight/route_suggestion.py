@@ -15,7 +15,7 @@ STRUCTURES = ('node_link', 'plot', 'photo', 'ui', 'mixed', 'unknown')
 
 def _source_review(review):
     _object(review, ('source_snapshot', 'structure', 'text_requirement', 'data_preservation',
-                     'topology', 'evidence'), where='source_review')
+                     'topology', 'evidence'), optional=('source_graphics',), where='source_review')
     snapshot = review['source_snapshot']
     _require(isinstance(snapshot, dict) and bool(snapshot), 'source_review: source snapshot required')
     for key, digest in snapshot.items():
@@ -34,6 +34,21 @@ def _source_review(review):
             _text(evidence[key], key)
         seen.add(evidence['source_id'])
     _require(seen == set(snapshot), 'source evidence: every source needs review')
+    graphics = review.get('source_graphics', {'status':'unknown', 'objects':[]})
+    _object(graphics, ('status','objects'), where='source_graphics')
+    _choice(graphics['status'], ('unknown','none','identified'), 'source graphics status')
+    objects = _rows(graphics['objects'], 'source graphics')
+    _require(bool(objects) == (graphics['status'] == 'identified'), 'source graphics: objects disagree with status')
+    identities = set()
+    for obj in objects:
+        _object(obj, ('source_id','source_sha256','object_id','kind'), where='source graphic')
+        _text(obj['source_id'], 'source graphic source id')
+        _text(obj['object_id'], 'source graphic object id')
+        _choice(obj['kind'], ('symbol','data'), 'source graphic kind')
+        _require(snapshot.get(obj['source_id']) == obj['source_sha256'], 'source graphic: stale hash')
+        identity = (obj['source_id'], obj['object_id'])
+        _require(identity not in identities, 'source graphic: duplicate object')
+        identities.add(identity)
 
 
 def _cases(cases, review, route):
@@ -87,6 +102,11 @@ def suggest_route(source_review, cases, *, user_override=None):
     else:
         blocking.append('Joint structure/text/data/topology facts are unknown, mixed or outside supported suggestions; inspect or split panels explicitly.')
     refs = _cases(cases, source_review, route)
+    graphics = copy.deepcopy(source_review.get('source_graphics', {'status':'unknown', 'objects':[]}))
+    if structure == 'node_link' and graphics['status'] == 'unknown':
+        blocking.append('Source graphic symbols have not been reviewed; inspect them before choosing substitutes.')
+    elif graphics['status'] == 'identified':
+        blocking.append('Identified source graphics require preservation mapping and explicit review before delivery.')
     if not any(ref['applicability'] == 'review_candidate' for ref in refs):
         blocking.append('No paired case supports this candidate structure and treatment; comparative review remains outstanding.')
     proposed = route
@@ -101,6 +121,7 @@ def suggest_route(source_review, cases, *, user_override=None):
             blocking.append('Grayscale-only treatment cannot fulfill recorded lettering replacement needs.')
     return {'schema_version': 'route-suggestion/1', 'proposed_route': proposed, 'candidate_route': route,
             'basis': basis, 'blocking': blocking, 'case_refs': refs,
+            'source_graphics': graphics,
             'source_review': copy.deepcopy(source_review), 'user_override': copy.deepcopy(user_override),
             'ready_for_processing': False, 'ready_for_publication': False,
             'semantics_independently_verified': False,
