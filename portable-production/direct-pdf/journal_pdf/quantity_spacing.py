@@ -1,7 +1,7 @@
-"""Source-derived spacing for confirmed storage and frequency quantities.
+"""Source-derived spacing for recognized quantity and unit tokens.
 
-Case-sensitive storage and frequency tokens only. Other dimensions and ambiguous units require
-separate semantic evidence. Literal/code/path runs are byte-preserving boundaries.
+Case-sensitive, multi-character unit tokens only. Ambiguous single-character
+symbols require separate semantic evidence. Literal/code/path runs are boundaries.
 """
 from __future__ import annotations
 import collections
@@ -11,11 +11,11 @@ from typing import Final
 from .axis_units import plain_content
 
 QUANTITY_SPACING_RULE: Final = {
-    'id':'confirmed-quantity-spacing-20261028-v2',
-    'scope':'KB/kB/MB/GB/TB, KiB/MiB/GiB/TiB and Hz/kHz/MHz/GHz quantities; case and values preserved',
+    'id':'quantity-spacing-20261029-v3',
+    'scope':'recognized multi-character storage, frequency and SI unit tokens; case and values preserved',
 }
 LITERAL_ROLES: Final = frozenset({'literal','code','command','path'})
-_UNITS: Final = r'(?:KiB|MiB|GiB|TiB|KB|kB|MB|GB|TB|kHz|MHz|GHz|Hz)'
+_UNITS: Final = r'(?:KiB|MiB|GiB|TiB|KB|kB|MB|GB|TB|kHz|MHz|GHz|Hz|mm|cm|km|µm|μm|nm|kg|mg|mL|ml|mV|kV|mA|kA|kW|mW|MW|kPa|MPa|GPa|dBm|dB|min|ms|µs|μs)'
 _QUANTITY: Final = re.compile(
     r'(?<![A-Za-z0-9_./\\-])(?P<number>[+−-]?(?:\d+(?:\.\d+)?|\.\d+))'
     r'(?P<gap>[ \u00a0\u202f]*)(?P<unit>'+_UNITS+r')(?![A-Za-z0-9_./\\-])')

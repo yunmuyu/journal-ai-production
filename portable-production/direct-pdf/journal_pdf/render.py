@@ -94,6 +94,7 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
             if spec.get('assets') and assets is None:raise FigureError('scene_assets_unavailable','场景素材需要Assets实例')
             for item in spec.get('assets',[]):
                 if sum(item.get(flag) is True for flag in ('source_icon','source_vector_body','source_vector_glyph','source_svg_group','source_mixed_body','source_registered_pdf_text'))>1:raise FigureError('source_asset_mode_conflict','每个源资产只能明确一种保真准备模式')
+                if 'clipped_viewport' in item and item.get('source_svg_group') is not True:raise FigureError('source_svg_clip_unproven','源裁切选项仅用于SVG源图组')
                 if 'source_shape_replacements' in item and item.get('source_mixed_body') is not True:raise FigureError('source_shape_mode','shape替换仅接受显式源混合图体')
                 path=resolve_source(root,item['path']);source_kind=item['source_kind'];clip=item['clip']
                 if source_kind=='raster':asset=assets.raster(path,clip,gray=item.get('gray',True))
@@ -109,7 +110,8 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
                     elif item.get('source_icon') is True:asset=assets.source_icon(path,item.get('page',0),clip,text_replacements=item.get('text_replacements'))
                     else:asset=assets.pdf(path,item.get('page',0),clip)
                 elif source_kind=='svg' and item.get('source_svg_group') is True:
-                    asset=assets.source_svg_group(path,item['group_id'],clip,text_replacements=item.get('text_replacements'))
+                    asset=assets.source_svg_group(path,item['group_id'],clip,text_replacements=item.get('text_replacements'),
+                                                  clipped_viewport=item.get('clipped_viewport',False))
                 else:raise FigureError('scene_asset_kind','场景素材只接受已验证的raster/pdf或显式原SVG组入口',kind=source_kind)
                 for replacement in asset.audit.get('text_replacements',[]):
                     target=next((t for t in value.texts if t['id']==replacement['target_text_id']),None)
@@ -121,6 +123,9 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
                     if 'source_gray' in replacement and target.get('gray',0)!=replacement['source_gray']:
                         raise FigureError('source_text_color','登记文字须保持原黑白对比')
                 value.embed(item['id'],asset,item['target'],item.get('role','source-mixed-body' if item.get('source_mixed_body') is True else 'source-vector-glyph' if item.get('source_vector_glyph') is True else 'source-vector-body' if item.get('source_vector_body') is True else 'source-svg-group' if item.get('source_svg_group') is True else 'icon'))
+            if 'data_label_bindings' in spec:
+                from .data_labels import validate_data_label_bindings
+                validate_data_label_bindings(value, spec['data_label_bindings'])
             if any(row['asset'].audit.get('source_shape_bindings') for row in value.assets):
                 import copy
                 value.source_shape_target_declarations={node['id']:copy.deepcopy(node) for node in spec.get('nodes',[])}

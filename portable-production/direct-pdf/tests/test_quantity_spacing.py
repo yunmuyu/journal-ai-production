@@ -4,6 +4,8 @@ from journal_pdf.editorial import display_content
 
 @pytest.mark.parametrize('source,expected',[
     ('15kHz 30kHz 60kHz 120kHz 3GHz 2.5MHz 1Hz','15 kHz 30 kHz 60 kHz 120 kHz 3 GHz 2.5 MHz 1 Hz'),
+    ('10mm 2.5kg 3mV 5ms 12MPa','10 mm 2.5 kg 3 mV 5 ms 12 MPa'),
+    ('10mm_file 2.5kg.png X3mV 5ms_rate','10mm_file 2.5kg.png X3mV 5ms_rate'),
     ('15 kHz 15kHz_rate 15kHz.png x15kHz','15 kHz 15kHz_rate 15kHz.png x15kHz'),
     ('（52.4KB）','（52.4 KB）'),('52.4 KB','52.4 KB'),('52.4kB 1MB 2KiB 3MiB 4GB 5TB 6GiB 7TiB','52.4 kB 1 MB 2 KiB 3 MiB 4 GB 5 TB 6 GiB 7 TiB'),('52.4\u00a0KB','52.4\u00a0KB'),
     ('GLM-5.2 R2 52.4kb 52.4qux 52.4unknown 50% 90° 5m 2A 3B 52.4KBps','GLM-5.2 R2 52.4kb 52.4qux 52.4unknown 50% 90° 5m 2A 3B 52.4KBps'),

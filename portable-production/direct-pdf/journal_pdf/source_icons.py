@@ -122,7 +122,9 @@ def audit_icon_paths(page, placements):
                 elif receipt['mode']=='source-vector-glyph':
                     verified=placer.source_vector_glyph(Path(asset.source_path),receipt['source_page'],receipt['source_clip'],receipt['selected_source_path_indices'],gray=receipt['grayscale'],text_replacements=receipt.get('text_replacements'))
                 elif receipt['mode']=='source-svg-group':
-                    verified=placer.source_svg_group(Path(asset.source_path),receipt['source_group'],receipt['source_clip'],text_replacements=receipt.get('text_replacements'))
+                    verified=placer.source_svg_group(Path(asset.source_path),receipt['source_group'],receipt['source_clip'],
+                                                     text_replacements=receipt.get('text_replacements'),
+                                                     clipped_viewport=receipt.get('clipped_viewport',False))
                 else:
                     prepare=placer.source_vector_body if receipt['mode']=='source-vector-body' else placer.source_icon
                     verified=prepare(Path(asset.source_path),receipt['source_page'],receipt['source_clip'],text_replacements=receipt.get('text_replacements'))

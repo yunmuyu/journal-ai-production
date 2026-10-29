@@ -188,12 +188,12 @@ class Assets:
         a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
         return a
 
-    def source_svg_group(self,path:Path,group_id:str,clip,*,text_replacements=None):
+    def source_svg_group(self,path:Path,group_id:str,clip,*,text_replacements=None,clipped_viewport=False):
         """Explicit original nontext vector body with source-bound glyph replacements."""
         from .source_svg_groups import prepare_svg_group
-        sha=digest_file(path);key=digest_json(['source-svg-group-v1',sha,group_id,clip,text_replacements])
+        sha=digest_file(path);key=digest_json(['source-svg-group-v1',sha,group_id,clip,text_replacements,clipped_viewport])
         if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
-        prepared=prepare_svg_group(path,group_id,clip,text_replacements=text_replacements)
+        prepared=prepare_svg_group(path,group_id,clip,text_replacements=text_replacements,clipped_viewport=clipped_viewport)
         import json
         audit=json.loads(prepared.receipt_json)
         doc=fitz.open(stream=prepared.data,filetype='pdf')
