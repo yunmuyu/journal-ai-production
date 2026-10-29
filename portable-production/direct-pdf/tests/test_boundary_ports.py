@@ -18,6 +18,29 @@ def test_explicit_fraction_accepts_real_rect_edge_when_not_midpoint(reg):
                                          'fraction': (200 - 167) / 56.0625}])
     # Then the explicitly bound endpoint passes, rather than requiring a fake node.
     assert endpoint_issues(scene) == []
+    assert scene.layout_evidence['node_boundary_ports'][0]['verified'] is True
+
+
+def test_two_offset_boxes_can_connect_straight_at_distinct_edge_fractions(reg, tmp_path):
+    from journal_pdf.assets import Assets
+    from journal_pdf.render import render_one
+    import fitz
+
+    spec = {'version': 1, 'id': 'offset-ports', 'author': 'synthetic', 'kind': 'scene', 'synthetic': True,
+            'width_pt': 140, 'height_pt': 100, 'policy': {'column': 'single'},
+            'nodes': [{'id': 'upper', 'rect': [20, 10, 80, 30]},
+                      {'id': 'lower', 'rect': [60, 70, 120, 90]}],
+            'paths': [{'id': 'direct', 'points': [[70, 30], [70, 70]], 'arrow': True,
+                       'endpoint_nodes': [{'node': 'upper', 'side': 'bottom', 'fraction': 5/6},
+                                          {'node': 'lower', 'side': 'top', 'fraction': 1/6}]}]}
+    source = tmp_path / 'source'; source.mkdir()
+    assets = Assets()
+    try:
+        result = render_one(spec, reg, assets, source, tmp_path / 'output')
+    finally:
+        assets.close()
+    with fitz.open(tmp_path / 'output' / result['output_pdf']) as document:
+        assert len(document[0].get_drawings()) == 4
 
 
 @pytest.mark.parametrize('declaration', [

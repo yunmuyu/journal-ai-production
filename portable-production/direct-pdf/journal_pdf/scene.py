@@ -315,6 +315,7 @@ def audit_scene(s:Scene):
                     issues.append({'code':'text_shape_collision','text':t['id'],'shape':n['id']})
     s.layout_evidence['source_path_ports']=[]
     s.layout_evidence['page_external_ports']=[]
+    s.layout_evidence['node_boundary_ports']=[]
     for p in s.paths:
         pts=p['points'];protection=p['width']/2+.1
         endpoint_nodes=p.get('endpoint_nodes')
@@ -336,6 +337,7 @@ def audit_scene(s:Scene):
                         else:
                             matched=boundaries.matches(node_id,tuple(point),tuple(pts[1] if start else pts[-2]))
                             if matched and 'page' in node_id:s.layout_evidence['page_external_ports'].append({'path':p['id'],'at_start':start,'declaration':node_id,'point':point,'verified':True})
+                            if matched and 'node' in node_id:s.layout_evidence['node_boundary_ports'].append({'path':p['id'],'at_start':start,'declaration':node_id,'point':point,'verified':True})
                         if not matched:
                             issues.append({'code':'arrow_endpoint_boundary_mismatch','id':p['id'],
                                            'at_start':start,'declaration':node_id,'point':point})
