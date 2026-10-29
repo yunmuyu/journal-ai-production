@@ -1,0 +1,9 @@
+{
+  "platform": "Windows 11",
+  "preflight": "138 passed",
+  "scope": "Manual review required; spacing defaults unchanged pending editor input",
+  "task_quality": "43 passed",
+  "direct_pdf_focused": "93 passed, including optional Shapely clip geometry",
+  "direct_pdf_full": "1075 passed, 3 Windows symlink tests blocked by WinError 1314, one changed expectation subsequently passed in focused run",
+  "integration": "Private source-bound 12-label SVG case rendered and audited locally"
+}
