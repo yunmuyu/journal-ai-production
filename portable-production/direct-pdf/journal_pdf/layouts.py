@@ -413,6 +413,17 @@ def primitive(spec,reg,size):
         if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
             raise FigureError('axis_gap_invalid','轴题间距须为有限非负数')
         s.axis_label_gap_checks.append({'title_id':item['title_id'],'tick_ids':item['tick_ids'],'gap_pt':float(gap)})
+    legend_gaps=spec.get('legend_frame_gap_checks',[])
+    if not isinstance(legend_gaps,list):raise FigureError('legend_frame_gap_invalid','图例框间距检查须为数组')
+    for item in legend_gaps:
+        if (not isinstance(item,dict) or set(item)-{'frame_id','text_ids','gap_pt'} or not isinstance(item.get('frame_id'),str)
+                or not item['frame_id'] or not isinstance(item.get('text_ids'),list) or not item['text_ids']
+                or any(not isinstance(i,str) or not i for i in item['text_ids'])):
+            raise FigureError('legend_frame_gap_invalid','图例框间距检查须指定框线与文字')
+        gap=item.get('gap_pt',LABEL_CLEARANCE)
+        if isinstance(gap,bool) or not isinstance(gap,(int,float)) or not math.isfinite(gap) or gap<0:
+            raise FigureError('legend_frame_gap_invalid','图例框间距须为有限非负数')
+        s.legend_frame_gap_checks.append({'frame_id':item['frame_id'],'text_ids':item['text_ids'],'gap_pt':float(gap)})
     return s.finish(spec['width_pt'],spec['height_pt'])
 
 

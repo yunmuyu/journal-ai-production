@@ -21,6 +21,7 @@ class Scene:
         self.legend_dash_checks=[]
         self.legend_series_checks=[]
         self.axis_label_gap_checks=[]
+        self.legend_frame_gap_checks=[]
         self.measurement_groups={};self.source_bindings={};self.verified_source_bindings={};self.source_root=None
         self._ids=set();self.node_groups={}
     def ident(self,id):
@@ -461,6 +462,19 @@ def audit_scene(s:Scene):
         if abs(gap-check['gap_pt'])>.15:
             issues.append({'code':'axis_label_gap_mismatch','id':check['title_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
     s.layout_evidence['axis_label_gap_checks']=axis_evidence
+    legend_gap_evidence=[]
+    for check in s.legend_frame_gap_checks:
+        frame=path_map.get(check['frame_id']);labels=[text_map.get(i) for i in check['text_ids']]
+        if frame is None or any(t is None for t in labels):
+            issues.append({'code':'legend_frame_gap_missing','id':check['frame_id']});continue
+        pts=frame['points']
+        if len(pts)!=5 or pts[0]!=pts[-1] or any(a[0]!=b[0] and a[1]!=b[1] for a,b in zip(pts,pts[1:])):
+            issues.append({'code':'legend_frame_gap_invalid','id':check['frame_id']});continue
+        gap=max(p[1] for p in pts)-max(t['position']['bbox'][3] for t in labels)
+        legend_gap_evidence.append({'frame_id':check['frame_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
+        if abs(gap-check['gap_pt'])>.15:
+            issues.append({'code':'legend_frame_gap_mismatch','id':check['frame_id'],'gap_pt':gap,'expected_pt':check['gap_pt']})
+    s.layout_evidence['legend_frame_gap_checks']=legend_gap_evidence
     for a in s.assets:
         if not contains(page,a['rect'],.02):issues.append({'code':'asset_outside_page','id':a['id']})
     return issues
