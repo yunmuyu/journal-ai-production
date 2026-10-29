@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "2026.10.28-r38-prescan",
-  "createdAt": "2026-10-29T01:19:16.121Z",
+  "createdAt": "2026-10-29T01:31:47.917Z",
   "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
@@ -13,7 +13,8 @@
   },
   "validation": {
     "status": "release-candidate",
-    "focused": "83 PDF prescan, source assets, guard contract and font-resource regression tests passed on Windows; broader release validation pending",
+    "focused": "121 focused tests passed on Windows after measured-row height update",
+    "baseline": "1045 passed, 1 skipped (optional Shapely), 3 symlink tests deselected, 7 subtests passed before height update",
     "deployment": "not deployed"
   },
   "files": [
@@ -569,8 +570,8 @@
     },
     {
       "path": "direct-pdf/docs/MEASURED-ROWS.md",
-      "sha256": "9ee6cf322369552864916d0e6b23432cba9f699c099fd132c7cc3046fd9e304a",
-      "bytes": 1341
+      "sha256": "02e342c2fa4880d19a02845d57f5865c55825ea2b35e944ac1d547d51899f28c",
+      "bytes": 1593
     },
     {
       "path": "direct-pdf/docs/NEW-v0.1.2.1.md",
@@ -824,8 +825,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/editorial.py",
-      "sha256": "53dbf6cb324b2b341e8994c318e673e88e905202c87df801ce741ababdde5027",
-      "bytes": 9704
+      "sha256": "9e93d111363d53375b02523331b41fd46fc9f120e06694bd428102d785942b63",
+      "bytes": 9773
     },
     {
       "path": "direct-pdf/journal_pdf/flow_shapes.py",
@@ -884,8 +885,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/layouts.py",
-      "sha256": "7a34a19b94951b4e76d4cc38683327a4a747c4fd2bc6d965dd535e88133f51eb",
-      "bytes": 25148
+      "sha256": "44b94df9767801efde87cb42648a4d06e577beb2d17cbcc06ad3caa8a217c9a9",
+      "bytes": 25828
     },
     {
       "path": "direct-pdf/journal_pdf/numeric_audit.py",
@@ -924,8 +925,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/scene.py",
-      "sha256": "6c73b0b24d233e30f88e019a4ebc7b9862828cad5af580f533c912e4f841cc16",
-      "bytes": 26646
+      "sha256": "8766da5da5e17d5168d4d6b49811ba2ceebc2c912c5a27d83e22be5c2bfc1276",
+      "bytes": 26960
     },
     {
       "path": "direct-pdf/journal_pdf/scientific_text.py",
@@ -1209,8 +1210,8 @@
     },
     {
       "path": "direct-pdf/tests/test_measured_row_width.py",
-      "sha256": "3b2fcbcf4f0a2b211dc39bb9e6046834b9455a0765884d65851e1dca50e9a5d3",
-      "bytes": 3457
+      "sha256": "58d76ace10451ef5f7acf01a51d42ae2da52201b4f25a4045aa6bb656974900b",
+      "bytes": 4581
     },
     {
       "path": "direct-pdf/tests/test_native_crop_contracts.py",
