@@ -2,6 +2,12 @@
 
 发布版本以 GitHub Release 与根目录 `RELEASE.json` 为准。历史组件的内部版本号保留，不代表整套工具当前是否正式发布。
 
+## 2026.10.30-r43-delivery-evidence
+
+- PDF 交付前检查完整场景可见性、原图关系和素材来源；未解决的警告需绑定候选逐项复核。
+- 图表支持直接与绑定的 PNG/JPG 原始区域比较；裁边规则未改变。
+- 验证与边界见 [发布说明](release-notes/2026.10.30-r43-delivery-evidence.md)。
+
 ## 2026.10.30-r42-source-visibility
 
 - 新增独立原图区域保真、来源结构合同、最终 PDF 遮挡检查与实图回归。
