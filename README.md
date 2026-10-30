@@ -1,8 +1,8 @@
 # 期刊 AI 生产工作台
 
-用于期刊图件的来源核对、保留原图加工、公共排版、PDF 检查、候选复核与受保护交付。当前版本为 **2026.10.28-r37-figure-tools**，整合阶段栅格排版、图元和辅助检查工具。密集数值箭头标注仍是未通过试验，不在本版启用。
+用于期刊图件的来源核对、保留原图加工、公共排版、PDF 检查、候选复核与受保护交付。当前版本为 **2026.10.30-r42-source-visibility**，新增原图关系核验和保存后 PDF 可见性检查。密集数值箭头标注仍是未通过试验，不在本版启用。
 
-[下载正式版](https://github.com/yunmuyu/journal-ai-production/releases/latest) · [安装、升级与回滚](docs/RELEASE-GUIDE.md) · [更新日志](CHANGELOG.md) · [本版验证与边界](release-notes/2026.10.28-r37-figure-tools.md)
+[下载正式版](https://github.com/yunmuyu/journal-ai-production/releases/latest) · [安装、升级与回滚](docs/RELEASE-GUIDE.md) · [更新日志](CHANGELOG.md) · [本版验证与边界](release-notes/2026.10.30-r42-source-visibility.md)
 
 独立 PDF 守门器、间距观测及 EMF 解析是辅助检查，不自动批准图件；EMF 结果明确标记为部分提取。部署到已有机器需按升级指南隔离验证，不能混合覆盖现有运行目录。
 

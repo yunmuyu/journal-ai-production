@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.29-r41-figure-spacing",
-  "createdAt": "2026-10-29T10:30:14.736Z",
+  "id": "2026.10.30-r42-source-visibility",
+  "createdAt": "2026-10-30T06:12:53.222Z",
   "status": "released",
   "constraints": {
     "fontSizePt": {
@@ -13,10 +13,11 @@
   },
   "validation": {
     "platform": "Windows",
-    "full_regression": "1233 passed, 3 failed, 7 subtests passed, 2 warnings; 249.85 seconds",
-    "known_limit": "Three local tests could not create symbolic links (WinError 1314). GitHub Windows CI subsequently ran relevant security cases: 11 passed, including all three. Local Developer Mode unchanged at user request.",
-    "source_regressions": "Five private original-input scenarios: Word/EMF, SVG, PNG, Word/VSDX, PPT native graphics; applicable visuals compared at 144 dpi. Source data and accepted figures excluded from public package.",
-    "review_scope": "Unbound source data and editorial-review warnings still require manual review."
+    "full_regression": "1291 passed, 3 failed, 0 skipped, 7 subtests passed; 178.29 seconds",
+    "targeted_regression": "58 source/reference/final-visibility tests passed",
+    "known_limit": "Three local symlink fixtures fail at setup with WinError 1314. No Developer Mode or test weakening. Filesystem safety CI covers these separately.",
+    "source_regressions": "Private real figure: 122 objects checked; regenerated PDF pixel-identical to approved output at 300 dpi. Three saved-PDF mutations (icon, block arrow, text erased) rejected. No private source assets included.",
+    "review_scope": "Visibility is not source-topology proof. Unbound original relationships remain not-checked. Exterior blank padding and open white regions, identical overpaint, white text, and InDesign/print acceptance retain documented limits."
   },
   "files": [
     {
@@ -421,7 +422,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.29-r40-node-ports",
+  "supersedes": "2026.10.29-r41-figure-spacing",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -516,8 +517,8 @@
     },
     {
       "path": "direct-pdf/docs/CAPABILITIES.json",
-      "sha256": "67a00aef1a1f9bf4cae06220aa0533404f85b6e62c70c1de10317befa7398e80",
-      "bytes": 3032
+      "sha256": "79a7cd2d59d945263685199e0f13848fe783114ba1d315019b7403da63c7b143",
+      "bytes": 3815
     },
     {
       "path": "direct-pdf/docs/DEPENDENCIES.md",
@@ -590,6 +591,11 @@
       "bytes": 981
     },
     {
+      "path": "direct-pdf/docs/ORIGINAL-ASSET-REFERENCE.md",
+      "sha256": "1256d7dd973dbfd2ce986259105cc42061e48c90332690fbc38e6315614c8bfe",
+      "bytes": 2768
+    },
+    {
       "path": "direct-pdf/docs/REGISTERED-OUTLINE-CHART.md",
       "sha256": "cb60b375e850931b9158ebbeb4fa5eafc0200e16e51979fdea2f07e6d2b84181",
       "bytes": 5515
@@ -613,6 +619,11 @@
       "path": "direct-pdf/docs/STAGE-GRID.md",
       "sha256": "637e4b15b30139f042bf63b57f80e9ea4b2abddd08de8ff678bcb75e85d6fe7d",
       "bytes": 1577
+    },
+    {
+      "path": "direct-pdf/docs/STRUCTURE-AND-VISIBILITY.md",
+      "sha256": "4f5ba418dc27ca031dcc10e44d18997344081a5837a4d84bef348828fc1c0300",
+      "bytes": 6025
     },
     {
       "path": "direct-pdf/docs/TEST-RESULTS.md",
@@ -855,6 +866,11 @@
       "bytes": 10102
     },
     {
+      "path": "direct-pdf/journal_pdf/final_visibility.py",
+      "sha256": "7a1f6493c75699dc0d9c2d8541f3f236ca9b2e5c32a5eca4363f6385372d70c7",
+      "bytes": 11815
+    },
+    {
       "path": "direct-pdf/journal_pdf/flow_shapes.py",
       "sha256": "561b2099fda75853b4eb848ea9e9dbacb2e50d31ffa53b774457613e40644804",
       "bytes": 246
@@ -935,6 +951,11 @@
       "bytes": 1185
     },
     {
+      "path": "direct-pdf/journal_pdf/original_asset_reference.py",
+      "sha256": "681169ad88fea8b43f50a99e6994c021bbc8e9036da9c48cc1cafb3c16c5f558",
+      "bytes": 6031
+    },
+    {
       "path": "direct-pdf/journal_pdf/parallel_slants.py",
       "sha256": "a929d6a1241f6124522a35b29f7799c33970ce3becbf1ac04a8920b2d77210c2",
       "bytes": 1889
@@ -961,8 +982,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/render.py",
-      "sha256": "aeab30949e52e9de99cda66592f683bee75b749c0853471ba39f72876d500bf6",
-      "bytes": 34101
+      "sha256": "443fa98bb7ea690c6aa78a95b3dd2e5a0529d0566c409c922f6505f890fffb5e",
+      "bytes": 35403
     },
     {
       "path": "direct-pdf/journal_pdf/route_clearances.py",
@@ -1055,6 +1076,11 @@
       "bytes": 5472
     },
     {
+      "path": "direct-pdf/journal_pdf/source_structure_contract.py",
+      "sha256": "cf1c0dcab1519eed41ea6e143c2f5578b53ab303a32f398cb6f75214187c3d88",
+      "bytes": 8467
+    },
+    {
       "path": "direct-pdf/journal_pdf/source_svg_groups.py",
       "sha256": "9a5c2432658ab0b6512c658c3f15209d5ad1d725fd98287d2ffc421e1a455c0f",
       "bytes": 11542
@@ -1101,8 +1127,8 @@
     },
     {
       "path": "direct-pdf/README.md",
-      "sha256": "25b069f0c26a8f34d2ab11d823ee16779d49cf38d70c93ddf4351b3f678a2a35",
-      "bytes": 22590
+      "sha256": "6ef130e10327712914ae10bd10f908ae7942b4a0099e07354126794789a6c7cc",
+      "bytes": 22982
     },
     {
       "path": "direct-pdf/RELEASE-CANDIDATE.json",
@@ -1255,6 +1281,11 @@
       "bytes": 5023
     },
     {
+      "path": "direct-pdf/tests/test_final_visibility.py",
+      "sha256": "609dedd7622787773238360168b72216c5067c94779c3e6fe8b9a402600fb07b",
+      "bytes": 11852
+    },
+    {
       "path": "direct-pdf/tests/test_flow_terminal_shapes.py",
       "sha256": "c9567e4cce19a6d52891444a0d1851fdc24f902f3d5bdb3dda282b3f0bae5602",
       "bytes": 3801
@@ -1385,6 +1416,11 @@
       "bytes": 1346
     },
     {
+      "path": "direct-pdf/tests/test_original_asset_reference.py",
+      "sha256": "6c2cb565e6783b84ed2e34b660329452d441c23a4df7df6292e28bd700e53872",
+      "bytes": 5922
+    },
+    {
       "path": "direct-pdf/tests/test_page_external_ports.py",
       "sha256": "64b51b5c0287cbfb792b8acbb77cd78006f7d4e5d6b3c0ec79a8ccadec7d7687",
       "bytes": 3304
@@ -1483,6 +1519,11 @@
       "path": "direct-pdf/tests/test_source_shape_replacements.py",
       "sha256": "14ac5d048abdfea404000653ba9fd78b9c273461e10b0a3135a3838c992a8b0a",
       "bytes": 7335
+    },
+    {
+      "path": "direct-pdf/tests/test_source_structure_contract.py",
+      "sha256": "81b4ef63cadab2f1e75fb9e3f91004478cea5dc51cb58c72c0f42b7c9c47a3d4",
+      "bytes": 8190
     },
     {
       "path": "direct-pdf/tests/test_source_svg_group_defs.py",
