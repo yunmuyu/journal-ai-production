@@ -96,18 +96,73 @@ def _audit_artifact(path: Path, output_format: str, report: dict | None = None) 
         audit_pdf_compatibility(path)
 
 
-def _check_editorial_notices(report: dict) -> None:
+def _check_editorial_notices(report: dict, resolved: list | None = None) -> None:
     """Block unresolved review notices; font-size approval has its own gate."""
-    if report.get("status") != "candidate-editorial-review":
-        return
-    warnings = report.get("warnings")
-    if (not isinstance(warnings, list) or not warnings or
-            any(not isinstance(item, dict) or item.get("code") != "base_font_below_8_requires_review"
+    warnings = report.get("warnings", [])
+    if resolved is not None and not isinstance(resolved, list):
+        raise FlowError('publication_editorial_review', '复核证据格式无效')
+    if resolved is not None and any(not isinstance(item, dict) or not isinstance(item.get('warning_sha256'), str) for item in resolved):
+        raise FlowError('publication_editorial_review', '复核证据必须绑定警告哈希')
+    reviewed = {} if resolved is None else {item['warning_sha256']: item for item in resolved}
+    if resolved is not None and len(reviewed) != len(resolved):
+        raise FlowError('publication_editorial_review', '复核证据不能重复')
+    def resolved_warning(item: dict) -> bool:
+        entry = reviewed.get(hash_json(item))
+        return (isinstance(entry, dict) and set(entry) == {'warning_sha256', 'evidence'}
+                and isinstance(entry['evidence'], str) and len(entry['evidence'].strip()) >= 20)
+    if (not isinstance(warnings, list) or
+            (report.get("status") == "candidate-editorial-review" and not warnings) or
+            any(not isinstance(item, dict) or not isinstance(item.get('code'), str)
+                or (item['code'] not in ('base_font_below_8_requires_review', 'axis_unit_notation_normalized')
+                    and not resolved_warning(item))
                 for item in warnings)):
         raise FlowError("publication_editorial_review", "候选存在尚未解决的版面检查提醒，不能发布")
 
 
-def _editorial_gate(config: Config, candidate: dict, report: dict, output_format: str) -> None:
+def _check_source_and_visibility(spec: dict, report: dict, route: str | None = None) -> None:
+    """Require independently recorded evidence before a PDF can be delivered."""
+    visibility = report.get('final_visibility_audit')
+    if (not isinstance(visibility, dict) or visibility.get('status') != 'checked'
+            or visibility.get('activation') != 'explicit-full-scene'):
+        raise FlowError('publication_visibility_unverified', '最终PDF完整场景遮挡检查未完成，不能交付')
+    layout = report.get('layout')
+    if not isinstance(layout, dict):
+        raise FlowError('publication_visibility_unverified', '遮挡检查缺少场景清单，不能交付')
+    for kind in ('texts', 'paths', 'assets'):
+        objects, checked = layout.get(kind), visibility.get('checked_' + kind)
+        if (not isinstance(objects, list) or not isinstance(checked, list)
+                or any(not isinstance(item, str) for item in checked)
+                or any(not isinstance(row, dict) or not isinstance(row.get('id'), str) for row in objects)
+                or {row['id'] for row in objects} != set(checked)):
+            raise FlowError('publication_visibility_unverified', '最终PDF遮挡检查未覆盖全部文字、连线或素材，不能交付')
+    structure = report.get('source_structure_audit')
+    if (route == 'structural_redraw' or spec.get('kind') == 'scene') and (not isinstance(structure, dict) or structure.get('status') != 'checked'):
+        raise FlowError('publication_structure_unverified', '重绘场景缺少原图结构核对，不能交付')
+    nodes, checked_nodes = layout.get('nodes'), visibility.get('checked_nodes')
+    if (not isinstance(nodes, list) or not isinstance(checked_nodes, list)
+            or any(not isinstance(row, dict) or not isinstance(row.get('id'), str) for row in nodes)
+            or any(not isinstance(item, str) for item in checked_nodes)):
+        raise FlowError('publication_visibility_unverified', '最终PDF遮挡检查缺少节点清单，不能交付')
+    from journal_pdf.source_structure_contract import node_has_visible_ink
+    if {row['id'] for row in nodes if node_has_visible_ink(row)} != set(checked_nodes):
+        raise FlowError('publication_visibility_unverified', '最终PDF遮挡检查未覆盖全部可见节点，不能交付')
+    coverage = report.get('original_asset_reference_coverage')
+    if not isinstance(coverage, dict) or coverage.get('status') not in ('complete', 'not-applicable'):
+        raise FlowError('publication_asset_unverified', '原图素材完整性未全部核对，不能交付')
+    assets = report.get('assets')
+    if not isinstance(assets, list) or (assets and coverage.get('status') != 'complete'):
+        raise FlowError('publication_asset_unverified', '原图素材与覆盖报告不一致，不能交付')
+    if assets and (coverage.get('total') != len(assets) or coverage.get('checked') != len(assets)):
+        raise FlowError('publication_asset_unverified', '原图素材覆盖数量不完整，不能交付')
+    if assets:
+        receipts = report.get('original_asset_references')
+        if (not isinstance(receipts, list) or len(receipts) != len(assets)
+                or any(not isinstance(row, dict) or not isinstance(row.get('asset_id'), str) for row in receipts)
+                or {row['asset_id'] for row in receipts} != {row['id'] for row in layout['assets']}):
+            raise FlowError('publication_asset_unverified', '原图素材核验明细与场景素材不一致，不能交付')
+
+
+def _editorial_gate(config: Config, candidate: dict, report: dict, output_format: str, record: dict | None = None) -> None:
     # Imported lazily so loading/inspecting the CLI does not evaluate contracts.
     from .editorial_gate import check_editorial_gate
     decision = check_editorial_gate(config, candidate, report, output_format)
@@ -122,7 +177,8 @@ def _editorial_gate(config: Config, candidate: dict, report: dict, output_format
         default_start, explicit_exception = _font_policy_evidence(spec, evidence)
         if not (default_start or explicit_exception):
             raise FlowError("publication_font_policy", "PDF候选缺少实测8pt起排或绑定当前来源及回复的制作例外；只能保留预览，不能发布")
-        _check_editorial_notices(report)
+        _check_editorial_notices(report, None if record is None else record.get('resolved_warnings'))
+        _check_source_and_visibility(spec, report, decision['route'])
 
 
 def _check_chart_semantics(spec: dict, report: dict) -> None:
@@ -187,9 +243,9 @@ def _validate_review(config: Config, candidate: dict, report: dict, record: dict
 def review(config: Config, candidate_id: str, record_path: Path) -> dict:
     candidate, report, artifact = check_candidate(config, candidate_id)
     output_format = artifact_format(candidate, artifact)
-    _editorial_gate(config, candidate, report, output_format)
     record = json_file(record_path)
     _validate_review(config, candidate, report, record, output_format)
+    _editorial_gate(config, candidate, report, output_format, record)
     stored = safe_child(config.state_root, f"reviews/{candidate_id}.json", existing=False)
     with writer_lock(config.state_root):
         if stored.exists():
@@ -281,13 +337,13 @@ def publish(config: Config, candidate_id: str, author_rel: str, figure_number: s
     began = time.perf_counter()
     candidate, report, artifact = check_candidate(config, candidate_id)
     output_format = artifact_format(candidate, artifact)
-    _editorial_gate(config, candidate, report, output_format)
     review_path = safe_child(config.state_root, f"reviews/{candidate_id}.json")
     reviewed = json_file(review_path)
     record = reviewed["record"]
     if reviewed.get("record_sha256") != hash_json(record):
         raise FlowError("review_changed", "审阅记录或候选绑定已变化")
     _validate_review(config, candidate, report, record, output_format)
+    _editorial_gate(config, candidate, report, output_format, record)
     if record.get("author_rel") != author_rel or record.get("figure_number") != figure_number:
         raise FlowError("review_target", "发布目标与审阅记录绑定不一致")
     folder = author_dir(config.delivery_root, author_rel)
@@ -336,7 +392,7 @@ def publish(config: Config, candidate_id: str, author_rel: str, figure_number: s
             fresh, fresh_report, fresh_artifact = check_candidate(config, candidate_id)
             if fresh != candidate or fresh_report != report or fresh_artifact != artifact or json_file(review_path) != reviewed:
                 raise FlowError("candidate_changed", "发布暂存期间候选或审阅绑定变化")
-            _editorial_gate(config, fresh, fresh_report, output_format)
+            _editorial_gate(config, fresh, fresh_report, output_format, record)
             _check_source_target(config, candidate, target)
             _check_collisions(folder, target)
             if target.exists() != existed or (existed and hash_file(target) != current):
