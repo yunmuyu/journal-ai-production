@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.10.30-r43-delivery-evidence",
-  "createdAt": "2026-10-30T09:53:24.646Z",
+  "id": "2026.10.30-r44-padding-evidence",
+  "createdAt": "2026-10-30T10:01:12.343Z",
   "status": "released",
   "constraints": {
     "fontSizePt": {
@@ -13,11 +13,11 @@
   },
   "validation": {
     "platform": "Windows",
-    "direct_pdf": "1275 passed; 3 symlink fixture permission failures; 7 subtests passed; skipped EMF module separately rerun 17 passed with existing optional dependency",
-    "localflow": "137 passed, 5 symlink tests deselected, 2 subtests passed",
-    "preflight": "138 passed",
-    "focused": "41 passed; source-bound graph and raster chart real delivery; tampered review rejected",
-    "limitations": "Source semantics, white text and unbound original content require explicit review. This release excludes the independently developed crop change."
+    "direct_pdf": "1301 passed; 3 failed in symlink fixture setup with WinError 1314; 7 subtests passed; 0 skipped",
+    "localflow_preflight": "275 passed; 5 symlink cases deselected due to WinError 1314; 2 subtests passed",
+    "focused": "86 passed for integrated crop, visibility, original-reference, and real delivery checks",
+    "private_regression": "82 existing PDF copies checked; all passed 600 dpi padding and source viewport comparison; no private artifacts packaged",
+    "limitations": "Visual/semantic review and external print compatibility remain necessary. Earlier candidates require new evidence. Windows symlink behavior additionally checked in CI."
   },
   "files": [
     {
@@ -422,7 +422,7 @@
     }
   ],
   "skillSha256": "e4defb2e166fb722772b8b64bbead3200ea6490f54e531dffb76f549cc2186fb",
-  "supersedes": "2026.10.30-r42-source-visibility",
+  "supersedes": "2026.10.30-r43-delivery-evidence",
   "packagingCorrection": "New r34 candidate seals the reviewed PR11 portable source; supersedes r33 only in this candidate branch. Historical releases and assets are unchanged.",
   "sourceParent": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
   "productionRoute": "portable-production",
@@ -602,8 +602,8 @@
     },
     {
       "path": "direct-pdf/docs/RULE-COVERAGE.md",
-      "sha256": "aa6686cf2cf671559b0cec35068fda418bf7c88c973d510698e4edc64825b1a2",
-      "bytes": 9700
+      "sha256": "47197dacacea844d765f48ac6fa69545dca0aaa0c7899688d67d4d9136f3a1a0",
+      "bytes": 9771
     },
     {
       "path": "direct-pdf/docs/RULE-SOURCES.json",
@@ -866,6 +866,11 @@
       "bytes": 10102
     },
     {
+      "path": "direct-pdf/journal_pdf/export_padding.py",
+      "sha256": "f3d878f9fbafa278a7cfa30d49ed176acbd8046d4c7a391e4784138d6909904d",
+      "bytes": 5407
+    },
+    {
       "path": "direct-pdf/journal_pdf/final_visibility.py",
       "sha256": "7a1f6493c75699dc0d9c2d8541f3f236ca9b2e5c32a5eca4363f6385372d70c7",
       "bytes": 11815
@@ -982,8 +987,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/render.py",
-      "sha256": "443fa98bb7ea690c6aa78a95b3dd2e5a0529d0566c409c922f6505f890fffb5e",
-      "bytes": 35403
+      "sha256": "4140d6d879ef7c34838f9ea0c812e108faba37b365714e53f8b6f118a22fbf08",
+      "bytes": 36062
     },
     {
       "path": "direct-pdf/journal_pdf/route_clearances.py",
@@ -1127,8 +1132,8 @@
     },
     {
       "path": "direct-pdf/README.md",
-      "sha256": "6ef130e10327712914ae10bd10f908ae7942b4a0099e07354126794789a6c7cc",
-      "bytes": 22982
+      "sha256": "4017aaa864fcdff63ddc4e78b3777c4ec8f612b75c03b9252e7eb48ed9303d4d",
+      "bytes": 23904
     },
     {
       "path": "direct-pdf/RELEASE-CANDIDATE.json",
@@ -1272,8 +1277,8 @@
     },
     {
       "path": "direct-pdf/tests/test_export_crop_padding.py",
-      "sha256": "2153c47258456adba3a4197bf1d73f778f21e4d2605f8ed2ea16080195175e55",
-      "bytes": 2497
+      "sha256": "e599f3c7599639f9afb363643946e1ed757b2a17d782727afedb24fce8d62e9a",
+      "bytes": 2475
     },
     {
       "path": "direct-pdf/tests/test_figure_audit_contract.py",
@@ -1569,6 +1574,11 @@
       "path": "direct-pdf/tests/test_tree_group_spacing.py",
       "sha256": "dca6aae1978a15b7075613d9bd9ca15fcb1a5f2831df5bcb09fafd26600ed74d",
       "bytes": 999
+    },
+    {
+      "path": "direct-pdf/tests/test_uniform_padding.py",
+      "sha256": "446a5ff136b4d7c64ba63581de1d2ed00c224a743c960414dfc7a49568af4be4",
+      "bytes": 1645
     },
     {
       "path": "direct-pdf/tests/test_v012_new_raster.py",

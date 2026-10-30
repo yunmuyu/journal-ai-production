@@ -284,7 +284,7 @@ def pdf_audit(path:Path,scene,reg):
 
 def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=False):
     start=time.perf_counter()
-    crop_padding=spec.get('policy',{}).get('export_crop_padding_pt',.25)
+    crop_padding=spec.get('policy',{}).get('export_crop_padding_pt',2.0)
     if isinstance(crop_padding,bool) or not isinstance(crop_padding,(int,float)) or not math.isfinite(crop_padding) or not 0<=crop_padding<=12:
         raise FigureError('export_crop_padding_invalid','导出裁切留白必须为0到12pt的有限数值')
     from .common import validate_output_isolation
@@ -382,6 +382,15 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         final_visibility_audit=audit_final_visibility(tmp,scene,reg,assets,original_asset_references,source_structure_audit,
             required=spec.get('policy',{}).get('require_final_visibility',False),
             asset_contacts=spec.get('asset_boundary_contacts'))
+        from .export_padding import normalize_pdf_padding
+        padded_tmp=tempdir/'padded.pdf'
+        export_padding_audit=normalize_pdf_padding(tmp,padded_tmp,crop_padding)
+        # Scene-coordinate audits precede the final page-box normalization.
+        # Its separate saved-PDF audit verifies margins and original rendering.
+        os.replace(padded_tmp,tmp)
+        with fitz.open(tmp) as padded_doc:
+            padded_pix=padded_doc[0].get_pixmap(dpi=300,colorspace=fitz.csRGB,alpha=False)
+            img=Image.frombytes('RGB',(padded_pix.width,padded_pix.height),padded_pix.samples)
         preview_tmp=tempdir/'figure.png';img.save(preview_tmp,optimize=True)
         warnings=[dict(w) for w in spec.get('warnings',[])]+list(scene.notes)
         from .font_review import font_size_notices
@@ -427,6 +436,7 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
                 'original_asset_references':original_asset_references,
                 'source_structure_audit':source_structure_audit,
                 'final_visibility_audit':final_visibility_audit,
+                'export_padding_audit':export_padding_audit,
                 'original_asset_reference_coverage':{
                     'checked':len(original_asset_references),'total':len(scene.assets),
                     'status':'not-applicable' if not scene.assets else 'complete' if len(original_asset_references)==len(scene.assets) else 'partial' if original_asset_references else 'not-checked',
