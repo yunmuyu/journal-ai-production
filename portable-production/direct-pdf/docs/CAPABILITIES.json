@@ -8,7 +8,17 @@
       "native_text_and_geometry": true,
       "rotation_and_crop_metadata": true,
       "diagram_ref_compile": true,
-      "arbitrary_chart_reletter": false
+      "arbitrary_chart_reletter": false,
+      "original_asset_region_comparison": {
+        "available": true,
+        "entry": "render_one scene assets.original_reference",
+        "activation": "sources role original-artwork or policy.require_original_asset_reference",
+        "reference_format": "PDF",
+        "rebuilt_topology_checked": true,
+        "rebuilt_topology_scope": "separate source_structure_contract; node/path inventory, visible ink, node ports and declared relative path order",
+        "final_overlay_occlusion_checked": true,
+        "final_overlay_scope": "source-bound gate, or policy.require_final_visibility for all scene objects; visible asset footprint, enclosed white details and explicit exterior node contacts; does not imply source-topology proof; see STRUCTURE-AND-VISIBILITY.md"
+      }
     },
     "SVG": {
       "matplotlib_axis_tick_legend_object_ids": true,

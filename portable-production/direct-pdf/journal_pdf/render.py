@@ -313,6 +313,10 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
             raise FigureError('unbound_asset','版位引用的素材没有在来源清单中绑定',asset=a['id'])
         if asset.audit.get('mode')=='registered-native-pdf-text' and allowed.get(asset.audit['svg_path'])!=asset.audit['text_registration']['svg_sha256']:
             raise FigureError('unbound_asset','完整文字登记的伴随SVG须在来源清单中绑定',asset=a['id'])
+    from .original_asset_reference import audit_original_references
+    original_asset_references=audit_original_references(spec,scene.assets,assets,source_root,bindings)
+    from .source_structure_contract import audit_source_structure
+    source_structure_audit=audit_source_structure(spec,scene,source_root,bindings)
     layout_finished=time.perf_counter()
     folder=output_root/author/id;folder.mkdir(parents=True,exist_ok=True)
     pdf=folder/(id+'.pdf');preview=folder/(id+'.png');report=folder/'report.json'
@@ -374,6 +378,10 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         doc.save(tmp,garbage=4,deflate=True);doc.close()
         drawing_finished=time.perf_counter()
         audit,img=pdf_audit(tmp,scene,reg)
+        from .final_visibility import audit_final_visibility
+        final_visibility_audit=audit_final_visibility(tmp,scene,reg,assets,original_asset_references,source_structure_audit,
+            required=spec.get('policy',{}).get('require_final_visibility',False),
+            asset_contacts=spec.get('asset_boundary_contacts'))
         preview_tmp=tempdir/'figure.png';img.save(preview_tmp,optimize=True)
         warnings=[dict(w) for w in spec.get('warnings',[])]+list(scene.notes)
         from .font_review import font_size_notices
@@ -416,6 +424,13 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
                 'backend':'direct-pdf','required_artifact':'pdf','ai_required':False,
                 'editable_policy':spec.get('policy',{}),'spec_hash':digest_json(spec),'source_bindings':bindings,'font':reg.summary(),
                 'layout':scene.export(),'assets':asset_reports,'pdf_audit':audit,'warnings':warnings,
+                'original_asset_references':original_asset_references,
+                'source_structure_audit':source_structure_audit,
+                'final_visibility_audit':final_visibility_audit,
+                'original_asset_reference_coverage':{
+                    'checked':len(original_asset_references),'total':len(scene.assets),
+                    'status':'not-applicable' if not scene.assets else 'complete' if len(original_asset_references)==len(scene.assets) else 'partial' if original_asset_references else 'not-checked',
+                    'scope':'prepared-assets-only; excludes rebuilt topology and final overlay occlusion'},
                 'needs_review':['source-pairing-and-topology','font-profile-equivalence','actual-size-visual-review','InDesign-placement']+editorial_review,
                 'timings_ms':{'compile':round((layout_finished-start)*1000,3),
                               'pdf_write_and_font_subset':round((drawing_finished-layout_finished)*1000,3),
