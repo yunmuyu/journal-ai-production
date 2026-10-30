@@ -1,0 +1,8 @@
+{
+  "platform": "Windows",
+  "direct_pdf": "1301 passed; 3 failed in symlink fixture setup with WinError 1314; 7 subtests passed; 0 skipped",
+  "localflow_preflight": "275 passed; 5 symlink cases deselected due to WinError 1314; 2 subtests passed",
+  "focused": "86 passed for integrated crop, visibility, original-reference, and real delivery checks",
+  "private_regression": "82 existing PDF copies checked; all passed 600 dpi padding and source viewport comparison; no private artifacts packaged",
+  "limitations": "Visual/semantic review and external print compatibility remain necessary. Earlier candidates require new evidence. Windows symlink behavior additionally checked in CI."
+}
