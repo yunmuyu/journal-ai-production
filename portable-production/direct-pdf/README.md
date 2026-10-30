@@ -6,6 +6,10 @@
 
 同排等宽框及不同数量的编组按统一总宽对齐，见 [等宽横排与编组对齐](docs/MEASURED-ROWS.md)。
 
+开发版新增[原始区域独立核验](docs/ORIGINAL-ASSET-REFERENCE.md)：登记原始 PDF 后，自动比较准备素材，拒绝漏图层、异常裁切等差异；不等同于重绘连线语义已核验。
+
+重绘后的连接另由[来源结构合同与最终可见性检查](docs/STRUCTURE-AND-VISIBILITY.md)验证，实际 PDF 保存后检查遮挡，失败不替换候选文件。
+
 先读 **AGENT.md**，使用说明见 **docs/AGENT-ENTRY.md**。新增能力与边界机器可读表：**docs/CAPABILITIES.json**。
 
 ## 本轮新增
