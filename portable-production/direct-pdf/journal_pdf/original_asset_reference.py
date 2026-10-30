@@ -47,7 +47,14 @@ def _pixels(assets: Assets, asset: Asset, width: float, height: float) -> Image.
 def compare_original(assets: Assets, asset: Asset, source: Path, page: int,
                      clip: tuple[float, float, float, float], asset_id: str) -> ReferenceReceipt:
     """Reject missing white components, added paint, and altered crop geometry."""
-    original = assets.pdf(source, page, list(clip))
+    if source.suffix.lower() == '.pdf':
+        original = assets.pdf(source, page, list(clip))
+    elif source.suffix.lower() in ('.png', '.jpg', '.jpeg'):
+        if page != 0 or any(int(value) != value for value in clip):
+            raise FigureError('original_asset_reference_input', '位图原件仅支持第0页和整数像素裁区')
+        original = assets.raster(source, [int(value) for value in clip])
+    else:
+        raise FigureError('original_asset_reference_scope', '原始区域比较仅支持PDF或PNG/JPG位图')
     box = fitz.Rect(clip)
     prepared_box = fitz.Rect(asset.rect)
     if abs(box.width / box.height - prepared_box.width / prepared_box.height) > 1e-4:
@@ -77,18 +84,23 @@ def audit_original_references(spec, scene_assets, assets: Assets, root: Path, bi
     # the policy. Legacy jobs without original-artwork remain explicitly legacy.
     required = required or any(b['role'] == 'original-artwork' for b in bindings)
     declarations = spec.get('assets', [])
-    has_reference = any('original_reference' in item for item in declarations)
+    chart_references = spec.get('original_asset_references', {})
+    if not isinstance(chart_references, dict):
+        raise FigureError('original_asset_reference_input', '图表原图引用须按素材ID登记')
+    has_reference = any('original_reference' in item for item in declarations) or bool(chart_references)
     if not required and not has_reference:
         return []
     if not scene_assets and not has_reference:
         return []  # Pure rebuilt graphs have no prepared assets to compare.
-    if spec.get('kind') != 'scene':
-        raise FigureError('original_asset_reference_scope', '原图区域门禁当前仅支持scene素材')
+    if spec.get('kind') not in ('scene', 'chart'):
+        raise FigureError('original_asset_reference_scope', '原图区域门禁当前仅支持scene或chart素材')
+    if spec.get('kind') == 'chart' and set(chart_references) != {row['id'] for row in scene_assets}:
+        raise FigureError('original_asset_reference_missing', '图表每个素材均须绑定独立原图区域')
     originals = {b['path']: b['sha256'] for b in bindings if b['role'] == 'original-artwork'}
     by_id = {item['id']: item for item in declarations}
     receipts = []
     for row in scene_assets:
-        reference = by_id.get(row['id'], {}).get('original_reference')
+        reference = chart_references.get(row['id']) if spec.get('kind') == 'chart' else by_id.get(row['id'], {}).get('original_reference')
         if reference is None:
             if required:
                 raise FigureError('original_asset_reference_missing', '素材缺少独立原图区域引用', asset=row['id'])
@@ -103,8 +115,6 @@ def audit_original_references(spec, scene_assets, assets: Assets, root: Path, bi
                 or clip[2] <= clip[0] or clip[3] <= clip[1]):
             raise FigureError('original_asset_reference_input', '原图页号和裁区无效')
         source = resolve_source(root, path)
-        if source.suffix.lower() != '.pdf':
-            raise FigureError('original_asset_reference_scope', '当前独立原图比较支持PDF；其他格式不得冒报通过')
         if digest_file(source) != originals[path]:
             raise FigureError('source_hash_mismatch', '原图在准备期间发生变化')
         receipt = compare_original(assets, row['asset'], source, page, tuple(clip), row['id'])

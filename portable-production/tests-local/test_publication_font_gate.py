@@ -131,7 +131,12 @@ def test_actual_8pt_scene_cannot_publish_as_registered_plot():
         assert report['pdf_audit']['axis_unit_notation']['checks'] == []
         # This was the bypass: generic labels gave a vacuously successful audit.
         record_path = Path(fixture.temp.name) / 'unused-review.json'
-        write_json(record_path, {})
+        write_json(record_path, {'candidate_id': cid, 'output_sha256': candidate['output_sha256'],
+            'constraints_sha256': candidate['constraints_sha256'],
+            'source_hashes': {r['path']: r['sha256'] for r in report['source_bindings']},
+            'author_rel': '编辑/作者', 'figure_number': '1', 'reviewer': 'synthetic reviewer',
+            'content': {'conclusion': 'approved', 'evidence': ['Synthetic source and topology checked in the fixture.']},
+            'visual': {'conclusion': 'approved', 'evidence': ['Synthetic output inspected for this negative test.']}})
         with pytest.raises(FlowError) as error:
             review(fixture.config, cid, record_path)
         assert error.value.code == 'publication_chart_semantics'
@@ -146,6 +151,41 @@ def test_real_font_exception_must_bind_candidate_source(matches_current_source):
     fixture.setUp()
     try:
         spec = json.loads(fixture.spec.read_text())
+        # Build independent original + contract and enable the actual full-scene audit.
+        import pymupdf as fitz
+        original = fixture.author / 'original.pdf'
+        with fitz.open() as doc:
+            page = doc.new_page(width=100, height=100)
+            page.draw_rect(fitz.Rect(20, 20, 80, 60), width=.5)
+            page.insert_text((40, 44), 'N1', fontsize=8)
+            doc.save(original)
+        original_sha = hash_file(original)
+        contract_path = fixture.author / 'structure.json'
+        write_json(contract_path, {'version': 1, 'source_sha256': original_sha,
+            'nodes': {'a': {'shape': 'rectangle', 'visible': True}}, 'paths': {}})
+        contract_sha = hash_file(contract_path)
+        spec.update(kind='scene', width_pt=100, height_pt=100,
+            nodes=[{'id': 'a', 'rect': [20, 20, 80, 60], 'container': True}], paths=[], texts=[{'id':'label','text':'N1','x':50,'y':40,'owner':'a'}], assets=[],
+            sources=[{'path': original.name, 'sha256': original_sha, 'role': 'original-artwork'},
+                     {'path': contract_path.name, 'sha256': contract_sha, 'role': 'structure-contract'}],
+            source_structure_contract=contract_path.name)
+        spec.pop('edges', None)
+        spec['policy']['require_final_visibility'] = True
+        write_json(fixture.manifest, {'source_root': str(fixture.author), 'files': [
+            {'id': 'source-1', 'path': original.name}, {'id': 'contract-1', 'path': contract_path.name}]})
+        constraints = json.loads(fixture.constraints.read_text())
+        figure = constraints['confirmed']['editorial_route_contract']['figures'][0]
+        figure['sources'] = [{'id': 'source-1', 'sha256': original_sha}, {'id': 'contract-1', 'sha256': contract_sha}]
+        figure['evidence'][0]['source_sha256'] = original_sha
+        figure['evidence'].append({'id': 'contract-review', 'source_id': 'contract-1', 'source_sha256': contract_sha,
+            'method': 'synthetic test', 'location': 'complete contract', 'observation': 'Independent original structure contract.'})
+        figure['checks']['source_identity']['evidence_ids'].append('contract-review')
+        figure['text_review']['evidence_ids'].append('contract-review')
+        figure['source_review']['source_snapshot'] = {'source-1': original_sha, 'contract-1': contract_sha}
+        figure['source_review']['evidence'][0]['source_sha256'] = original_sha
+        figure['source_review']['evidence'].append({'source_id':'contract-1', 'source_sha256':contract_sha,
+            'location':'complete contract', 'observation':'Independent node inventory.'})
+        write_json(fixture.constraints, constraints)
         spec['policy']['design_font_size_pt'] = 6
         source_sha = spec['sources'][0]['sha256'] if matches_current_source else 'b' * 64
         exception = {'source_sha256': source_sha, 'reply_sha256': 'c' * 64,
@@ -172,13 +212,13 @@ def test_real_font_exception_must_bind_candidate_source(matches_current_source):
         else:
             with pytest.raises(FlowError) as error:
                 review(fixture.config, cid, path)
-            assert error.value.code == 'publication_font_policy'
+            assert error.value.code == 'publication_font_policy', str(error.value)
             write_json(fixture.config.state_root / 'reviews' / f'{cid}.json',
                        {'record': record, 'record_sha256': hash_json(record)})
             with pytest.raises(FlowError) as error:
                 publish(fixture.config, cid, '编辑/作者', '1')
             assert error.value.code == 'publication_font_policy'
-            assert artifact.is_file() and not list(fixture.author.glob('*.pdf'))
+            assert artifact.is_file() and list(fixture.author.glob('*.pdf')) == [original]
     finally:
         fixture.tearDown()
 
@@ -203,6 +243,12 @@ def test_real_chart_with_nonempty_axis_audits_can_publish(tmp_path):
         legend_placement='outside-top', legend_frame=False,
         mask_semantic_evidence={'approved_empty_background': True, 'reason': 'Synthetic separate swatch region outside plot.'},
         tick_length_source_units=0, policy={'column': 'single', 'design_font_size_pt': 8})
+    spec['sources'][0]['role'] = 'original-artwork'
+    spec['policy']['require_final_visibility'] = True
+    spec['original_asset_references'] = {
+        'plot': {'path': job[1].name, 'page': 0, 'clip': [10, 20, 310, 110]},
+        'swatch:synthetic-series': {'path': job[1].name, 'page': 0, 'clip': [10, 0, 40, 10]},
+    }
     write_json(job[2], spec)
     constraints = json_file(job[3])
     confirmed = constraints['confirmed']
@@ -220,9 +266,24 @@ def test_real_chart_with_nonempty_axis_audits_can_publish(tmp_path):
     candidate, report, artifact = check_candidate(job[0], cid)
     assert len(report['pdf_audit']['axis_unit_notation']['checks']) == 2
     record = review_record(job, cid, candidate, report)
+    record['resolved_warnings'] = [
+        {'warning_sha256': hash_json(warning),
+         'evidence': 'Synthetic source, placement and final output were independently checked for this specific warning.'}
+        for warning in report['warnings'] if warning['code'] != 'axis_unit_notation_normalized'
+    ]
     path = tmp_path / 'chart-review.json'
     write_json(path, record)
     assert review(job[0], cid, path)['status'] == 'agent-reviewed'
+    saved_review = job[0].state_root / 'reviews' / f'{cid}.json'
+    sealed_bytes = saved_review.read_bytes()
+    tampered = json.loads(sealed_bytes)
+    tampered['record']['resolved_warnings'][0]['evidence'] += ' modified'
+    write_json(saved_review, tampered)
+    with pytest.raises(FlowError) as error:
+        publish(job[0], cid, 'editor/author', '1')
+    assert error.value.code == 'review_changed'
+    assert not (job[0].delivery_root / 'editor' / 'author' / 'author-图1.pdf').exists()
+    saved_review.write_bytes(sealed_bytes)
     result = publish(job[0], cid, 'editor/author', '1')
     assert result['status'] == 'published-candidate'
     assert Path(result['target']).read_bytes() == artifact.read_bytes()
