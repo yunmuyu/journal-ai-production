@@ -32,3 +32,5 @@
 - 2026-10-13现行工作节奏与规范读取 `knowledge/production-policy.json`；实现范围见 `collaboration/review-policy-20261013.md`。终审修订优先，先明确小修；同图连续两次用户退回停止原路线。读取终审意见用 `workbench/read-feedback.mjs`，已验收遗留只核对不自动制作。不要将旧记录缺少闭环标记直接当作未修好。
 
 - 收到用户指定月份、编辑、篇数的作图压缩包时，按 docs/delivery-folders.md 使用 scripts/new-delivery-folders.ps1 建立外部交付目录，原始压缩包必须保留在批次根部，作者目录留空。同作者多篇按标题隔离；不得更改工作台批注或擅自标记整批通过。
+
+- 2026-11-02 执行分工调整：当前 Codex 直接调用公共工具完成制作与回传；WorkBuddy 派单和自主恢复暂停，旧启动说明不构成恢复授权。沿用原任务、批注和质量门，不新建重复执行器、不自动验收。见 docs/workbuddy-executor.md。
