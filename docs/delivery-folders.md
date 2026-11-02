@@ -6,6 +6,8 @@
 
 运行 `scripts/new-delivery-folders.ps1 -Archive <原始ZIP或RAR> -Destination <交付根目录> -Month <月> -Editor <编辑> -Count <文章数>`。
 
+`Destination` 必须使用当前项目已确认的实际交付目录（例如“十一月图件”），不得把文档中的月份变量当成字面目录名“月份图件”。先检查已有批次，重复接手不另建一套；本工具只负责目录和压缩包，不启动制图或变更验收。
+
 - 原始压缩包原样复制，校验 SHA256；作者目录留空，不自动制作或复制图稿。
 - ZIP 兼容中文 GBK 文件名及 ZIP 自带的 UTF-8 标志；RAR 使用 WinRAR UnRAR 列表读取，不解压执行内容。
 - 从 Word 文件名核对篇数与作者。命名无法识别时停止，核对后可传入 `-Authors` 名单，不能猜测。
