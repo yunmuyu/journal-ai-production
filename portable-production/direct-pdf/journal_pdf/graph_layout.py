@@ -151,6 +151,14 @@ def graph(spec,reg,size):
             secondary+=(w if direction=='TB' else h)+sibling_gap
         primary+=thick[r]+rank_gaps.get(r,0)
     width,height=(cross+2*margin,along+2*margin) if direction=='TB' else (along+2*margin,cross+2*margin)
+    # Vertical labels sit beside the shaft, not inside the node-width envelope.
+    # Reserve the preferred right side only; symmetric padding wastes column width.
+    for e in edges:
+        if (direction=='TB' and e.get('label') and not e.get('return_edge')
+                and e.get('from_port','bottom')=='bottom' and e.get('to_port','top')=='top'
+                and rank[e['to']]==rank[e['from']]+1
+                and abs(cross_centers[e['from']]-cross_centers[e['to']])<1e-5):
+            width=max(width,margin+cross_centers[e['from']]+3.3+labels[id(e)]['width']+margin)
     xs=[2.,width-2];ys=[2.,height-2]
     for n in placed.values():
         x,y,r,b=n['rect'];xs +=[x-6,r+6,(x+r)/2];ys +=[y-6,b+6,(y+b)/2]
