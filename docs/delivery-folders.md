@@ -15,3 +15,5 @@
 - 重复运行不覆盖压缩包、不清空已有图件；同名不同内容压缩包报错。
 - 月份优先采用用户明确指定值，不能擅自纠正既有批次名。
 - 外部交付目录与内部工作台分开。不得改变批注、链接、逐图验收；只有用户明确说整批全过，才记录整批最终批准。
+
+工作台上传入口见 [workbench-archive-intake.md](workbench-archive-intake.md)。脚本新增可选 `-ManifestPath` 输出机器可读来源回执，`-SourceRoot` 仅提取已核验的 Word 到内部原稿目录；不指定时保持仅建交付目录的用法。共享检查位于 `scripts/archive-manuscripts.ps1`，重复运行核对已有 Word 哈希，不覆盖不同内容。
