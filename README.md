@@ -8,9 +8,10 @@
 
 | 用途 | 入口 | 说明 |
 |---|---|---|
-| 普通制作与已有稿修订 | [portable-production](portable-production/README.md) | preflight 核对输入，localflow 管理状态，direct-pdf 制作与检查 |
+| 普通制作与已有稿修订 | [portable-production](portable-production/README.md) | 核对来源与路线，公共 raster 处理JPG，direct-pdf处理可编辑PDF，独立质量门检查 |
 | 批量任务证据与独立复核 | [任务质量协议](portable-production/task-quality-workflow.md) | 输入契约、产物检查、复核记录；不替代视觉与语义判断 |
-| 需要工作台或原生 Adobe 格式 | [兼容路线](docs/RELEASE-GUIDE.md#工作台与-adobe-兼容路线) | 保留 workbench、production-runtime 和协作工具，使用完整源码 |
+| 工作台派单、反馈与候选回传 | [执行器接入](docs/workbuddy-executor.md) | 兼容Agent领取持久任务，按路线调用公共工具，回传待终审 |
+| 必要特殊格式或原生 Adobe 格式 | [兼容路线](docs/RELEASE-GUIDE.md#工作台与-adobe-兼容路线) | 保留production-runtime和协作工具；常规照片、截图与组合JPG不依赖Photoshop |
 
 生产顺序：查历史成稿 → 核对当前 Word 与图源 → 选择支持的加工路线 → 生成候选 → 自动检查与实际视觉复核 → 发布 → 登记用户终审。已有稿优先修订；已验收文件受哈希保护，不能由普通候选覆盖。
 

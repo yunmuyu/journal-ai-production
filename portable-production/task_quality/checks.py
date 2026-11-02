@@ -5,10 +5,11 @@ import math
 from pathlib import Path
 
 import fitz
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageChops, UnidentifiedImageError
 
 from .models import JSON, Contract, FileRef, GateError, Output, array, fields, text
 from .storage import checked, child, ref, read, state
+from .typography import audit_typography
 
 
 def preview(source: Path, target: Path) -> dict[str, JSON]:
@@ -59,7 +60,15 @@ def measure(output: Output, path: Path) -> dict[str, JSON]:
                 if tuple(image.size) != output.pixels:
                     raise GateError('pixels_mismatch', str(path))
                 width = image.width / dpi_values[0] * 25.4
-                measurement = dict(width_mm=width, pixels=list(image.size), dpi=dpi_values)
+                r, g, b = image.convert('RGB').split()
+                differences = ImageChops.lighter(ImageChops.difference(r, g),
+                    ImageChops.lighter(ImageChops.difference(r, b), ImageChops.difference(g, b)))
+                histogram = differences.histogram()
+                off = sum(histogram[3:])
+                if off:
+                    raise GateError('nonneutral_pixels', f'{path}: {off} pixels exceed channel difference 2')
+                measurement = dict(width_mm=width, pixels=list(image.size), dpi=dpi_values,
+                    nonneutral_pixels=off, max_channel_difference=max(i for i, count in enumerate(histogram) if count))
         if not math.isfinite(width) or width <= 0 or abs(width - output.width_mm) > .05:
             raise GateError('width_mismatch', f'{path}: {width} mm')
         return measurement
@@ -69,7 +78,9 @@ def measure(output: Output, path: Path) -> dict[str, JSON]:
 
 def audit(contract: Contract, reference: FileRef) -> tuple[JSON, list[JSON]]:
     checked(reference)
-    report = fields(read(reference.path), 'coverage source_geometry label_path_binding scene output_bindings')
+    raw_report = read(reference.path)
+    keys = 'coverage source_geometry label_path_binding scene output_bindings'
+    report = fields(raw_report, keys + (' text_roles' if type(raw_report) is dict and 'text_roles' in raw_report else ''))
     expected_bindings = {item.id: ref(child(contract.workspace, item.path))['sha256'] for item in contract.outputs}
     if report['output_bindings'] != expected_bindings:
         raise GateError('audit_binding_mismatch', 'Audit must bind every actual output ID and SHA256')
@@ -161,7 +172,8 @@ def inspect(contract: Contract, submission: JSON) -> dict[str, JSON]:
     references.append(checked(audit_ref))
     if type(report) is dict and report['scene'] is not None:
         references.append(checked(FileRef.parse(report['scene'])))
-    report_fields = fields(report, 'coverage source_geometry label_path_binding scene output_bindings')
+    report_fields = fields(report, 'coverage source_geometry label_path_binding scene output_bindings' +
+        (' text_roles' if type(report) is dict and 'text_roles' in report else ''))
     evidence_rows = [fields(item, 'id status evidence') for item in array(report_fields['coverage'])]
     evidence_rows += [fields(report_fields[name], 'status evidence observation') for name in ('source_geometry', 'label_path_binding')]
     for row in evidence_rows:
@@ -170,7 +182,12 @@ def inspect(contract: Contract, submission: JSON) -> dict[str, JSON]:
     previews: list[JSON] = []
     for output in contract.outputs:
         path = child(contract.workspace, output.path)
-        measurements.append(dict(id=output.id, measured=measure(output, path)))
+        measured = measure(output, path)
+        if output.format == 'pdf':
+            typography, unresolved = audit_typography(path, output.id, report_fields.get('text_roles'))
+            measured['typography'] = typography
+            pending.extend(unresolved)
+        measurements.append(dict(id=output.id, measured=measured))
         previews.append(preview(path, child(state(contract), output.id + '.preview.png')))
     previews.append(preview(contract.source.path, state(contract) / 'source.preview.png'))
     references.extend(previews)

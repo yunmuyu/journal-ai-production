@@ -69,7 +69,8 @@
   "manual_review": [
     "source_content",
     "visual",
-    "runtime_provenance"
+    "runtime_provenance",
+    "typography"
   ],
   "allowed_changes": [
     "font"

@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import http from 'node:http';
+import {createWorkBuddyHandler} from './workbuddy-http.mjs';
+import {routeFixture} from './route-test-fixture.mjs';
+import {routeSourceRefs} from './production-route.mjs';
+test('same service scopes claims and rejects cross-batch mutation without changing first batch',async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'batch-http-'));let handler;
+ const server=http.createServer((req,res)=>handler.handle(req,res,new URL(req.url,origin)));
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;
+ t.after(()=>{server.close();fs.rmSync(root,{recursive:true,force:true});});
+ handler=createWorkBuddyHandler({root,origin,config:{workerToken:'fixture',catalog:{batchHash:'a'},catalogs:{b:{batchHash:'b'}}},publish(){},restore(){}});
+ const a=handler.queue.enqueue({kind:'inventory',batchHash:'a',key:'a:inventory',group:'source',sources:[]});
+ const b=handler.queue.enqueue({kind:'inventory',batchHash:'b',key:'b:inventory',group:'source',sources:[]});
+ const call=body=>fetch(origin+'/workbuddy/worker',{method:'POST',headers:{Authorization:'Bearer fixture'},body:JSON.stringify(body)});
+ assert.equal((await call({action:'claim',batchHash:'unknown'})).status,409);
+ const response=await call({action:'claim',batchHash:'b'}),claimed=await response.json();
+ assert.equal(claimed.job.id,b.id);
+ const waiting=await (await call({action:'claim',batchHash:'a'})).json();assert.equal(waiting.job,null);assert.equal(waiting.routine.status,'waiting_executor');assert.equal(waiting.routine.queued,1);assert.match(waiting.routine.reason,/另一批次/);
+ assert.equal(handler.queue.list().find(j=>j.id===a.id).state,'queued');
+ assert.equal((await call({action:'fail',batchHash:'a',id:b.id,lease:claimed.job.lease,message:'wrong scope'})).status,409);
+ assert.equal((await call({action:'fail',id:b.id,lease:claimed.job.lease,message:'legacy scope'})).status,409);
+ assert.equal(handler.queue.list().find(j=>j.id===b.id).state,'running');
+ handler.queue.fail(b.id,claimed.job.lease,'fixture done');
+ handler.queue.enqueue({kind:'inventory',batchHash:'b',key:'b:second',group:'source',priority:0,sources:[]});
+ const legacy=await (await call({action:'claim'})).json();
+ assert.equal(legacy.job.id,a.id);
+});
+
+test('empty batch does not advertise another batch eligible paused figures',async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'batch-empty-'));let handler;
+ const server=http.createServer((req,res)=>handler.handle(req,res,new URL(req.url,origin)));await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;t.after(()=>{server.close();fs.rmSync(root,{recursive:true,force:true});});
+ const route=routeFixture(root,{raster:true});handler=createWorkBuddyHandler({root:path.join(root,'jobs'),origin,config:{workerToken:'fixture',catalog:{batchHash:'a'},catalogs:{b:{batchHash:'b'}},routineTrial:{id:'trial',maxTasks:3,groups:['raster']}},assertRoutineEligible:()=>({archive:route.sourceReview.archive,word:route.sourceReview.word}),publish(){},restore(){}});
+ const job=handler.queue.enqueue({batchHash:'b',key:'b:paper:1',articleId:'paper',figureNumber:'1',outputNumbers:['1'],group:'raster',sources:routeSourceRefs(route),productionRoute:route});handler.queue.pause(job.id);
+ assert.equal(handler.queue.routineOptions().paused[0].eligible,true);
+ const result=await (await fetch(origin+'/workbuddy/worker',{method:'POST',headers:{Authorization:'Bearer fixture'},body:JSON.stringify({action:'claim',batchHash:'a'})})).json();assert.equal(result.job,null);assert.equal(result.routine.status,'idle');assert.deepEqual(result.routine.paused,[]);
+});

@@ -5,6 +5,7 @@ import {pipeline} from 'node:stream/promises';
 import {Transform} from 'node:stream';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
+import {assignArchiveLabels} from './archive-articles.mjs';
 const run=promisify(execFile);
 const read=p=>JSON.parse(fs.readFileSync(p,'utf8').replace(/^\uFEFF/,''));
 function safe(value){return typeof value==='string'&&value.length>0&&value.length<160&&!/[<>:"/\\|?*\x00-\x1f]|[. ]$/.test(value)&&! /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(value);}
@@ -17,7 +18,9 @@ export function createArchiveIntake({config,root,origin,register,execute=run}){
  fs.mkdirSync(root,{recursive:true});
  const registryPath=path.join(root,'batches.json');
  let batches=fs.existsSync(registryPath)?read(registryPath):[],busy=false;
- for(const batch of batches)register(batch);
+ const beforeLabels=JSON.stringify(batches);
+ for(const batch of batches){assignArchiveLabels(batch);register(batch);}
+ if(JSON.stringify(batches)!==beforeLabels){fs.writeFileSync(registryPath+'.tmp',JSON.stringify(batches,null,2));fs.renameSync(registryPath+'.tmp',registryPath);}
  async function receive(req,fields){
   const dir=path.join(root,'incoming',randomUUID());fs.mkdirSync(dir,{recursive:true});
   const archive=path.join(dir,fields.filename),hasher=createHash('sha256');let size=0;
@@ -43,6 +46,7 @@ export function createArchiveIntake({config,root,origin,register,execute=run}){
    const receipt=read(manifest);
    if(receipt.archiveSha256!==hash||receipt.articles!==fields.count)throw Error('收包回执不一致，未登记工作台');
    const batch={...receipt,month:fields.month,editor:fields.editor,filename:fields.filename,registeredAt:new Date().toISOString()};
+   assignArchiveLabels(batch);
    const next=[...batches,batch],temp=registryPath+'.tmp';fs.writeFileSync(temp,JSON.stringify(next,null,2));fs.renameSync(temp,registryPath);batches=next;
    register(batch);return batch;
   }finally{

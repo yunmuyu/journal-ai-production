@@ -17,3 +17,20 @@ jobs:
         env:
           PYTHONPATH: portable-production
       - run: python scripts/release_bundle.py build --root . --output "${{ runner.temp }}/journal-portable.zip"
+  production-routes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r portable-production/direct-pdf/requirements.txt pytest
+      - name: Common raster, quality gate and source routing
+        run: python -m pytest portable-production/tests-raster portable-production/tests-task portable-production/preflight/tests -q
+        env:
+          PYTHONPATH: portable-production:portable-production/preflight
+      - name: Workbench dispatch and return gates
+        run: node --test workbench/*.test.mjs

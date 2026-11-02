@@ -6,9 +6,12 @@ from .probe import read_bytes,sha
 BASELINE={'repository':'yunmuyu/journal-ai-production','commit':'ced82c85cb1a8490c52750e772a9415e6ac705f6',
  'release':'2026.10.14-r21-common-contract','rule_precedence':['current_user_instruction','verified_same_figure_correction','current_runtime_and_release','historical_example']}
 ROUTES={'drawio_native_relayout':{'preflight_support':'implemented','production_support':'adapter_not_validated_for_this_topology'},
+        'raster_preserve':{'preflight_support':'implemented','production_support':'requires_raster_candidate_adapter_and_independent_review'},
         'raster_panel_assembly':{'preflight_support':'implemented','production_support':'protected_assembly_requires_region_plan'},
         'raster_chart_preserve':{'preflight_support':'implemented','production_support':'requires_semantic_labels_and_safe_masks'},
         'manual_review':{'preflight_support':'review_packet','production_support':'not_auto_released'}}
+DELIVERY_FORMATS={'drawio_native_relayout':'pdf','raster_chart_preserve':'pdf','raster_preserve':'jpg',
+                  'raster_panel_assembly':None,'manual_review':None}
 
 def derive_gates(item):
     gates=[]
@@ -19,10 +22,16 @@ def derive_gates(item):
     g('content_consistency',not blocked,'Unresolved: '+','.join(blocked) if blocked else 'No unresolved content issue recorded; not a complete scientific review.')
     g('production_risk_review',not any(x.get('blocks_publication') and x.get('status')!='resolved' and x.get('scope') not in ('content','cross_figure') for x in item.get('issues',[])),'Quality, safe masking, native rich math and color strategy remain separate from content consistency.')
     g('column_capacity',item.get('layout',{}).get('capacity_verified') is True,'Suggested column or Word placement width is not a measured pass.')
-    g('font_contract',False,'No production text/font rendering performed in this screening.')
+    delivery=DELIVERY_FORMATS[item['route']]
+    g('delivery_contract',delivery is not None,'Output format follows an explicit processing route; unresolved assembly/manual review cannot guess a format.')
+    if item['route']=='raster_preserve':
+        gates.append({'id':'font_contract','status':'not-applicable','reason':'Preserved screenshot/photo pixels are not editable text; pixel glyph height cannot trigger redraw, split or a column change.'})
+    else:g('font_contract',False,'No production text/font rendering performed in this screening; unresolved routes cannot waive this check.')
     color=item.get('protection',{}).get('color',{})
-    g('color_contract',color.get('actual_pdf_audit_passed') is True,'Protected color need does not grant source-color authorization.')
-    g('actual_pdf_and_data_audit',False,'Screening evidence is not final-PDF/font/data audit.')
+    g('color_contract',delivery=='pdf' and color.get('actual_pdf_audit_passed') is True,'Protected color need does not grant source-color authorization; an image route still requires actual output color and information-preservation review.')
+    if delivery=='jpg':g('actual_image_and_data_audit',False,'Independently inspect actual JPG format, dimensions, crop, key content readability and information retained after grayscale; screening is not a passed audit.')
+    elif delivery=='pdf':g('actual_pdf_and_data_audit',False,'Screening evidence is not final-PDF/font/data audit.')
+    else:g('actual_output_and_data_audit',False,'Resolve processing route before output-specific checks; content and actual-output review remain mandatory.')
     g('local_cases_and_corrections',item.get('caseRetrieval',{}).get('local_context_verified') is True,'Production records, prior-artwork search and prepare-decisions required before formal dispatch.')
     return gates
 
@@ -78,12 +87,20 @@ def apply_review(probe:dict,review:dict,manifest:dict|None=None):
             _check_selector(assets,primary)
             if primary['asset_id'] not in {x['asset_id'] for x in f['sources']}:raise ValueError('Primary source not included in provenance')
             if f['route']=='drawio_native_relayout' and assets[primary['asset_id']]['probe'].get('kind')!='svg_drawio':raise ValueError('draw.io route requires actual native graph metadata')
+        if f['route']=='raster_preserve':
+            selection=f.get('source_selection',{})
+            if not primary or assets[primary['asset_id']]['probe'].get('kind')!='raster':raise ValueError('Raster preservation requires a selected, actually decoded raster source')
+            if selection.get('alternatives_checked') is not True or not str(selection.get('observation','')).strip() or not str(selection.get('preserve_reason','')).strip():
+                raise ValueError('Raster preservation requires reviewed alternative sources and a content-based reason; file suffix is not a route decision')
+            if selection.get('content_kind') not in ('screenshot','photo','complex-raster') or set(selection.get('reviewed_source_ids',[]))!={s['asset_id'] for s in f['sources']}:
+                raise ValueError('Raster source review must cover every candidate and identify the preserved content kind')
         if f.get('layout',{}).get('locked') and f['layout'].get('confirmed_column')!=f['layout'].get('recommended_column'):
             raise ValueError('Cannot override confirmed locked column')
         if f.get('protection',{}).get('rebuild_data_curves') and not f['protection'].get('verified_raw_data'):
             raise ValueError('Cannot rebuild curves without verified raw data')
         f['identity'].update(word_sha256=word['sha256'],word_caption=fig['caption'])
         f['capability']=copy.deepcopy(ROUTES[f['route']])
+        f['required_delivery_format']=DELIVERY_FORMATS[f['route']]
         f['caseRetrieval']={'status':'pending_local_records','matches':[],'reason':'Local inventory, production-results and evidence were not provided; not reported as searched/no historical matches.','local_context_verified':False}
         f['gates']=derive_gates(f)
         f['gates'].append({'id':'live_source_snapshot','status':'pass' if live['status']=='verified' else 'pending','reason':'Saved review/probe matching is not proof the original files are still current.'})
@@ -91,8 +108,11 @@ def apply_review(probe:dict,review:dict,manifest:dict|None=None):
         f['preflight_state']='agent_reviewed_candidate'
         f['benchmark']={'cohort':review.get('benchmark_cohort','unclassified'),'include_in_blind_first_pass_benchmark':False,'reason':'No independent benchmark enrollment proof supplied; source probing and Agent review are measured separately.'}
         figures.append(f)
+    formats=sorted({f['required_delivery_format'] for f in figures if f['required_delivery_format']})
+    resolved=bool(figures) and all(f['required_delivery_format'] for f in figures)
     return {'schema_version':'journal-preflight/2','version':'0.2.0','rule_baseline':BASELINE,
-        'required_delivery_format':'pdf','ai_file_required':False,'publication_performed':False,
+        'required_delivery_format':(formats[0] if len(formats)==1 else 'mixed') if resolved else None,
+        'required_delivery_formats':formats,'delivery_formats_resolved':resolved,'ai_file_required':False,'publication_performed':False,
         'source_snapshot':copy.deepcopy(review['snapshot']),'live_source_verification':live,'figures':figures,
         'assessment_by':review.get('assessment_by','agent_review_received'),
         'screening_scope':{'asset_count':len(assets),'source':'provided_manifest_only','external_records_searched':False}}
