@@ -1,0 +1,22 @@
+(() => {
+ const host=document.createElement('section');host.className='card my-3';host.setAttribute('aria-label','WorkBuddy制作任务');
+ host.innerHTML='<div class="card-body"><div class="d-flex gap-2 align-items-center flex-wrap"><strong>WorkBuddy 制作</strong><span class="text-secondary" data-worker-status>尚未连接</span><button class="btn btn-sm btn-primary" data-pilot>启动试跑</button><button class="btn btn-sm" data-inventory hidden>核对本批并按图种派单</button></div><p class="text-secondary mt-2 mb-0">按图种与处理方式派单，完成后归回作者。暂停在当前工具结束后生效。</p><div data-jobs></div><p role="status" data-message></p></div>';
+ document.getElementById('toolbar').after(host);
+ const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const labels={queued:'等待WorkBuddy领取',running:'执行中',pausing:'等待安全暂停',paused:'已暂停',failed:'失败',interrupted:'执行状态待核实',needs_input:'需要补充',ready:'成图已回传 · 待终审'};let signature='',loading=false;
+ async function refreshJobs(){if(loading)return;loading=true;try{
+  const res=await fetch('/workbuddy/status');if(!res.ok)return;const data=await res.json();
+  host.querySelector('[data-worker-status]').textContent=data.worker?.online?'执行会话已连接':data.jobs.some(j=>['running','pausing','interrupted'].includes(j.state))?'等待原 WorkBuddy 会话心跳':'等待在 WorkBuddy 启动执行会话';
+  const button=host.querySelector('[data-pilot]');button.textContent=data.pilot?'启动试跑：'+data.pilot.label:'暂无试跑任务';button.disabled=!data.pilot||data.jobs.some(j=>j.key===data.pilot?.key);
+  const inventory=host.querySelector('[data-inventory]');inventory.hidden=!data.inventoryAvailable;inventory.disabled=!data.jobs.some(j=>j.key===data.pilot?.key&&j.state==='ready')||data.jobs.some(j=>j.kind==='inventory');
+  const scrolls=new Map([...host.querySelectorAll('[data-log]')].map(n=>[n.dataset.log,n.scrollTop]));
+  const next=JSON.stringify(data.jobs.map(({updatedAt,heartbeatAt,...job})=>job));if(signature!==next){
+   const opened=new Set([...host.querySelectorAll('details[open]')].map(n=>n.dataset.id));
+   host.querySelector('[data-jobs]').innerHTML=data.jobs.map(j=>`<div class="mt-3 border-top pt-3"><strong>${esc(j.label)}</strong> · ${esc(j.group)}<p class="mb-1">${esc(j.kind==='inventory'&&j.state==='ready'?'分组清单已回传':labels[j.state]||j.state)} · 第${j.attempt}次执行</p><p class="text-secondary mb-2" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:5em;overflow:auto">${esc(j.message)}</p><div class="d-flex gap-2">${['queued','running'].includes(j.state)?`<button class="btn btn-sm" data-control="pause" data-id="${j.id}">暂停</button>`:''}${j.state==='paused'?`<button class="btn btn-sm" data-control="resume" data-id="${j.id}">继续</button>`:''}${['failed','needs_input','interrupted'].includes(j.state)?`<button class="btn btn-sm" data-control="retry" data-id="${j.id}" data-interrupted="${j.state==='interrupted'}">${j.state==='interrupted'?'确认旧任务已停止并重试':'重试失败任务'}</button>`:''}</div><details data-id="${j.id}" ${opened.has(j.id)?'open':''}><summary class="mt-2">运行日志</summary><pre data-log="${j.id}" style="max-height:320px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--tblr-bg-surface-secondary);color:var(--tblr-body-color,#182433);padding:12px"></pre></details></div>`).join('');signature=next;
+  }
+  for(const node of host.querySelectorAll('details[open]')){const r=await fetch('/workbuddy/events?id='+encodeURIComponent(node.dataset.id)),v=await r.json();node.querySelector('pre').textContent=(v.events||[]).map(x=>new Date(x.at).toLocaleTimeString()+'\n'+x.message).join('\n\n');node.querySelector('pre').scrollTop=scrolls.get(node.dataset.id)||0;}
+ }catch{host.querySelector('[data-worker-status]').textContent='连接失败，保留现有记录';}finally{loading=false;}}
+ host.addEventListener('click',async ev=>{const button=ev.target.closest('button');if(!button)return;const action=button.dataset.control;button.disabled=true;
+  try{const response=await fetch(action?'/workbuddy/control':button.hasAttribute('data-inventory')?'/workbuddy/start-inventory':'/workbuddy/start-pilot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(action?{id:button.dataset.id,action,confirmedStopped:button.dataset.interrupted==='true'}:{})});const r=await response.json();if(!response.ok)throw Error(r.error);host.querySelector('[data-message]').textContent='操作已记录';}catch(e){host.querySelector('[data-message]').textContent=e.message;}finally{button.disabled=false;await refreshJobs();}
+ });host.addEventListener('toggle',()=>refreshJobs(),true);setInterval(refreshJobs,2500);refreshJobs();
+})();
