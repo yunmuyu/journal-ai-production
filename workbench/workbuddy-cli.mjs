@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
 const [configPath,action,...args]=process.argv.slice(2);
-if(!configPath||!action)throw Error('Usage: node workbuddy-cli.mjs <worker-config.json> claim|resume-routine|heartbeat|progress|prepare-route|run|submit-candidate|complete|fail|paused ...');
+if(!configPath||!action)throw Error('Usage: node workbuddy-cli.mjs <worker-config.json> claim|resume-routine|retry-routine|heartbeat|progress|prepare-route|run|submit-candidate|complete|fail|paused ...');
 const config=JSON.parse(fs.readFileSync(configPath,'utf8').replace(/^\uFEFF/,''));
-async function api(body){const response=await fetch(new URL('/workbuddy/worker',config.origin),{method:'POST',headers:{Authorization:'Bearer '+config.workerToken,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});const result=await response.json();if(!response.ok)throw Error(result.error||'工作台请求失败');return result;}
+async function api(body){const response=await fetch(new URL('/workbuddy/worker',config.origin),{method:'POST',headers:{Authorization:'Bearer '+config.workerToken,'Content-Type':'application/json'},body:JSON.stringify({...body,...(config.batchHash?{batchHash:config.batchHash}:{})}),signal:AbortSignal.timeout(body.action==='submit-candidate'?180000:15000)});const result=await response.json();if(!response.ok)throw Error(result.error||'工作台请求失败');return result;}
 if(action==='claim'){
  const wait=Math.min(60,Math.max(0,Number(args[0]||0))),until=Date.now()+wait*1000;let job,routine;
  do{({job,routine}=await api({action:'claim',session:config.session||'WorkBuddy本地执行会话'}));if(job||routine?.paused?.length||routine?.status==='trial_complete'||routine?.status==='tool_blocked'||Date.now()>=until)break;await new Promise(r=>setTimeout(r,2000));}while(true);

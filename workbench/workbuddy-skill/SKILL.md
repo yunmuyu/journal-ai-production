@@ -5,7 +5,7 @@ description: 从现有期刊工作台领取已授权的按图种制作任务，�
 
 # WorkBuddy 期刊作图执行器
 
-读取本技能旁的 `connection.md` 得到本机 RUNNER、CONFIG、仓库、Python和字体配置路径；不要输出配置里的认证字段。它由工作台部署生成，不跟随公开仓库分发。
+读取本技能旁的 `connection.md` 得到本机 RUNNER、CONFIG、仓库、Python和字体配置路径；不要输出配置里的认证字段。若本线程明确指定了独立批次CONFIG，使用该CONFIG，不换回默认批次；CLI自动在每次请求携带其中的batchHash。引擎使用该配置的toolsRoot/engineRoot，固定版本不被当前repo覆盖。它由工作台部署生成，不跟随公开仓库分发。
 
 ## 领取与执行
 
@@ -25,6 +25,8 @@ description: 从现有期刊工作台领取已授权的按图种制作任务，�
 
 常规 JPG 优先在一次 `run` 中调用 `node workbench/raster-job.mjs task.json raster-plan.json existing-evidence.json`，自动依次完成上述合同组装、precheck、render、机械检查与postcheck，生成待提交result并记录各阶段耗时。不要再把这些确定步骤拆成多轮AI准备和命令。调用前后由你实际看图，缺失证据或视觉问题不能跳过；命令不自动提交、不填写独立审阅通过。此组合入口已通过合成真实JPG和失败停产测试，真实作者任务性能尚待验证。
 
+新版组合命令使用只读证据快照，并封存产物和审计。成功后不要修改history、audit、plan或重复手动postcheck。实际看图后，将三项观察写入新的 observations.json：`{"observations":{"source_content":"实际内容核对","readability":"实际可辨性核对","grayscale_semantics":"实际灰度信息核对"}}`；调用 `node workbench/raster-job.mjs self-check task.json observations.json`，使用其返回的派生result路径提交。该笔记独立保存，不改变原封存证据。重复组合调用仅复用校验有效的结果；封存损坏或中途失败必须新attempt，不能解除只读、删除封存文件或伪造哈希。
+
 ## 暂停与失败
 
 - `heartbeat LEASE_FILE` 返回 pauseRequested。为每段较长的阅读/判断前后续租，超过2分钟无心跳会被工作台标为状态待核实；原租约仍可续接，不要自行领取重复任务。
@@ -43,7 +45,12 @@ description: 从现有期刊工作台领取已授权的按图种制作任务，�
 
 `outputs` 必须恰好覆盖 job.outputNumbers，禁止悄悄增删子图。JPG的fontLabel为空。PDF四边2pt，栏宽按10%档，字号不计上下角标；不能以计划字号代替实测。
 
-制作／修订任务运行 `node RUNNER CONFIG submit-candidate LEASE_FILE RESULT_FILE`。返回ok仅表示候选已提交并释放租约，进入review_pending，尚未进入用户终审。独立审阅者核对源件与实际产物、填写task_quality回执并finalize/verify，再用专属reviewerToken调用 `POST /workbuddy/review-candidate`；通过后服务再次verify才激活终审稿，退回则保留原候选和理由进入needs_input。执行者不可调用审阅接口自审，不可用complete绕过；退回后由协调者处理并新attempt重试，不能替换已提交候选。提交后可按授权范围继续领取其他任务。
+制作／修订任务运行 `node RUNNER CONFIG submit-candidate LEASE_FILE RESULT_FILE`。以服务端领取任务的 `returnMode` 为准：
+
+- `automatic-candidate`：普通JPG由服务端重核来源、封存哈希、尺寸、灰度及公共工具重放一致性，通过后直接回工作台待用户终审。无需ChatGPT逐图放行，也不要生成独立人工review回执；程序核验不等于用户验收。失败保留当前attempt；本轮允许重试时用 `retry-routine LEASE_FILE` 后重新claim，复用正确源件，禁止原地改封存证据。次数耗尽或同因反复失败才报告工具问题。
+- `independent-review`或旧任务未标模式：保留现行独立内部复核流程，不能自行finalize、使用reviewerToken或用complete绕过。当前未验证的固定版本/PDF/修订入口不冒称已支持自动回传。
+
+提交后按授权范围继续领取，已通过交付版不被候选覆盖。
 
 仅当job.kind为inventory时使用 `node RUNNER CONFIG complete LEASE_FILE RESULT_FILE`，只核对来源、图号及加工分组，不制作整篇。回传结构按job.instructions的articles清单要求，每篇都须出现；无法读取时明确blocked/problem，不能把未读到的图写成无图。每张可制作图含number/group/outputNumbers/evidence/productionRoute。productionRoute须绑定原包、Word、来源清单及全部候选源件的路径/SHA256与采用依据；raster-preserve要求jpg/none/明确widthMm，editable-pdf要求pdf/editable/明确widthMm。不能只按PNG后缀选路线，不能提交旧通用PDF派单模板。完整字段遵循仓库 `docs/workbuddy-executor.md` 和 `workbench/production-route.mjs`；工作台校验后创建逐图任务按图种领取。
 

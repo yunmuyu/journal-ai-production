@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {assertProductionRoute,productionInstructions,verifyProductionResult,verifyRasterPlan} from './production-route.mjs';
+import {assertProductionRoute,productionInstructions,verifyProductionResult,verifyRasterPlan,verifyAutomaticCandidate} from './production-route.mjs';
 const hash=p=>createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 function fixture(t){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'production-route-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
@@ -15,6 +15,13 @@ function fixture(t){
 }
 test('old screenshot task without a structured route is rejected',()=>{
  assert.throws(()=>assertProductionRoute({outputNumbers:['8'],instructions:'PDF四边2pt，8pt先紧凑布局，必要时7/6pt，双栏需单栏不可行证据'}),/路线合同/);
+});
+test('automatic entry rejects PDF, revisions and missing bound self-check before invoking Python',t=>{
+ const {task}=fixture(t);
+ assert.throws(()=>verifyAutomaticCandidate(task,{}),/冻结raster计划/);
+ task.kind='revision';assert.throws(()=>verifyAutomaticCandidate(task,{}),/修订/);
+ delete task.kind;task.productionRoute.method='editable-pdf';
+ assert.throws(()=>verifyAutomaticCandidate(task,{}),/常规JPG/);
 });
 test('raster route requires source alternatives review and rejects conflicting requirements',t=>{
  const {task}=fixture(t);assertProductionRoute(task);

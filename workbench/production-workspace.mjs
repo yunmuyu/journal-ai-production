@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {assertProductionRoute,routeSourceRefs,verifyRasterPlan} from './production-route.mjs';
+import {writeSealedJson} from './evidence-seal.mjs';
 
 const repo=fileURLToPath(new URL('../',import.meta.url));
 const tools=path.join(repo,'portable-production');
@@ -64,6 +65,7 @@ export function prepareProductionWorkspace(taskPath,planPath,evidence={},contrac
  const measured=JSON.parse(run(dimensionsCode,[planPath]));
  const code=fs.readdirSync(path.join(tools,'raster')).filter(n=>n.endsWith('.py')).map(n=>reference(path.join(tools,'raster',n)));
  code.push(reference(fileURLToPath(import.meta.url)));
+ code.push(reference(fileURLToPath(new URL('./evidence-seal.mjs',import.meta.url))));
  const contract={id:task.id,producer:evidence.producer,route:'raster',source:route.sourceReview.selected,
   source_inputs:[...new Map(sourceInputs.map(r=>[r.path,r])).values()],history,frozen_manifest:frozen,
   workspace,author_roots:evidence.author_roots,runtime:{python,code_root:repo,code,font_profile:profile},
@@ -77,7 +79,7 @@ export function prepareProductionWorkspace(taskPath,planPath,evidence={},contrac
  if(!contractPath)return {status:'prepared',contract,plan:planRef,next:'Write contract, then run task_quality precheck; no quality check has run.'};
  const target=inside(attempt,contractPath);
  if(target===output||target.startsWith(workspace+path.sep))throw Error('合同不能写入产物目录');
- fs.writeFileSync(target,JSON.stringify(contract,null,2)+'\n',{encoding:'utf8',flag:'wx'});
+ writeSealedJson(target,contract);
  return {status:'prepared',contract:reference(target),plan:planRef,next:'Run task_quality precheck before production; independent review is still required.'};
 }
 

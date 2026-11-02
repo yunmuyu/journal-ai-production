@@ -32,6 +32,12 @@ ChatGPT 处理公共工具缺陷及执行者确实无法解决的异常，不作
 
 ## 当前边界
 
+常规JPG可通过服务端显式启用的 `automaticRasterBatches`（批次SHA256列表）使用自动候选入口；有限试跑亦可配置 `routineTrial.autoReturn:true`。领取任务携带服务端计算的 `returnMode`。自动入口重读冻结证据、实际产物和预览，按已绑定公共raster计划在临时目录重放并比较JPG；制作人的三项看图观察独立保存并绑定源件/候选，不假冒独立人工审阅。检查成功即发布待用户终审候选，`qualityVerification.kind=automatic-candidate`且人工终审仍pending，不写acceptance。旧review_pending不自动迁移，PDF、修订及未启用批次保持原门禁。
+
+`raster-job`封存内部计划、历史快照、审计与输出，补看图记录用`self-check`子命令生成新文件。封存后不能原地改路线或重写audit；有效重复调用返回现有结果，失效或失败走新attempt。只读属性用于防误改，哈希用于检出变化，不宣称能抵御同一操作系统用户主动解除权限。
+
+多批次部署增量设置 `catalogs[batchHash]` 和 `inventories[batchHash]`，原`catalog`保留。独立worker配置只增加自身batchHash及固定toolsRoot/engineRoot；旧无batchHash客户端仍限原catalog，跨批次写入拒绝。`POST /workbuddy/start-inventory`指定batchHash登记该批核对任务；所有批次仍共享全局单租约。新版CLI负责批次传递，固定旧版CLI不能代替；固定引擎不因CLI升级而覆盖。
+
 这是本机执行会话主动领取的接口，不是 WorkBuddy 桌面应用的远程启动接口。需要在 WorkBuddy 启动一次执行会话。会话退出后，工作台重试只能重新排队，不能凭空启动 AI；页面必须如实显示等待领取。不得使用未授权的私有 IPC 或读取登录票据来绕过这个限制。
 
 试跑完成回传后，才能启动本批来源核对和图种分组。分组清单须覆盖本批每篇文章，无法读取、缺图源和不确定语义须明确报告，不能视为无图。核对阶段不是按篇制作；核对完成后按逐图任务的 `group` 排序，跨作者同类处理。已完成试跑不重复派单。

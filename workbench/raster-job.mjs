@@ -6,6 +6,7 @@ import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {performance} from 'node:perf_hooks';
 import {prepareProductionWorkspace} from './production-workspace.mjs';
+import {snapshotEvidence,writeSealedJson,sealEvidence,verifyEvidenceSeal,appendSelfCheck,checkEvidence} from './evidence-seal.mjs';
 
 const read=p=>JSON.parse(fs.readFileSync(p,'utf8').replace(/^\uFEFF/,''));
 const ref=p=>({path:path.resolve(p),sha256:createHash('sha256').update(fs.readFileSync(p)).digest('hex')});
@@ -23,7 +24,15 @@ export function runRasterJob(taskPath,planPath,evidencePath){
  const task=read(taskPath),attempt=fs.realpathSync(task.attemptDir);
  if(fs.realpathSync(path.dirname(taskPath))!==attempt)throw Error('task.json必须来自领取后的attempt根目录');
  const runDir=path.join(attempt,'raster-job');
- // Re-running must use a new attempt; never mutate a sealed contract or existing candidate.
+ if(fs.existsSync(runDir)){
+  const seal=verifyEvidenceSeal(runDir),request=read(path.join(runDir,'request.json'));
+  for(const [key,p] of Object.entries({task:taskPath,plan:planPath,evidence:evidencePath})){
+   if(path.resolve(p)!==request[key].path)throw Error('运行输入路径变化，需要新attempt');
+   checkEvidence(request[key]);
+  }
+  return {...read(path.join(runDir,'run.json')),seal,reused:true};
+ }
+ // Never mutate an incomplete previous run; retries need a new attempt.
  fs.mkdirSync(runDir);
  const timings=[];let activeStage='prepare';
  function stage(name,fn){
@@ -32,13 +41,18 @@ export function runRasterJob(taskPath,planPath,evidencePath){
   catch(error){timings.push({stage:name,elapsed_ms:performance.now()-started,status:'failed'});throw error;}
  }
  try{
-  const evidence=read(evidencePath);
-  const prepared=stage('prepare',()=>prepareProductionWorkspace(taskPath,planPath,evidence));
+  writeSealedJson(path.join(runDir,'request.json'),{task:ref(taskPath),plan:ref(planPath),evidence:ref(evidencePath)});
+  const snapshots=path.join(runDir,'snapshots');fs.mkdirSync(snapshots);
+  const evidence=read(evidencePath),originalEvidence=snapshotEvidence(snapshots,'executor-evidence.original.json',evidencePath);
+  const frozenTask=snapshotEvidence(snapshots,'task.json',taskPath),frozenPlan=snapshotEvidence(snapshots,'raster-plan.json',planPath);
+  if(evidence.history?.evidence)evidence.history.evidence=snapshotEvidence(snapshots,'history.json',evidence.history.evidence);
+  if(evidence.frozen_manifest)evidence.frozen_manifest=snapshotEvidence(snapshots,'frozen.json',evidence.frozen_manifest);
+  const prepared=stage('prepare',()=>prepareProductionWorkspace(frozenTask.path,frozenPlan.path,evidence));
   if(prepared.status!=='prepared')throw Error('缺少执行者证据: '+prepared.missing.join(', '));
   const contract=prepared.contract;
   contract.runtime.code.push(ref(fileURLToPath(import.meta.url)));
-  contract.source_inputs.push(ref(evidencePath));
-  const contractRef=save(path.join(runDir,'quality-contract.json'),contract);
+  contract.source_inputs.push(originalEvidence);
+  const contractRef=writeSealedJson(path.join(runDir,'quality-contract.json'),contract);
   const env={...process.env,PYTHONPATH:tools,PYTHONUTF8:'1',PYTHONIOENCODING:'utf-8'};
   function python(name,args){return stage(name,()=>{
    let stdout;
@@ -49,7 +63,7 @@ export function runRasterJob(taskPath,planPath,evidencePath){
    return value;
   });}
   python('precheck',['-m','task_quality','precheck',contractRef.path]);
-  const rendered=python('render',['-m','raster','render',planPath]);
+  const rendered=python('render',['-m','raster','render',frozenPlan.path]);
   // raster CLI wraps the report in {ok,result}; never infer success from exit status alone.
   const report=rendered.result??rendered;
   python('mechanical',['-c',mechanicalCode,contractRef.path]);
@@ -72,15 +86,19 @@ export function runRasterJob(taskPath,planPath,evidencePath){
    outputs:[{number:task.outputNumbers[0],path:jpg.path,sha256:jpg.sha256,preview:preview.path,
     columnLabel:output.width_mm<=80?'单栏约'+column+'%':'双栏约'+Math.round(output.width_mm/160*10)*10+'%',fontLabel:''}],
    quality:{contract:contractRef,rasterPlan:prepared.plan}});
-  return saveAndReturn({status:'awaiting_visual_review',result,submission,contract:contractRef,timings,
-   next:'执行者实际看图后再submit-candidate；独立审阅仍未完成。'});
+  const value={status:'awaiting_visual_review',result,submission,contract:contractRef,timings,
+   next:'执行者看图后用self-check写独立笔记与派生result，再提交；禁止修改audit/history。'};
+  save(path.join(runDir,'run.json'),value);
+  const external=read(path.join(contract.workspace,'.task-quality','envelope.json')).inputs;
+  const seal=sealEvidence(attempt,runDir,contract.workspace,external);
+  return {...value,seal};
  }catch(error){save(path.join(runDir,'failure.json'),{status:'failed',stage:activeStage,error:error.message,timings});throw error;}
- function saveAndReturn(value){save(path.join(runDir,'run.json'),value);return value;}
 }
 
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  try{
-  const args=process.argv.slice(2);if(args.length!==3)throw Error('Usage: node raster-job.mjs task.json raster-plan.json existing-evidence.json');
-  console.log(JSON.stringify(runRasterJob(...args),null,2));
+  const args=process.argv.slice(2);if(args.length!==3)throw Error('Usage: node raster-job.mjs task.json raster-plan.json existing-evidence.json OR self-check task.json observations.json');
+  const value=args[0]==='self-check'?appendSelfCheck(read(args[1]).attemptDir,read(args[2])):runRasterJob(...args);
+  console.log(JSON.stringify(value,null,2));
  }catch(error){console.error(error.message);process.exitCode=1;}
 }

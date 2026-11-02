@@ -75,7 +75,15 @@ export function productionInstructions(route){
  }
 }
 
-export function verifyProductionResult(task,result,{python}={}){
+export function verifyProductionResult(task,result,options={}){
+ return verifyResult(task,result,options,false);
+}
+export function verifyAutomaticCandidate(task,result,options={}){
+ if(task.kind==='revision'||task.productionRoute?.method!=='raster-preserve')throw Error('自动候选仅支持常规JPG，PDF及修订仍走原独立复核');
+ if(!result.quality?.rasterPlan||!result.selfCheck)throw Error('自动候选缺少冻结raster计划或执行者看图自检记录');
+ return verifyResult(task,result,options,true);
+}
+function verifyResult(task,result,{python}={},automatic){
  const route=assertProductionRoute(task),raster=route.method==='raster-preserve';
  if(!Array.isArray(result.outputs)||result.outputs.length!==task.outputNumbers.length)throw Error('回传导出集合与路线任务不一致');
  const seen=new Set();
@@ -103,10 +111,17 @@ export function verifyProductionResult(task,result,{python}={}){
  }
  if(!nonempty(python))throw Error('未配置独立质量核验Python，不能回传');
  let checked;
+ let selfCheck;
+ if(automatic){
+  ref(result.selfCheck,true);selfCheck=child(task.attemptDir,result.selfCheck.path);
+ }
  try{
-  checked=JSON.parse(execFileSync(python,['-m','task_quality','verify',contractPath],{cwd:qualityRoot,env:{...process.env,PYTHONPATH:qualityRoot,PYTHONUTF8:'1'},windowsHide:true,encoding:'utf8',timeout:120000,maxBuffer:1024*1024}));
+  const args=automatic?['-m','automatic_raster',contractPath,result.quality.rasterPlan.path,selfCheck]:['-m','task_quality','verify',contractPath];
+  checked=JSON.parse(execFileSync(python,args,{cwd:qualityRoot,env:{...process.env,PYTHONPATH:qualityRoot,PYTHONUTF8:'1'},windowsHide:true,encoding:'utf8',timeout:120000,maxBuffer:1024*1024}));
  }catch(error){throw Error('独立质量核验未通过：'+String(error.stdout||error.message).slice(0,2000));}
- if(checked.ok!==true||checked.phase!=='verify'||checked.result?.status!=='verified')throw Error('独立质量核验未完成');
+ if(automatic){
+  if(checked.ok!==true||checked.result?.kind!=='automatic-candidate'||checked.result?.status!=='candidate'||checked.result?.manual_status!=='pending'||digest(selfCheck)!==result.selfCheck.sha256)throw Error('自动候选检查未完成');
+ }else if(checked.ok!==true||checked.phase!=='verify'||checked.result?.status!=='verified')throw Error('独立质量核验未完成');
  // The gate rendered these previews itself from the sealed current output bytes.
  for(const [output,expected] of bindings){
   output.preview=child(task.attemptDir,path.join(contract.workspace,'.task-quality',expected.id+'.preview.png'));

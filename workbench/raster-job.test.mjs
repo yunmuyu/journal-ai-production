@@ -27,6 +27,26 @@ test('single CLI call creates real JPG and pending postcheck without publication
  assert.equal(candidate.manual_status,'pending');assert.ok(candidate.coverage_pending.includes('source_geometry'));
  assert.equal(fs.existsSync(path.join(f.root,'delivery','figure.jpg')),false);
  assert.ok(out.timings.every(s=>s.elapsed_ms>=0));assert.ok(fs.existsSync(out.result.path));
+ // Repeating the normal command returns the sealed result without rerendering.
+ const repeated=spawnSync(process.execPath,[cli,f.task.path,f.plan.path,f.evidence.path],{encoding:'utf8'});
+ assert.equal(repeated.status,0,repeated.stderr);assert.equal(JSON.parse(repeated.stdout).reused,true);
+ const auditPath=path.join(f.root,'candidate','raster-job-audit.json'),auditBytes=fs.readFileSync(auditPath);
+ const sealedHistory=path.join(f.root,'raster-job','snapshots','history.json'),historyBytes=fs.readFileSync(sealedHistory);
+ fs.writeFileSync(path.join(f.root,'history.json'),'original working note changed');
+ assert.deepEqual(fs.readFileSync(sealedHistory),historyBytes);
+ const observations=path.join(f.root,'observations.json');fs.writeFileSync(observations,JSON.stringify({observations:{source_content:'Synthetic pixel preserved',readability:'No letters in fixture',grayscale_semantics:'One grayscale pixel, no categories'}}));
+ const note=spawnSync(process.execPath,[cli,'self-check',f.task.path,observations],{encoding:'utf8'});
+ assert.equal(note.status,0,note.stderr);const added=JSON.parse(note.stdout);
+ const result=JSON.parse(fs.readFileSync(added.result.path,'utf8'));assert.ok(result.selfCheck);
+ const selfCheck=JSON.parse(fs.readFileSync(result.selfCheck.path,'utf8'));
+ assert.equal(selfCheck.producer,'synthetic-executor');assert.equal(selfCheck.candidate_sha256,createHash('sha256').update(fs.readFileSync(path.join(f.root,'candidate','.task-quality','candidate.json'))).digest('hex'));
+ assert.deepEqual(fs.readFileSync(auditPath),auditBytes);
+ const afterNote=spawnSync(process.execPath,[cli,f.task.path,f.plan.path,f.evidence.path],{encoding:'utf8'});
+ assert.equal(afterNote.status,0,afterNote.stderr);
+ // A same-user chmod can bypass read-only; the hash seal still rejects the edit.
+ fs.chmodSync(auditPath,0o666);fs.appendFileSync(auditPath,' ');
+ const changed=spawnSync(process.execPath,[cli,f.task.path,f.plan.path,f.evidence.path],{encoding:'utf8'});
+ assert.equal(changed.status,1);assert.match(changed.stderr,/封存证据已变化.*新attempt/);
 });
 test('failed precheck stops before render and records failure',{skip:!process.env.WORKSPACE_TEST_PYTHON},t=>{
  const f=fixture(t,false);
@@ -43,4 +63,13 @@ test('failed render cannot create submission or result',{skip:!process.env.WORKS
  assert.equal(fs.existsSync(path.join(f.root,'raster-job','submission.json')),false);
  const record=JSON.parse(fs.readFileSync(path.join(f.root,'raster-job','failure.json'),'utf8'));
  assert.equal(record.stage,'render');assert.ok(record.timings.every(s=>s.stage!=='postcheck'));
+});
+test('incomplete attempt cannot be overwritten and a fresh attempt can run',{skip:!process.env.WORKSPACE_TEST_PYTHON},t=>{
+ const old=fixture(t,false);
+ const args=[cli,old.task.path,old.plan.path,old.evidence.path];
+ assert.equal(spawnSync(process.execPath,args,{encoding:'utf8'}).status,1);
+ const failurePath=path.join(old.root,'raster-job','failure.json'),before=fs.readFileSync(failurePath);
+ const repeated=spawnSync(process.execPath,args,{encoding:'utf8'});assert.equal(repeated.status,1);assert.match(repeated.stderr,/需要新attempt/);
+ const fresh=fixture(t,true),run=spawnSync(process.execPath,[cli,fresh.task.path,fresh.plan.path,fresh.evidence.path],{encoding:'utf8'});
+ assert.equal(run.status,0,run.stderr);assert.ok(fs.existsSync(fresh.output));assert.deepEqual(fs.readFileSync(failurePath),before);
 });
