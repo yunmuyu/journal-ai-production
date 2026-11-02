@@ -30,7 +30,7 @@ export async function syncRelatedReviews(articles,urls,cachePath){
   let remote=cache[url],online=false;
   try{const response=await fetch(new URL('/data',url),{signal:AbortSignal.timeout(1500)});if(response.ok){const data=await response.json();remote={articles:(data.articles||[]).map(a=>({word:a.word,state:a.state,figureCount:a.figures.length}))};cache[url]=remote;online=true;}}catch{}
   if(!remote)continue;
-  for(const article of articles.filter(a=>a.archiveHash)){
+  for(const article of articles.filter(a=>a.archiveHash&&!a.relatedImport)){
    const match=remote.articles?.find(a=>a.word?.path&&article.word?.path&&path.resolve(a.word.path).toLowerCase()===path.resolve(article.word.path).toLowerCase());
    if(!match)continue;
    article.externalReviewUrl=url;article.state=match.state;article.notices=[{text:`已有 ${match.figureCount} 张图件的制作记录。原工作台保留图稿、批注和验收，请打开已有图件继续查看。${online?'':'原工作台暂未连接，此处保留上次同步状态。'}`}];
