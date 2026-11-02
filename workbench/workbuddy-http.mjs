@@ -24,7 +24,19 @@ export function createWorkBuddyHandler({root,origin,config,publish,restore,verif
     const batchHash=body.batchHash??(config.catalogs?config.catalog?.batchHash:undefined);
     if(config.catalogs&&!batchHash)throw Error('多批次执行器必须指定批次');
     if(batchHash!==undefined){catalogFor(config,batchHash);if(id&&!belongsToBatch(queue.list().find(j=>j.id===id)||{},batchHash))throw Error('任务不属于请求批次');}
-    if(action==='claim'){const job=queue.claim(body.session||'WorkBuddy',batchHash);const routine=queue.routineOptions();routine.paused=routine.paused.filter(j=>belongsToBatch(queue.list().find(t=>t.id===j.id)||{},batchHash));result=job?{job}:{job:null,routine};}
+    if(action==='claim'){
+     const job=queue.claim(body.session||'WorkBuddy',batchHash),jobs=queue.list(),routine=queue.routineOptions();
+     routine.paused=routine.paused.filter(j=>belongsToBatch(jobs.find(t=>t.id===j.id)||{},batchHash));
+     const queued=jobs.filter(j=>j.state==='queued'&&belongsToBatch(j,batchHash)).length;
+     if(!job&&queued){
+      const active=jobs.find(j=>['running','pausing','interrupted'].includes(j.state));
+      routine.status='waiting_executor';routine.queued=queued;
+      routine.reason=`${active&&!belongsToBatch(active,batchHash)?'另一批次':'当前执行任务'}占用全局制作租约，本批 ${queued} 个任务等待领取；保持串行，租约释放后继续领取`;
+     }else if(!job&&routine.status==='awaiting_selection'&&!routine.paused.some(j=>j.eligible)){
+      routine.status=routine.paused.length?'tool_blocked':'idle';routine.reason=routine.paused.length?'本批暂停任务均不可自主恢复，请查看逐项原因':'本批没有可领取或可自主恢复的任务；不选择其他批次';
+     }
+     result=job?{job}:{job:null,routine};
+    }
     else if(action==='resume-routine')result={job:queue.resumeRoutine(id,body.productionRoute)};
     else if(action==='retry-routine')result={job:queue.retryRoutine(id,lease)};
     else if(action==='heartbeat')result=queue.heartbeat(id,lease);

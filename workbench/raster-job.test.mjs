@@ -6,6 +6,7 @@ import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {verifyAutomaticCandidate} from './production-route.mjs';
 const cli=fileURLToPath(new URL('./raster-job.mjs',import.meta.url));
 function fixture(t,checked=true){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'raster-job-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
@@ -38,6 +39,8 @@ test('single CLI call creates real JPG and pending postcheck without publication
  const note=spawnSync(process.execPath,[cli,'self-check',f.task.path,observations],{encoding:'utf8'});
  assert.equal(note.status,0,note.stderr);const added=JSON.parse(note.stdout);
  const result=JSON.parse(fs.readFileSync(added.result.path,'utf8'));assert.ok(result.selfCheck);
+ const returned=verifyAutomaticCandidate(JSON.parse(fs.readFileSync(f.task.path,'utf8')),result,{python:process.env.WORKSPACE_TEST_PYTHON});
+ assert.equal(returned.kind,'automatic-candidate');assert.equal(returned.manual_status,'pending');
  const selfCheck=JSON.parse(fs.readFileSync(result.selfCheck.path,'utf8'));
  assert.equal(selfCheck.producer,'synthetic-executor');assert.equal(selfCheck.candidate_sha256,createHash('sha256').update(fs.readFileSync(path.join(f.root,'candidate','.task-quality','candidate.json'))).digest('hex'));
  assert.deepEqual(fs.readFileSync(auditPath),auditBytes);
