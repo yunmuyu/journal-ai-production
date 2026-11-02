@@ -78,6 +78,42 @@ def test_candidate_never_publication():
  assert out['figures'][0]['caseRetrieval']['status']=='pending_local_records'
  assert not out['figures'][0]['benchmark']['include_in_blind_first_pass_benchmark']
 
+def raster_preserve_fixture():
+ s,r=fixture_route();s['assets'][1]['probe']={'kind':'raster','width_px':1200,'height_px':800}
+ r['figures'][0].update(route='raster_preserve',selected_primary={'asset_id':'s'},
+  source_selection={'alternatives_checked':True,'reviewed_source_ids':['s'],'content_kind':'screenshot','observation':'Checked all source candidates; only this original screenshot matches the Word figure.',
+   'preserve_reason':'Original application screenshot; controls and embedded text must remain source pixels.'})
+ return s,r
+
+def test_screenshot_preserve_declares_jpg_without_editable_font_gate():
+ s,r=raster_preserve_fixture();out=apply_review(s,r);f=out['figures'][0]
+ assert f['required_delivery_format']=='jpg' and out['required_delivery_formats']==['jpg']
+ gates={g['id']:g for g in f['gates']}
+ assert gates['font_contract']['status']=='not-applicable'
+ assert gates['actual_image_and_data_audit']['status']=='pending'
+ assert gates['color_contract']['status']=='pending'
+ assert not f['ready_for_publication']
+
+@pytest.mark.parametrize('mutation',['missing-review','vector-source','missing-primary'])
+def test_screenshot_route_needs_source_selection_not_suffix(mutation):
+ s,r=raster_preserve_fixture();f=r['figures'][0]
+ if mutation=='missing-review':f['source_selection']['alternatives_checked']=False
+ elif mutation=='vector-source':s['assets'][1]['probe']={'kind':'svg_drawio'}
+ else:del f['selected_primary']
+ with pytest.raises(ValueError):apply_review(s,r)
+
+def test_mixed_routes_do_not_claim_all_pdf_and_chart_font_check_remains():
+ s,r=raster_preserve_fixture();chart=copy.deepcopy(r['figures'][0]);chart.update(id='chart',route='raster_chart_preserve')
+ r['figures'].append(chart);out=apply_review(s,r)
+ assert out['required_delivery_format']=='mixed' and out['required_delivery_formats']==['jpg','pdf']
+ gates={g['id']:g for g in out['figures'][1]['gates']}
+ assert gates['font_contract']['status']=='pending' and gates['actual_pdf_and_data_audit']['status']=='pending'
+
+def test_unresolved_route_does_not_guess_pdf_delivery():
+ s,r=fixture_route();r['figures'][0]['route']='manual_review';out=apply_review(s,r)
+ assert out['required_delivery_format'] is None and out['required_delivery_formats']==[]
+ assert next(g for g in out['figures'][0]['gates'] if g['id']=='delivery_contract')['status']=='pending'
+
 @pytest.mark.parametrize('mutation', ['hash','number','unknown-source','route','locked','data'])
 def test_reject_invalid_decisions(mutation):
  s,r=fixture_route();f=r['figures'][0]

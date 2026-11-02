@@ -60,6 +60,7 @@
           "route": {
             "enum": [
               "drawio_native_relayout",
+              "raster_preserve",
               "raster_panel_assembly",
               "raster_chart_preserve",
               "manual_review"

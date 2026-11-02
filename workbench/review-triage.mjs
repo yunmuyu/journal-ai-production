@@ -3,6 +3,7 @@ import path from 'node:path';
 import {randomUUID,timingSafeEqual} from 'node:crypto';
 import {atomicJson} from './revision-jobs.mjs';
 import {digest} from './revision-worker.mjs';
+import {assertProductionRoute,productionInstructions,routeSourceRefs} from './production-route.mjs';
 
 // A saved review is first a coordinator decision, never an implicit AI launch.
 export function createReviewTriage({root,origin,token,queue,rows,articles,refresh,activate,legacyJobs=()=>[]}){
@@ -13,7 +14,7 @@ export function createReviewTriage({root,origin,token,queue,rows,articles,refres
  const view=r=>{const job=r.jobId&&queue.list().find(j=>j.id===r.jobId),failed=job&&['failed','needs_input'].includes(job.state);return {...r,state:failed?(r.state==='waiting_tools'?'waiting_tools':'needs_triage'):job?.state||r.state,message:failed?(r.state==='waiting_tools'?r.message:'执行问题已交 ChatGPT 排障：'+job.message):job?.message||r.message,executor:job&&!failed?'WorkBuddy':'ChatGPT'};};
  function assertAvailable(id,excludeJobId){
   if(legacyJobs().some(j=>j.figureId===id&&['queued','running','interrupted'].includes(j.state)))throw Error('旧执行器任务尚未收敛，不能重复派单');
-  if(queue.list().some(j=>j.id!==excludeJobId&&(j.figureId===id||j.articleId+'-F'+j.figureNumber===id)&&['queued','running','pausing','paused','interrupted'].includes(j.state)))throw Error('此图已有执行任务，等待安全结束后处理');
+  if(queue.list().some(j=>j.id!==excludeJobId&&(j.figureId===id||j.articleId+'-F'+j.figureNumber===id)&&['queued','running','pausing','paused','interrupted','review_pending'].includes(j.state)))throw Error('此图已有执行任务，等待安全结束后处理');
  }
  function submit(id,version){
   const f=figure(id);if(f.reviewVersion!==version)throw Error('图稿或批注已变化，请刷新');
@@ -34,8 +35,10 @@ export function createReviewTriage({root,origin,token,queue,rows,articles,refres
   r.decision=structuredClone(decision);
   if(decision.kind!=='ordinary'&&(!decision.toolResolved||!decision.toolCommit?.match(/^[a-f0-9]{7,40}$/)||!decision.tests?.trim())){r.state='waiting_tools';r.message='ChatGPT 处理中：公共工具修复完成并验证后，才交给 WorkBuddy 重跑';save();return view(r);}
   assertAvailable(r.figureId,prior?.id);
-  if(prior){queue.revisePlan(prior.id,{instructions:decision.instructions+'\n按task.feedback逐项修订，使用公共工具，回传待终审。',decision},decision.confirmedStopped===true);queue.retry(prior.id,decision.confirmedStopped===true);r.state='queued';save();return view(r);}
-  const job=queue.enqueue({key:`revision:${r.figureId}:${r.feedbackRevision}:${r.version}`,kind:'revision',priority:0,label:`${r.author} 图${r.number} · 终审修订`,group:'终审修订 / 已由 ChatGPT 分流',figureId:r.figureId,articleId:r.articleId,figureNumber:r.number,feedbackRevision:r.feedbackRevision,baseVersion:r.version,outputNumbers:r.outputNumbers,sources:r.sources,feedback:r.feedback,coordinatorDecision:r.decision,instructions:decision.instructions+'\n本次反馈：'+r.feedback.text+'\n必须逐项核对位置批注及截图（见task.feedback），保留源件。使用当前公共工具，不编写替代引擎。结果回传原图件，不能自动验收。'});
+  const route=assertProductionRoute({productionRoute:f.productionRoute,outputNumbers:r.outputNumbers});
+  const instructions=productionInstructions(route);
+  if(prior){queue.revisePlan(prior.id,{productionRoute:route,instructions:decision.instructions+'\n按task.feedback逐项修订，使用公共工具，回传待终审。',decision},decision.confirmedStopped===true);queue.retry(prior.id,decision.confirmedStopped===true);r.state='queued';save();return view(r);}
+  const job=queue.enqueue({key:`revision:${r.figureId}:${r.feedbackRevision}:${r.version}`,kind:'revision',priority:0,label:`${r.author} 图${r.number} · 终审修订`,group:'终审修订 / 已由 ChatGPT 分流',figureId:r.figureId,articleId:r.articleId,figureNumber:r.number,feedbackRevision:r.feedbackRevision,baseVersion:r.version,outputNumbers:r.outputNumbers,productionRoute:route,sources:[...r.sources,...routeSourceRefs(route)],feedback:r.feedback,coordinatorDecision:r.decision,instructions});
   r.jobId=job.id;r.state='queued';r.message='已交 WorkBuddy，等待领取';save();return view(r);
  }
  function publish(job,result){

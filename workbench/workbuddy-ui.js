@@ -3,7 +3,7 @@
  host.innerHTML='<div class="card-body"><div class="d-flex gap-2 align-items-center flex-wrap"><strong>WorkBuddy 制作</strong><span class="text-secondary" data-worker-status>尚未连接</span><button class="btn btn-sm btn-primary" data-pilot>启动试跑</button><button class="btn btn-sm" data-inventory hidden>核对本批并按图种派单</button></div><p class="text-secondary mt-2 mb-0">按图种与处理方式派单，完成后归回作者。暂停在当前工具结束后生效。</p><div data-jobs></div><p role="status" data-message></p></div>';
  document.getElementById('toolbar').after(host);
  const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const labels={queued:'等待WorkBuddy领取',running:'执行中',pausing:'等待安全暂停',paused:'已暂停',failed:'失败',interrupted:'执行状态待核实',needs_input:'需要补充',ready:'成图已回传 · 待终审'};let signature='',loading=false;
+ const labels={queued:'等待WorkBuddy领取',running:'执行中',pausing:'等待安全暂停',paused:'已暂停',failed:'失败',interrupted:'执行状态待核实',needs_input:'需要补充',review_pending:'待内部复核',ready:'成图已回传 · 待终审'};let signature='',loading=false;
  async function refreshJobs(){if(loading)return;loading=true;try{
   const res=await fetch('/workbuddy/status');if(!res.ok)return;const data=await res.json();
   host.querySelector('[data-worker-status]').textContent=data.worker?.online?'执行会话已连接':data.jobs.some(j=>['running','pausing','interrupted'].includes(j.state))?'等待原 WorkBuddy 会话心跳':'等待在 WorkBuddy 启动执行会话';

@@ -1,3 +1,4 @@
+import {assertProductionRoute,productionInstructions,routeSourceRefs} from './production-route.mjs';
 export function buildFigureTasks(catalog,plan){
  if(!Array.isArray(plan.articles)||plan.articles.length!==catalog.articles.length)throw Error('分组清单必须覆盖本批每篇文章；缺项须明确标注');
  const seen=new Set(),tasks=[];
@@ -15,7 +16,14 @@ export function buildFigureTasks(catalog,plan){
    for(const number of figure.outputNumbers){if(outputs.has(number)||!(number===figure.number||number.startsWith(figure.number+'.')||number.startsWith(figure.number+'-')))throw Error('输出编号重复或不属于本图');outputs.add(number);}
    const key=catalog.batchHash+':'+source.id+':'+figure.number;
    if(catalog.completedKeys.includes(key))continue;
-   tasks.push({key,label:`${source.author} 图${figure.number}`,group:figure.group,articleId:source.id,figureNumber:figure.number,mainNumbers:paper.figures.map(f=>f.number),outputNumbers:figure.outputNumbers,sources:[source.word,catalog.archive],instructions:catalog.productionInstructions+'\n本图来源核对：'+figure.evidence+'\n本篇图号核对：'+paper.evidence});
+   const task={key,label:`${source.author} 图${figure.number}`,group:figure.group,articleId:source.id,figureNumber:figure.number,mainNumbers:paper.figures.map(f=>f.number),outputNumbers:figure.outputNumbers,productionRoute:figure.productionRoute,legacyProductionInstructions:catalog.productionInstructions};
+   const route=assertProductionRoute(task);
+   if(route.sourceReview.archive.sha256!==catalog.archive.sha256||route.sourceReview.word.sha256!==source.word.sha256)throw Error('路线原包或Word与批次不一致');
+   task.sources=[...new Map([source.word,catalog.archive,...routeSourceRefs(route)].map(s=>[s.path,s])).values()];
+   delete task.legacyProductionInstructions;
+   task.instructions=productionInstructions(route);
+   task.sourceEvidence=figure.evidence;task.articleEvidence=paper.evidence;
+   tasks.push(task);
   }
  }
  return tasks;

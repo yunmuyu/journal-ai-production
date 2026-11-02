@@ -12,6 +12,16 @@
 
 按加工路线从现有日志记录首次送终审比例、人工/协调者介入次数及原因、用户耗时、普通修订闭环情况、来源或语义错误、重复任务与错版本事件。先有实测再逐类减少介入；不把探索性的图件数量当成熟门槛或工期承诺。机械检查、视觉/语义核验与用户批准分别记录。
 
+## 按处理路线调用公共工具
+
+先核对原包、Word当前可见图和候选源件，确认是否存在更适合的可编辑或矢量来源；处理路线不能只由PNG/JPG后缀决定。常规照片、截图，以及已明确输入顺序和布局的组合位图，用 [公共raster入口](../portable-production/raster/README.md) 的 `python -m raster render <plan.json>`，保留内容并处理灰度、显式裁切、尺寸，交付JPG。该路线不依赖Photoshop，任意满足执行协议和依赖条件的Agent均可调用同一工具；必要特殊格式才使用已有Adobe兼容入口。
+
+重绘/可编辑文字路线使用相应PDF工具及字号审计。位图内不以像素字高估算字号，不据此触发重绘、拆屏、双栏或用户追加审批；同时必须检查内容缺失、关键文字可辨和灰度后含义是否仍完整。不得把重绘要求拼入截图任务，也不能以JPG不查字号为由免除独立质量检查。
+
+派单前按持久路线契约检查来源、操作范围、格式和检查项是否一致；回传后由公共 `task_quality` 重读实际产物、重生成预览，并由独立审阅记录内容、可读性和灰度语义。执行者完成报告只是输入证据，候选回到工作台待用户终审，不自动批准或覆盖已批准交付。
+
+公共raster的单图及多输入组合CLI有合成照片/界面夹具测试；实际作者多输入组合在工作台端到端回传尚须另行记录验证，不能用合成通过代替。当前源码可调用不等于旧Release安装包已经包含该入口，具体发布范围以新Release及其清单核验为准。
+
 ## 当前边界
 
 这是本机执行会话主动领取的接口，不是 WorkBuddy 桌面应用的远程启动接口。需要在 WorkBuddy 启动一次执行会话。会话退出后，工作台重试只能重新排队，不能凭空启动 AI；页面必须如实显示等待领取。不得使用未授权的私有 IPC 或读取登录票据来绕过这个限制。
@@ -29,11 +39,13 @@
 仓库外 `config` 包含：
 
 - `workerToken`：本机生成的随机凭据，只供执行器回调；禁止放入浏览器或 Git。
-- `pilot`：`key,label,group,articleId,figureNumber,mainNumbers,outputNumbers,sources,instructions`。sources 每项为只读文件 `path,sha256`。
-- `catalog`：`batchHash,articles,archive,groups,completedKeys,productionInstructions`。articles 每项为 `id,author,title,word:{path,sha256}`。
+- `reviewerToken`：独立内部审阅入口的独立凭据，不发给执行器、不放入浏览器或Git；执行者token不能调用审阅接口。
+- `qualityPython`：服务端独立运行 `python -m task_quality verify` 的已验证Python绝对路径，须具备公共质量门依赖；未配置时不能激活制作候选。
+- `pilot`：`key,label,group,articleId,figureNumber,mainNumbers,outputNumbers,sources,productionRoute`。sources 每项为只读文件 `path,sha256`；instructions须按productionRoute生成，不能沿用通用PDF/字号模板。
+- `catalog`：`batchHash,articles,archive,groups,completedKeys`。articles 每项为 `id,author,title,word:{path,sha256}`；旧非空 `productionInstructions` 会被拦截，迁移为逐图productionRoute。
 - `inventory`：来源核对任务，`kind:"inventory"`，包含唯一 key、label、group、sources 和核对指令。
 
-把 `workbench/workbuddy-skill/SKILL.md` 安装到 WorkBuddy 用户技能目录，并在旁边写入仅本机使用的 `connection.md`，提供 RUNNER、CONFIG、仓库、Python、字体 profile 路径。执行器 CONFIG 包含 `origin,workerToken,session,engineRoot`，不提交 Git。`engineRoot` 指向已验证的公共 `portable-production/direct-pdf`；CLI 的 `run` 将其加入 PYTHONPATH，以 `python -m journal_pdf` 调用。运行前核实 `journal_pdf.__file__`，避免仓库已修复而安装引擎仍旧；不复制整套引擎覆盖运行环境。
+部署时使用 `workbench/workbuddy-skill/SKILL.md`，旁边的本机 `connection.md` 提供RUNNER、CONFIG、仓库、Python、字体profile路径。执行器CONFIG包含 `origin,workerToken,session,engineRoot,toolsRoot`，不提交Git，也不包含reviewerToken。`engineRoot` 指向已验证的公共 `portable-production/direct-pdf`；`toolsRoot` 指向公共 `portable-production`。CLI的run注入PYTHONPATH，分别调用 `-m journal_pdf`、`-m raster`、`-m task_quality`。运行前核实对应模块的 `__file__`，不复制引擎覆盖运行环境。仓库技能改动不代表已安装技能同步或正式Release已发布；部署与真实调用须另留验证记录。
 
 ## 终审意见分流
 
@@ -57,12 +69,19 @@
 | `heartbeat <lease.json>` | 阅读或分析期间续接并检查暂停 |
 | `paused <lease.json>` | 保存后确认安全暂停 |
 | `fail <lease.json> <错误及证据>` | 记录失败，保留本次产物，交给 Codex 排障 |
-| `complete <lease.json> <result.json>` | 校验来源、图号、产物路径/格式/哈希，再激活待终审稿 |
+| `submit-candidate <lease.json> <result.json>` | 制作／修订任务提交候选，解除执行租约，进入review_pending；不激活终审稿 |
+| `complete <lease.json> <result.json>` | 仅inventory来源核对任务；校验全批清单后生成按路线派单，制作任务调用会被拒绝 |
 
 暂停不会强杀 Adobe。继续或失败重试生成新 attempt 目录，保留旧日志和候选。两分钟无心跳只代表待核实，原租约可续接；不能据此断言原进程死亡或启动重复制作。工作台重启同样保留原租约。明确确认旧执行已停止后，才允许对中断任务重新排队。
 
-成图结果结构见执行器技能。分组结果为 `evidence,articles`；每篇含 `articleId,evidence,figures`，每张含 `number,group,outputNumbers,evidence`。阻塞项附 `blocked:true,problem`；整篇阻塞 figures 为空。确认确实无图须附 `noFiguresConfirmed:true`。保存和机械检查均不代表用户验收，整批放行仍须用户明确“全过了”。
+成图结果结构见执行器技能。独立审阅者取得源件、候选和公共quality合同，执行postcheck并查看工具从实际文件重建的预览，逐项填写独立review回执后执行finalize/verify。审阅者与producer不同；执行者不代填独立回执。审阅者用reviewerToken向 `POST /workbuddy/review-candidate` 提交 `{"id":"<job-id>","result":<reviewed-result>}`；result保留已提交候选的图号、路径、SHA256，补全 `quality.contract:{path,sha256}`。服务重新运行公共verify后才接入待用户终审。不能在审阅时换文件；修改须退回并新建attempt。
+
+不通过则向同一接口提交 `{"id":"<job-id>","decision":"rejected","reason":"具体证据与修订要求"}`，保留候选、日志和退回记录，任务进入needs_input；修复/重新排队在新attempt中处理。上述审阅接口不是worker CLI的review/reject命令。执行器没有审阅token，不得自审放行。
+
+分组结果为 `evidence,articles`；每篇含 `articleId,evidence,figures`，每张可制作图须含 `number,group,outputNumbers,evidence,productionRoute`。productionRoute版本1包含 `method:raster-preserve|editable-pdf`、sourceReview和requirements。sourceReview的archive/word/inventory/selected为路径及SHA256引用，candidates逐项含path/sha256/kind（raster/vector/editable）/decision（selected/not-applicable）/reason，并填写basis；位图路线另填rasterReason。组合按selected后接additionalSelected的顺序登记全部选中源，必须与candidates一致。requirements只含format/fontCheck/widthMm：位图为jpg/none，重绘为pdf/editable，宽度为已核对值。原包、Word和源件逐项验证，不以扩展名自动选路线。
+
+多源位图每任务一个组合输出，公共raster计划纳入quality合同source_inputs冻结；回传 `quality.rasterPlan:{path,sha256}`，计划输入及顺序、布局、输出路径和宽度须匹配任务。阻塞图附blocked:true/problem；整篇阻塞figures为空。确认确实无图须附noFiguresConfirmed:true。保存、内部审阅与机械检查均不代表用户验收，整批放行仍须用户明确“全过了”。
 
 ## 验证
 
-`node --test workbench/workbuddy-*.test.mjs` 验证队列、来源变更、身份、暂停恢复、心跳重连、HTTP 授权、CLI 日志和产物回调。HTTP 测试使用传输夹具，不是实际制图验收。真实接入还须用 WorkBuddy 执行一张图、人工核对源件和最终 PDF，并在浏览器确认待终审预览；这三步不能用单元测试代替。
+`node --test workbench/*.test.mjs` 验证队列、来源变更、路线合同、身份、暂停恢复、心跳重连、HTTP授权、CLI日志和候选/独立审阅回传。HTTP测试使用传输夹具，不是实际制图验收。真实接入还须用WorkBuddy执行图件、独立核对源件和最终PDF/JPG、通过独立审阅接口回传，并在浏览器确认待终审预览；不能用单元测试代替。

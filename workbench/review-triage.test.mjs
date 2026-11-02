@@ -1,3 +1,4 @@
+import {routeFixture,transportQuality,testRef} from './route-test-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -8,7 +9,7 @@ import {createWorkBuddyQueue} from './workbuddy-queue.mjs';
 function setup(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'review-triage-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const pdf=path.join(root,'current.pdf');fs.writeFileSync(pdf,'%PDF-fixture');
- const f={id:'A-F1',articleId:'A',author:'fixture',number:'1',reviewVersion:'v1',feedback:{text:'equal widths',revision:1},outputs:[{number:'1',file:{path:pdf}}]};let activated=0;
+ const f={productionRoute:routeFixture(root),id:'A-F1',articleId:'A',author:'fixture',number:'1',reviewVersion:'v1',feedback:{text:'equal widths',revision:1},outputs:[{number:'1',file:{path:pdf}}]};let activated=0;
  const queue=createWorkBuddyQueue({root:path.join(root,'queue'),publish:()=>{}});
  const options={root:path.join(root,'triage'),origin:'http://127.0.0.1',token:'fixture',queue,rows:[f],articles:[],refresh:()=>{},activate:()=>activated++};
  return {f,queue,options,service:createReviewTriage(options),activated:()=>activated};
@@ -42,5 +43,5 @@ test('executor failure returns to coordinator and is retried only with a reviewe
  service.resolve(r.id,{kind:'ordinary',instructions:'first plan'});const job=queue.claim('WorkBuddy');queue.fail(job.id,job.lease,'tool fault');
  assert.equal(service.list()[0].executor,'ChatGPT');assert.equal(service.list()[0].state,'needs_triage');
  service.resolve(r.id,{kind:'mixed',instructions:'fixed plan',toolResolved:true,toolCommit:'123abcd',tests:'regression passed'});
- const next=queue.claim('WorkBuddy');assert.equal(next.id,job.id);assert.equal(next.attempt,2);assert.match(next.instructions,/fixed plan/);
+ const next=queue.claim('WorkBuddy');assert.equal(next.id,job.id);assert.equal(next.attempt,2);assert.match(next.revisionNotes,/fixed plan/);assert.equal(next.coordinatorDecision.instructions,'fixed plan');assert.doesNotMatch(next.instructions,/fixed plan/);
 });

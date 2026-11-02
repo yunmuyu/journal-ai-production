@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
 const [configPath,action,...args]=process.argv.slice(2);
-if(!configPath||!action)throw Error('Usage: node workbuddy-cli.mjs <worker-config.json> claim|heartbeat|progress|run|complete|fail|paused ...');
+if(!configPath||!action)throw Error('Usage: node workbuddy-cli.mjs <worker-config.json> claim|heartbeat|progress|run|submit-candidate|complete|fail|paused ...');
 const config=JSON.parse(fs.readFileSync(configPath,'utf8').replace(/^\uFEFF/,''));
 async function api(body){const response=await fetch(new URL('/workbuddy/worker',config.origin),{method:'POST',headers:{Authorization:'Bearer '+config.workerToken,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});const result=await response.json();if(!response.ok)throw Error(result.error||'工作台请求失败');return result;}
 if(action==='claim'){
@@ -17,14 +17,16 @@ if(action==='claim'){
   const state=await api({...lease,action:'heartbeat'});if(state.pauseRequested){await api({...lease,action:'paused'});console.log('已到安全停点，停止执行后续工具');process.exit(0);}
   await api({...lease,action:'progress',message:'执行工具：'+path.basename(executable)+' '+argv.join(' ').slice(0,4000)});
   let stopped=false;const timer=setInterval(()=>api({...lease,action:'heartbeat'}).catch(e=>{stopped=true;console.error(e.message);}),15000);timer.unref();
-  const env={...process.env};
+  // Child Python output must match the UTF-8 decoder used by the log transport.
+  const env={...process.env,PYTHONUTF8:'1',PYTHONIOENCODING:'utf-8'};
   if(config.engineRoot){if(!fs.existsSync(path.join(config.engineRoot,'journal_pdf')))throw Error('配置的公共引擎入口不存在');env.PYTHONPATH=config.engineRoot+(env.PYTHONPATH?path.delimiter+env.PYTHONPATH:'');}
+  if(config.toolsRoot){if(!fs.existsSync(path.join(config.toolsRoot,'raster'))||!fs.existsSync(path.join(config.toolsRoot,'task_quality')))throw Error('配置的公共位图/质量工具入口不存在');env.PYTHONPATH=config.toolsRoot+(env.PYTHONPATH?path.delimiter+env.PYTHONPATH:'');}
   const child=spawn(executable,argv,{cwd:path.dirname(leaseFile),env,windowsHide:true,stdio:['ignore','pipe','pipe']});let tail='';
   for(const stream of [child.stdout,child.stderr]){stream.setEncoding('utf8');stream.on('data',s=>{process.stdout.write(s);tail=(tail+s).slice(-12000);});}
   const code=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',resolve);}).finally(()=>clearInterval(timer));
   if(!stopped)await api({...lease,action:'progress',message:`工具结束（${code}）：\n${tail.replace(/\bsk-[\w-]{12,}/g,'[已隐藏]')}`});
   process.exitCode=code||0;
  }else{
-  const body={...lease,action};if(action==='progress'||action==='fail')body.message=rest.join(' ');if(action==='complete')body.result=JSON.parse(fs.readFileSync(rest[0],'utf8'));console.log(JSON.stringify(await api(body)));
+  const body={...lease,action};if(action==='progress'||action==='fail')body.message=rest.join(' ');if(action==='complete'||action==='submit-candidate')body.result=JSON.parse(fs.readFileSync(rest[0],'utf8'));console.log(JSON.stringify(await api(body)));
  }
 }

@@ -1,6 +1,6 @@
 function revisionControls(f){
- const job=f.revisionJob?.state==='ready'&&f.status==='异常'?null:f.revisionJob,active=job&&['queued','running','needs_triage','waiting_tools','pausing','paused'].includes(job.state),accepted=f.status==='终检通过';
- const labels={needs_triage:'ChatGPT 待分流',waiting_tools:'ChatGPT 修复工具中',queued:'等待 WorkBuddy',running:'WorkBuddy 修订中',paused:'WorkBuddy 已暂停',pausing:'等待安全暂停',ready:'修订待确认',failed:'执行失败',interrupted:'执行状态待核实',needs_input:'需要补充信息'};
+ const job=f.revisionJob?.state==='ready'&&f.status==='异常'?null:f.revisionJob,active=job&&['queued','running','needs_triage','waiting_tools','pausing','paused','review_pending'].includes(job.state),accepted=f.status==='终检通过';
+ const labels={needs_triage:'ChatGPT 待分流',waiting_tools:'ChatGPT 修复工具中',queued:'等待 WorkBuddy',running:'WorkBuddy 修订中',paused:'WorkBuddy 已暂停',pausing:'等待安全暂停',review_pending:'待内部复核',ready:'修订待确认',failed:'执行失败',interrupted:'执行状态待核实',needs_input:'需要补充信息'};
  const retry=job&&['failed','interrupted','needs_input'].includes(job.state);
  return `<div class="revision-controls mt-2 mb-2"><button class="btn btn-sm btn-primary" data-revise="${e(f.id)}" data-retry="${retry?'1':'0'}" ${active||accepted?'disabled':''}>${active?e(labels[job.state]):f.revisionRoute==='coordinator'?'提交终审意见':retry?'重新提交修订':'开始修订'}</button><span class="text-secondary ms-2" role="status" data-revision-message="${e(f.id)}">${accepted?'已通过；新增或修改批注后可修订':job?e((job.executor?job.executor+' · ':'')+labels[job.state]+'：'+job.message):f.revisionRoute==='coordinator'?'先交 ChatGPT 分流，再由 WorkBuddy 执行':'保存批注后，点击开始修订'}</span></div>`;
 }
