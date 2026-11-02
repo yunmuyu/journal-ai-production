@@ -1,5 +1,7 @@
 # 项目协作约束
 
+- 内部工作空间、批次建目录、版本整理和用户交付必须遵循 `docs/workspace-management.md`；这是用户已确认的长期约定，不要求用户每次重申。内部“作图”由 AI 维护，现有工作台和批注绑定保留，外部交付保持简洁；整批通过必须有用户明确确认。
+
 - 普通新图和续跑的现行入口为 `portable-production/`：先 preflight，再由 localflow 记录来源、路由与状态，最后通过 direct-pdf 公共 scene/layout/font 规则生成并审计。不要在作者脚本复制测字、箭头或字体子集逻辑。
 - `workbench/`、已发布 Adobe runtime 与 `collaboration/scripts/run.mjs` 保留为原生格式兼容路线；只有 direct-pdf 报告未覆盖或任务明确要求原生 AI 时使用。历史预确认流程不是普通新图的默认审批门。
 - 所有生产路径、状态、缓存、字体 profile 和输出目录从仓库外配置传入。仓库内示例只使用占位符；不得提交作者原稿、商业字体、缓存、候选 PDF 或本机绝对路径。
@@ -26,3 +28,5 @@
 - 制作前判断不要求用户确认图种。prepare-decisions 输出 aiProposal.userCorrectionContext 时必须逐项读取：同图已确认修改是硬约束；sourceChanged 只触发相关项目复核，不覆盖原值。不把草稿或单图纠错外推为全体图件规则。
 
 - 2026-10-13现行工作节奏与规范读取 `knowledge/production-policy.json`；实现范围见 `collaboration/review-policy-20261013.md`。终审修订优先，先明确小修；同图连续两次用户退回停止原路线。读取终审意见用 `workbench/read-feedback.mjs`，已验收遗留只核对不自动制作。不要将旧记录缺少闭环标记直接当作未修好。
+
+- 收到用户指定月份、编辑、篇数的作图压缩包时，按 docs/delivery-folders.md 使用 scripts/new-delivery-folders.ps1 建立外部交付目录，原始压缩包必须保留在批次根部，作者目录留空。同作者多篇按标题隔离；不得更改工作台批注或擅自标记整批通过。
