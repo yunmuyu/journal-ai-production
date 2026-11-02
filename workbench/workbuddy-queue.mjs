@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {atomicJson} from './revision-jobs.mjs';
 import {digest,checkedArtifact} from './revision-worker.mjs';
 import {assertProductionRoute,productionInstructions,verifyProductionResult,routeSourceRefs} from './production-route.mjs';
-export function createWorkBuddyQueue({root,publish,now=()=>Date.now(),qualityPython,verifyQuality=verifyProductionResult,assertRouteEditable=()=>{}}){
+export function createWorkBuddyQueue({root,publish,now=()=>Date.now(),qualityPython,verifyQuality=verifyProductionResult,assertRouteEditable=()=>{},routineTrial,assertRoutineEligible}){
  fs.mkdirSync(root,{recursive:true});
  const jobs=fs.readdirSync(root).filter(n=>/^[a-f0-9-]{36}$/.test(n)).map(id=>JSON.parse(fs.readFileSync(path.join(root,id,'job.json'),'utf8')));
  let worker=null;
@@ -13,6 +13,25 @@ export function createWorkBuddyQueue({root,publish,now=()=>Date.now(),qualityPyt
  const save=j=>{j.updatedAt=new Date(now()).toISOString();atomicJson(path.join(root,j.id,'job.json'),j);};
  const event=(j,message)=>{fs.appendFileSync(path.join(root,j.id,'events.jsonl'),JSON.stringify({at:new Date(now()).toISOString(),message:String(message).slice(0,16000)})+'\n');j.message=String(message).slice(0,250);save(j);};
  const get=id=>{const j=jobs.find(j=>j.id===id);if(!j)throw Error('任务不存在');return j;};
+ const trialFile=path.join(root,'routine-trials.json');
+ const trials=fs.existsSync(trialFile)?JSON.parse(fs.readFileSync(trialFile,'utf8')):{};
+ const trialEnabled=()=>routineTrial&&typeof routineTrial.id==='string'&&/^[a-zA-Z0-9_-]{1,80}$/.test(routineTrial.id)&&Number.isInteger(routineTrial.maxTasks)&&routineTrial.maxTasks>0&&routineTrial.maxTasks<=3&&Array.isArray(routineTrial.groups)&&routineTrial.groups.length>0&&typeof assertRoutineEligible==='function';
+ const trialUsed=()=>new Set([...(trials[routineTrial?.id]||[]).map(r=>r.id),...jobs.filter(j=>j.routineTrialId===routineTrial?.id&&j.routineTrialId).map(j=>j.id)]).size;
+ const sameRef=(a,b)=>a&&b&&path.resolve(a.path)===path.resolve(b.path)&&a.sha256===b.sha256;
+ function routineEligibility(j,route=null){
+  if(!trialEnabled())throw Error('未启用常规图试运行授权及权威状态检查');
+  if(j.state!=='paused'||j.attempt!==0||j.kind&&j.kind!=='production'||j.result||j.candidateResult||j.accepted||j.approved||j.feedback?.text?.trim()||j.feedback?.points?.length||j.feedback?.attachments?.length||j.feedbackRevision||j.revisionHistory?.length)throw Error('仅未生产、无反馈且未批准的暂停常规图可自主恢复');
+  if(!j.articleId||!j.figureNumber||!routineTrial.groups.includes(j.group)||j.productionRoute&&j.productionRoute.method!=='raster-preserve')throw Error('任务不在本次常规位图授权范围');
+  if(jobs.some(other=>other.id!==j.id&&other.articleId===j.articleId&&other.figureNumber===j.figureNumber&&(other.state!=='paused'||other.attempt>0||other.result||other.candidateResult)))throw Error('同图已有新版或其他执行任务，不得重复恢复');
+  const anchors=assertRoutineEligible(structuredClone(j),route&&structuredClone(route));
+  if(!anchors||anchors.then||!['archive','word'].every(k=>anchors[k]&&j.sources.some(s=>sameRef(s,anchors[k]))))throw Error('权威检查须返回原任务已登记的原包及Word身份');
+  if(route){
+   for(const s of j.sources)if(digest(s.path)!==s.sha256)throw Error('任务来源已变化');
+   assertProductionRoute({...j,legacyProductionInstructions:undefined,productionRoute:route});
+   if(route.method!=='raster-preserve'||!['archive','word'].every(k=>sameRef(anchors[k],route.sourceReview[k])))throw Error('自主路线必须绑定原任务的原包及Word且为常规位图');
+  }
+  return anchors;
+ }
  const claimed=(id,lease)=>{const j=get(id);if(!['running','pausing','interrupted'].includes(j.state)||!lease||j.lease!==lease)throw Error('任务租约已失效，不能回传');if(j.state==='interrupted'){j.state=j.pauseRequested?'pausing':'running';event(j,'原 WorkBuddy 会话重新连接，继续同一尝试');}return j;};
  function expire(){for(const j of jobs)if(['running','pausing'].includes(j.state)&&now()-j.heartbeatAt>120000){j.state='interrupted';event(j,'超过2分钟没有进度心跳，执行状态待核实；原会话可续接，不自动重做');}}
  function inspectCandidate(j,result){
@@ -43,6 +62,26 @@ export function createWorkBuddyQueue({root,publish,now=()=>Date.now(),qualityPyt
  return {
   list(){expire();return jobs.map(({lease,...j})=>structuredClone(j));},
   worker:()=>worker&&{...worker,online:now()-worker.seenAt<120000},
+  routineOptions(){
+   const enabled=!!trialEnabled(),used=enabled?trialUsed():0;
+   const options={enabled,trialId:enabled?routineTrial.id:null,remaining:enabled?Math.max(0,routineTrial.maxTasks-used):0,status:!enabled?'tool_blocked':used>=routineTrial.maxTasks?'trial_complete':'awaiting_selection',reason:!enabled?'工具阻塞：常规图自主恢复入口未获授权或缺少权威状态检查':used>=routineTrial.maxTasks?'本次自主试运行累计名额已满，不再恢复任务':'待自主选任务：核对现有暂停图件并提交来源绑定路线；无需循环空领',action:'resume-routine <job-id> <productionRoute.json>',paused:jobs.filter(j=>j.state==='paused').map(j=>{
+    try{routineEligibility(j);return {id:j.id,label:j.label,group:j.group,eligible:used<routineTrial.maxTasks,reason:used<routineTrial.maxTasks?'自行核对来源并提交路线后可恢复':'本次试运行名额已用完',articleId:j.articleId,figureNumber:j.figureNumber,outputNumbers:j.outputNumbers,sources:j.sources,sourceEvidence:j.sourceEvidence,articleEvidence:j.articleEvidence};}
+    catch(error){return {id:j.id,label:j.label,group:j.group,eligible:false,reason:error.message};}
+   })};
+   if(enabled&&used<routineTrial.maxTasks&&!options.paused.some(j=>j.eligible)){options.status='tool_blocked';options.reason='工具阻塞：当前授权范围内没有可自主恢复的未生产常规图，请查看逐项暂停原因；不扩大范围或循环空领';}
+   return options;
+  },
+  resumeRoutine(id,productionRoute){
+   const j=get(id);routineEligibility(j,productionRoute);
+   if(trialUsed()>=routineTrial.maxTasks)throw Error('本次常规图试运行累计名额已用完');
+   const record={id:j.id,at:new Date(now()).toISOString(),previousInstructions:j.instructions,previousRoute:j.productionRoute||null};
+   // Reserve first: an interrupted write consumes a slot rather than exceeding authorization.
+   trials[routineTrial.id]=[...(trials[routineTrial.id]||[]),record];atomicJson(trialFile,trials);
+   j.routineTrialId=routineTrial.id;j.productionRoute=structuredClone(productionRoute);j.instructions=productionInstructions(productionRoute);
+   j.sources=[...new Map([...j.sources,...routeSourceRefs(productionRoute)].map(s=>[path.resolve(s.path),s])).values()];
+   j.state='queued';j.pauseRequested=false;event(j,`试运行 ${routineTrial.id}：执行器自主核对常规位图路线后恢复原任务；未开始制作、未验收`);
+   return structuredClone(j);
+  },
   enqueue(input){
    if(input.kind!=='inventory')input={...input,instructions:dispatchInstructions(input),executionProtocol:'instructions 是由 productionRoute 生成的唯一格式、字号范围与尺寸要求。必须逐项读取 feedback（含位置批注及截图）、coordinatorDecision 和 revisionNotes 的真实修订要求，读取 sourceEvidence/articleEvidence 的来源事实。既有明确用户约束不可覆盖；常规来源核对后可通过当前租约 prepare-route 更新制作路线（不更换文章来源身份），以返回的 task.json 冻结质量证据。未知含义或工具缺陷回报，不丢弃原始批注。使用公共工具，候选送独立复核后待用户终审，不自动验收。'};
    const old=jobs.findLast(j=>j.key===input.key);if(old)return {...old,lease:undefined};

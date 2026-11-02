@@ -3,8 +3,8 @@ import {digest} from './revision-worker.mjs';
 import {createWorkBuddyQueue} from './workbuddy-queue.mjs';
 import {buildFigureTasks} from './workbuddy-plan.mjs';
 import {summarizeProduction} from './workbuddy-summary.mjs';
-export function createWorkBuddyHandler({root,origin,config,publish,restore,verifyQuality,figures=()=>null,assertRouteEditable}){
- const queue=createWorkBuddyQueue({root,qualityPython:config.qualityPython,verifyQuality,assertRouteEditable,publish(job,result){if(job.kind==='inventory'){const tasks=buildFigureTasks(config.catalog,result);for(const task of tasks)for(const source of task.sources)if(digest(source.path)!==source.sha256)throw Error('分组来源已变更，未派发制作');for(const task of tasks)queue.enqueue(task);}else return publish(job,result);}});
+export function createWorkBuddyHandler({root,origin,config,publish,restore,verifyQuality,figures=()=>null,assertRouteEditable,assertRoutineEligible}){
+ const queue=createWorkBuddyQueue({root,qualityPython:config.qualityPython,verifyQuality,assertRouteEditable,routineTrial:config.routineTrial,assertRoutineEligible,publish(job,result){if(job.kind==='inventory'){const tasks=buildFigureTasks(config.catalog,result);for(const task of tasks)for(const source of task.sources)if(digest(source.path)!==source.sha256)throw Error('分组来源已变更，未派发制作');for(const task of tasks)queue.enqueue(task);}else return publish(job,result);}});
  for(const j of queue.list().filter(j=>j.state==='ready'&&j.result&&!['inventory','revision'].includes(j.kind)).sort((a,b)=>(a.updatedAt||a.createdAt).localeCompare(b.updatedAt||b.createdAt)||a.id.localeCompare(b.id)))restore(j,j.result);
  const json=(res,status,value)=>res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'}).end(JSON.stringify(value));
  const authorized=(req,token)=>{if(typeof token!=='string'||!token.trim())return false;const a=Buffer.from(req.headers.authorization||''),b=Buffer.from('Bearer '+token);return a.length===b.length&&timingSafeEqual(a,b);};
@@ -20,7 +20,8 @@ export function createWorkBuddyHandler({root,origin,config,publish,restore,verif
    const body=JSON.parse(Buffer.concat(chunks).toString('utf8'));let result={ok:true};
    if(workerRoute){
     const {action,id,lease}=body;
-    if(action==='claim')result={job:queue.claim(body.session||'WorkBuddy')};
+    if(action==='claim'){const job=queue.claim(body.session||'WorkBuddy');result=job?{job}:{job:null,routine:queue.routineOptions()};}
+    else if(action==='resume-routine')result={job:queue.resumeRoutine(id,body.productionRoute)};
     else if(action==='heartbeat')result=queue.heartbeat(id,lease);
     else if(action==='progress')queue.progress(id,lease,body.message);
     else if(action==='prepare-route')result={task:queue.prepareRoute(id,lease,body.productionRoute)};

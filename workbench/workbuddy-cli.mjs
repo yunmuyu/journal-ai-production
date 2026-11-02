@@ -2,13 +2,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
 const [configPath,action,...args]=process.argv.slice(2);
-if(!configPath||!action)throw Error('Usage: node workbuddy-cli.mjs <worker-config.json> claim|heartbeat|progress|prepare-route|run|submit-candidate|complete|fail|paused ...');
+if(!configPath||!action)throw Error('Usage: node workbuddy-cli.mjs <worker-config.json> claim|resume-routine|heartbeat|progress|prepare-route|run|submit-candidate|complete|fail|paused ...');
 const config=JSON.parse(fs.readFileSync(configPath,'utf8').replace(/^\uFEFF/,''));
 async function api(body){const response=await fetch(new URL('/workbuddy/worker',config.origin),{method:'POST',headers:{Authorization:'Bearer '+config.workerToken,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});const result=await response.json();if(!response.ok)throw Error(result.error||'工作台请求失败');return result;}
 if(action==='claim'){
- const wait=Math.min(60,Math.max(0,Number(args[0]||0))),until=Date.now()+wait*1000;let job;
- do{({job}=await api({action:'claim',session:config.session||'WorkBuddy本地执行会话'}));if(job||Date.now()>=until)break;await new Promise(r=>setTimeout(r,2000));}while(true);
- if(job){const leaseFile=path.join(job.attemptDir,'lease.json');fs.writeFileSync(leaseFile,JSON.stringify({id:job.id,lease:job.lease}));delete job.lease;fs.writeFileSync(path.join(job.attemptDir,'task.json'),JSON.stringify(job,null,2));console.log(JSON.stringify({job,leaseFile},null,2));}else console.log(JSON.stringify({job:null,message:'暂无待执行任务，可再次领取'}));
+ const wait=Math.min(60,Math.max(0,Number(args[0]||0))),until=Date.now()+wait*1000;let job,routine;
+ do{({job,routine}=await api({action:'claim',session:config.session||'WorkBuddy本地执行会话'}));if(job||routine?.paused?.length||routine?.status==='trial_complete'||routine?.status==='tool_blocked'||Date.now()>=until)break;await new Promise(r=>setTimeout(r,2000));}while(true);
+ if(job){const leaseFile=path.join(job.attemptDir,'lease.json');fs.writeFileSync(leaseFile,JSON.stringify({id:job.id,lease:job.lease}));delete job.lease;fs.writeFileSync(path.join(job.attemptDir,'task.json'),JSON.stringify(job,null,2));console.log(JSON.stringify({job,leaseFile},null,2));}else console.log(JSON.stringify({job:null,message:routine?.reason||'工具阻塞：没有可领取任务，需检查工作台调度入口',routine}));
+}else if(action==='resume-routine'){
+ const [id,routeFile]=args;if(!id||!routeFile)throw Error('用法：resume-routine <job-id> <productionRoute.json>');
+ const productionRoute=JSON.parse(fs.readFileSync(routeFile,'utf8').replace(/^\uFEFF/,''));console.log(JSON.stringify(await api({action,id,productionRoute})));
 }else{
  const [leaseFile,...rest]=args;if(!leaseFile)throw Error('缺少本任务 lease.json 路径');
  const lease=JSON.parse(fs.readFileSync(leaseFile,'utf8'));
