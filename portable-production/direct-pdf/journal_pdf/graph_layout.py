@@ -76,9 +76,29 @@ def graph(spec,reg,size):
         elif kind=='inputOutput':w,h=m['width']+2*PAD_X*scale+8,m['height']+2*PAD_Y*scale
         else:w,h=m['width']+2*PAD_X*scale,m['height']+2*PAD_Y*scale
         dim[n['id']]=(w,h)
+    explicit_groups={};node_group={};node_specs={n['id']:n for n in nodes}
+    groups=spec.get('equal_width_groups',[])
+    if not isinstance(groups,list):raise FigureError('measured_group_invalid','图测量分组须为明确成员清单')
+    for group in groups:
+        if (not isinstance(group,dict) or set(group)-{'id','nodes'}
+                or not isinstance(group.get('id'),str) or not group['id']
+                or not isinstance(group.get('nodes'),list) or not group['nodes']
+                or any(not isinstance(i,str) for i in group['nodes'])):
+            raise FigureError('measured_group_invalid','图等宽分组只接受id与nodes；位置仍由图布局计算')
+        key='graph-measured-'+group['id'];members=group['nodes']
+        if key in explicit_groups or len(set(members))!=len(members):
+            raise FigureError('measured_group_invalid','测量分组ID或成员重复',group=group['id'])
+        for member in members:
+            node=node_specs.get(member)
+            if node is None or member in node_group or node.get('container') or node.get('shape','rectangle')!='rectangle':
+                raise FigureError('measured_group_invalid','测量分组只接受未重复归组的普通矩形',group=group['id'],node=member)
+        width=max(dim[member][0] for member in members)
+        explicit_groups[key]={'axis':'column','nodes':list(members)}
+        for member in members:
+            dim[member]=(width,dim[member][1]);node_group[member]=key
     # Same semantic rank: normal boxes share height/width where it doesn't corrupt diamond calibration.
     for r in ranks:
-        group=[n for n in nodes if rank[n['id']]==r and n.get('shape','rectangle')=='rectangle']
+        group=[n for n in nodes if rank[n['id']]==r and n.get('shape','rectangle')=='rectangle' and n['id'] not in node_group]
         if group:
             if direction=='TB':
                 h=max(dim[n['id']][1] for n in group)
@@ -133,8 +153,9 @@ def graph(spec,reg,size):
             rank_gaps[source_rank]=max(rank_gaps[source_rank],ROUTE_SOURCE_STUB+target_stub)
     along=sum(thick.values())+sum(rank_gaps.values())
     s=Scene(reg,size);s.template='semantic-graph';placed={};primary=margin
+    s.measurement_groups.update(explicit_groups)
     for r in ranks:
-        rectangle_ids=[n['id'] for n in nodes if rank[n['id']]==r and n.get('shape','rectangle')=='rectangle']
+        rectangle_ids=[n['id'] for n in nodes if rank[n['id']]==r and n.get('shape','rectangle')=='rectangle' and n['id'] not in node_group]
         group_id='graph-rank-'+str(r)
         group_axis='row' if direction=='TB' else 'column'
         if rectangle_ids:
@@ -148,6 +169,9 @@ def graph(spec,reg,size):
             if n['id'] in rectangle_ids:
                 placed[n['id']]['measurement_contract']={'mode':'measured-group','group':group_id,
                     'axis':group_axis,'expected_wh':[w,h]}
+            if n['id'] in node_group:
+                placed[n['id']]['measurement_contract']={'mode':'measured-group','group':node_group[n['id']],
+                    'axis':'column','expected_wh':[w,h]}
             secondary+=(w if direction=='TB' else h)+sibling_gap
         primary+=thick[r]+rank_gaps.get(r,0)
     width,height=(cross+2*margin,along+2*margin) if direction=='TB' else (along+2*margin,cross+2*margin)
