@@ -4,8 +4,8 @@ import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {atomicJson} from './revision-jobs.mjs';
 import {digest,checkedArtifact} from './revision-worker.mjs';
-import {assertProductionRoute,productionInstructions,verifyProductionResult} from './production-route.mjs';
-export function createWorkBuddyQueue({root,publish,now=()=>Date.now(),qualityPython,verifyQuality=verifyProductionResult}){
+import {assertProductionRoute,productionInstructions,verifyProductionResult,routeSourceRefs} from './production-route.mjs';
+export function createWorkBuddyQueue({root,publish,now=()=>Date.now(),qualityPython,verifyQuality=verifyProductionResult,assertRouteEditable=()=>{}}){
  fs.mkdirSync(root,{recursive:true});
  const jobs=fs.readdirSync(root).filter(n=>/^[a-f0-9-]{36}$/.test(n)).map(id=>JSON.parse(fs.readFileSync(path.join(root,id,'job.json'),'utf8')));
  let worker=null;
@@ -44,7 +44,7 @@ export function createWorkBuddyQueue({root,publish,now=()=>Date.now(),qualityPyt
   list(){expire();return jobs.map(({lease,...j})=>structuredClone(j));},
   worker:()=>worker&&{...worker,online:now()-worker.seenAt<120000},
   enqueue(input){
-   if(input.kind!=='inventory')input={...input,instructions:dispatchInstructions(input),executionProtocol:'instructions 是由 productionRoute 生成的唯一格式、字号范围与尺寸要求。必须逐项读取 feedback（含位置批注及截图）、coordinatorDecision 和 revisionNotes 的真实修订要求，读取 sourceEvidence/articleEvidence 的来源事实。它们与路线合同冲突时停止并回报协调者，不自行覆盖合同，不丢弃原始批注。使用公共工具，候选送独立复核后待用户终审，不自动验收。'};
+   if(input.kind!=='inventory')input={...input,instructions:dispatchInstructions(input),executionProtocol:'instructions 是由 productionRoute 生成的唯一格式、字号范围与尺寸要求。必须逐项读取 feedback（含位置批注及截图）、coordinatorDecision 和 revisionNotes 的真实修订要求，读取 sourceEvidence/articleEvidence 的来源事实。既有明确用户约束不可覆盖；常规来源核对后可通过当前租约 prepare-route 更新制作路线（不更换文章来源身份），以返回的 task.json 冻结质量证据。未知含义或工具缺陷回报，不丢弃原始批注。使用公共工具，候选送独立复核后待用户终审，不自动验收。'};
    const old=jobs.findLast(j=>j.key===input.key);if(old)return {...old,lease:undefined};
    for(const s of input.sources)if(digest(s.path)!==s.sha256)throw Error('任务源件已变化，需要重新核对');
    const j={id:randomUUID(),...structuredClone(input),executor:typeof input.executor==='string'&&input.executor.trim()?input.executor.trim().slice(0,100):'WorkBuddy',state:'queued',attempt:0,createdAt:new Date(now()).toISOString()};
@@ -65,10 +65,28 @@ export function createWorkBuddyQueue({root,publish,now=()=>Date.now(),qualityPyt
   },
   heartbeat(id,lease){const j=claimed(id,lease);j.heartbeatAt=now();worker={session:j.session,seenAt:now()};save(j);return {pauseRequested:j.state==='pausing'};},
   progress(id,lease,message){const j=claimed(id,lease);j.heartbeatAt=now();event(j,message);},
+  prepareRoute(id,lease,productionRoute){
+   const j=get(id);
+   if(j.state!=='running'||!lease||lease!==j.lease||j.pauseRequested||completing.has(id)||j.kind==='inventory'||j.accepted===true||j.approved===true)throw Error('仅当前运行且未批准的制作任务可准备路线');
+   const previous=assertProductionRoute(j),next=assertProductionRoute({...j,productionRoute});
+   assertRouteEditable(j,next);
+   for(const key of ['archive','word','inventory']){
+    const a=previous.sourceReview[key],b=next.sourceReview[key];
+    if(path.resolve(a.path)!==path.resolve(b.path)||a.sha256!==b.sha256)throw Error('不能更换本任务绑定的原包、Word或来源清单');
+   }
+   for(const source of j.sources)if(digest(source.path)!==source.sha256)throw Error('任务来源已变化，不能准备路线');
+   const version=(j.routeHistory?.length||0)+1;
+   const record={version,at:new Date(now()).toISOString(),attempt:j.attempt,previous:structuredClone(previous),productionRoute:structuredClone(next)};
+   atomicJson(path.join(j.attemptDir,`route-${version}.json`),record);
+   j.routeHistory=[...(j.routeHistory||[]),record];j.productionRoute=structuredClone(next);j.instructions=productionInstructions(next);
+   j.sources=[...new Map([...j.sources,...routeSourceRefs(next)].map(s=>[path.resolve(s.path),s])).values()];
+   j.heartbeatAt=now();event(j,'执行器已完成来源核对并准备路线；产物仍须独立质量核验');
+   const {lease:privateLease,...task}=j;atomicJson(path.join(j.attemptDir,'task.json'),task);return structuredClone(task);
+  },
   pause(id){const j=get(id);if(!['queued','running','interrupted'].includes(j.state))throw Error('当前任务不能暂停');j.pauseRequested=true;j.state=j.state==='queued'?'paused':'pausing';event(j,j.state==='pausing'?'请求安全暂停，等待 WorkBuddy 完成当前工具调用并保存进度':'已暂停，不会被领取');},
   acknowledgePause(id,lease){const j=claimed(id,lease);if(j.state!=='pausing')throw Error('未请求暂停');j.state='paused';delete j.lease;event(j,'WorkBuddy 已保存进度并暂停');},
   resume(id){const j=get(id);if(j.state!=='paused')throw Error('当前任务不处于暂停状态');j.state='queued';j.pauseRequested=false;event(j,'已继续：重新领取后复用上次候选和进度');},
-  revisePlan(id,plan,confirmedStopped=false){const j=get(id);if(!['failed','needs_input','interrupted'].includes(j.state)||j.state==='interrupted'&&!confirmedStopped)throw Error('执行中、未确认停止或已完成的任务不能改计划');const route=plan.productionRoute||j.productionRoute;assertProductionRoute({...j,productionRoute:route});j.productionRoute=structuredClone(route);j.instructions=productionInstructions(route);j.revisionNotes=plan.instructions;j.coordinatorDecision=structuredClone(plan.decision);event(j,'ChatGPT 已核对失败原因并更新执行说明');},
+  revisePlan(id,plan,confirmedStopped=false){const j=get(id);if(!['failed','needs_input','interrupted','paused'].includes(j.state)||j.state==='interrupted'&&!confirmedStopped)throw Error('执行中、未确认停止或已完成的任务不能改计划');const route=plan.productionRoute||j.productionRoute;assertProductionRoute({...j,productionRoute:route});j.productionRoute=structuredClone(route);j.instructions=productionInstructions(route);j.revisionNotes=plan.instructions;j.coordinatorDecision=structuredClone(plan.decision);event(j,'ChatGPT 已核对失败原因并更新执行说明');},
   retry(id,confirmedStopped){const j=get(id);if(!['failed','interrupted','needs_input'].includes(j.state))throw Error('当前任务不能重试');if(j.state==='interrupted'&&!confirmedStopped)throw Error('请先确认旧 WorkBuddy 任务已停止，避免重复执行');j.state='queued';j.pauseRequested=false;delete j.lease;event(j,'重试已排队，保留此前日志和候选');},
   fail(id,lease,message,needsInput=false){const j=claimed(id,lease);j.state=needsInput?'needs_input':'failed';delete j.lease;event(j,message);},
   submitCandidate(id,lease,result){

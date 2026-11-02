@@ -101,3 +101,28 @@ test('independent rejection preserves candidate and reason then retries in a new
  assert.equal(q.list()[0].state,'needs_input');assert.equal(q.list()[0].reviewRejections[0].reason,'灰度分类信息丢失');assert.ok(fs.existsSync(path.join(j.attemptDir,'candidate-submission.json')));
  q.retry(j.id);const next=q.claim('producer');assert.equal(next.id,j.id);assert.equal(next.attempt,2);assert.notEqual(next.attemptDir,j.attemptDir);assert.equal(hash(pdf),candidate.outputs[0].sha256);
 });
+
+test('coordinator can repair paused route without starting it and cannot alter running work',t=>{
+ const {root,input}=fixture(t),q=createWorkBuddyQueue({root,publish:()=>{}}),job=q.enqueue(input);q.pause(job.id);
+ q.revisePlan(job.id,{productionRoute:input.productionRoute,instructions:'核对后继续',decision:{reason:'source checked'}});
+ assert.equal(q.list()[0].state,'paused');assert.equal(q.list()[0].attempt,0);assert.equal(q.claim('executor'),null);
+ q.resume(job.id);const claimed=q.claim('executor');assert.equal(claimed.revisionNotes,'核对后继续');
+ assert.throws(()=>q.revisePlan(job.id,{productionRoute:input.productionRoute,instructions:'late',decision:{}}),/不能改计划/);
+});
+
+test('leased executor prepares source-bound route without changing feedback or bypassing state and quality checks',t=>{
+ const {root,input}=fixture(t);input.feedback={text:'保留完整内容'};const q=createWorkBuddyQueue({root,publish:()=>{}});const added=q.enqueue(input);
+ const next=structuredClone(input.productionRoute);next.requirements.widthMm=96;
+ assert.throws(()=>q.prepareRoute(added.id,'bad',next),/当前运行/);const job=q.claim('worker');
+ assert.throws(()=>q.prepareRoute(job.id,'bad',next),/当前运行/);
+ const invalid=structuredClone(next);invalid.requirements.format='jpg';assert.throws(()=>q.prepareRoute(job.id,job.lease,invalid),/冲突/);
+ const swapped=structuredClone(next);swapped.sourceReview.word=testRef(input.sources[0].path);assert.throws(()=>q.prepareRoute(job.id,job.lease,swapped),/不能更换/);
+ const task=q.prepareRoute(job.id,job.lease,next);assert.equal(task.productionRoute.requirements.widthMm,96);assert.equal(task.lease,undefined);assert.deepEqual(task.feedback,input.feedback);assert.equal(task.routeHistory[0].previous.requirements.widthMm,80);
+ assert.equal(JSON.parse(fs.readFileSync(path.join(job.attemptDir,'task.json'),'utf8')).productionRoute.requirements.widthMm,96);
+ q.pause(job.id);assert.throws(()=>q.prepareRoute(job.id,job.lease,next),/当前运行/);
+});
+
+test('authoritative user approval/constraints can reject executor route edits before mutation',t=>{
+ const {root,input}=fixture(t);const q=createWorkBuddyQueue({root,publish:()=>{},assertRouteEditable(){throw Error('已批准或用户明确约束不允许改变');}});q.enqueue(input);const job=q.claim('worker');
+ assert.throws(()=>q.prepareRoute(job.id,job.lease,input.productionRoute),/用户明确约束/);assert.equal(q.list()[0].routeHistory,undefined);
+});

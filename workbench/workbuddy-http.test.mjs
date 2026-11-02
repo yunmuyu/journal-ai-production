@@ -20,10 +20,15 @@ test('HTTP browser start → executor CLI command log → artifact callback; aut
  const configPath=path.join(root,'config.json');fs.writeFileSync(configPath,JSON.stringify({origin,workerToken:config.workerToken}));const cli=fileURLToPath(new URL('./workbuddy-cli.mjs',import.meta.url));
  const invoke=(...args)=>promisify(execFile)(process.execPath,[cli,configPath,...args],{windowsHide:true});
  const claim=JSON.parse((await invoke('claim')).stdout);assert.ok(claim.job);await invoke('run',claim.leaseFile,process.execPath,'-e','console.log("fixture tool executed")');
+ const routeFile=path.join(root,'route.json'),route=structuredClone(claim.job.productionRoute);route.requirements.widthMm=96;fs.writeFileSync(routeFile,JSON.stringify(route));
+ const prepared=JSON.parse((await invoke('prepare-route',claim.leaseFile,routeFile)).stdout);
+ assert.equal(prepared.task.productionRoute.requirements.widthMm,96);assert.equal(prepared.task.lease,undefined);
+ assert.equal(JSON.parse(fs.readFileSync(path.join(claim.job.attemptDir,'task.json'),'utf8')).productionRoute.requirements.widthMm,96);
  response=await fetch(origin+'/workbuddy/events?id='+claim.job.id);assert.match(JSON.stringify(await response.json()),/fixture tool executed/);
  const pdf=path.join(claim.job.attemptDir,'fixture.pdf'),png=path.join(claim.job.attemptDir,'fixture.png');fs.writeFileSync(pdf,'%PDF-fixture');fs.writeFileSync(png,Buffer.from([137,80,78,71,13,10,26,10]));const result=path.join(root,'result.json');fs.writeFileSync(result,JSON.stringify({quality:{contract:{sha256:'transport-only'}},evidence:'transport fixture, not production artwork',outputs:[{number:'1',path:pdf,preview:png,sha256:createHash('sha256').update(fs.readFileSync(pdf)).digest('hex')}]}));
  await assert.rejects(invoke('complete',claim.leaseFile,result),/submit-candidate/);
  await invoke('submit-candidate',claim.leaseFile,result);assert.equal(published,0);assert.equal(handler.queue.list()[0].state,'review_pending');
+ await assert.rejects(invoke('prepare-route',claim.leaseFile,routeFile),/当前运行/);
  const reviewBody=JSON.stringify({id:claim.job.id,result:JSON.parse(fs.readFileSync(result,'utf8'))});
  response=await fetch(origin+'/workbuddy/review-candidate',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:reviewBody});assert.equal(response.status,403);
  response=await fetch(origin+'/workbuddy/review-candidate',{method:'POST',headers:{Authorization:'Bearer '+config.workerToken,'Content-Type':'application/json'},body:reviewBody});assert.equal(response.status,403);

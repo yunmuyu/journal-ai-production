@@ -2,14 +2,15 @@ import {timingSafeEqual} from 'node:crypto';
 import {digest} from './revision-worker.mjs';
 import {createWorkBuddyQueue} from './workbuddy-queue.mjs';
 import {buildFigureTasks} from './workbuddy-plan.mjs';
-export function createWorkBuddyHandler({root,origin,config,publish,restore,verifyQuality}){
- const queue=createWorkBuddyQueue({root,qualityPython:config.qualityPython,verifyQuality,publish(job,result){if(job.kind==='inventory'){const tasks=buildFigureTasks(config.catalog,result);for(const task of tasks)for(const source of task.sources)if(digest(source.path)!==source.sha256)throw Error('分组来源已变更，未派发制作');for(const task of tasks)queue.enqueue(task);}else return publish(job,result);}});
+import {summarizeProduction} from './workbuddy-summary.mjs';
+export function createWorkBuddyHandler({root,origin,config,publish,restore,verifyQuality,figures=()=>null,assertRouteEditable}){
+ const queue=createWorkBuddyQueue({root,qualityPython:config.qualityPython,verifyQuality,assertRouteEditable,publish(job,result){if(job.kind==='inventory'){const tasks=buildFigureTasks(config.catalog,result);for(const task of tasks)for(const source of task.sources)if(digest(source.path)!==source.sha256)throw Error('分组来源已变更，未派发制作');for(const task of tasks)queue.enqueue(task);}else return publish(job,result);}});
  for(const j of queue.list().filter(j=>j.state==='ready'&&j.result&&!['inventory','revision'].includes(j.kind)).sort((a,b)=>(a.updatedAt||a.createdAt).localeCompare(b.updatedAt||b.createdAt)||a.id.localeCompare(b.id)))restore(j,j.result);
  const json=(res,status,value)=>res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'}).end(JSON.stringify(value));
  const authorized=(req,token)=>{if(typeof token!=='string'||!token.trim())return false;const a=Buffer.from(req.headers.authorization||''),b=Buffer.from('Bearer '+token);return a.length===b.length&&timingSafeEqual(a,b);};
  return {queue,handle(req,res,url){
   if(!url.pathname.startsWith('/workbuddy/'))return false;
-  if(req.method==='GET'&&url.pathname==='/workbuddy/status'){json(res,200,{jobs:queue.list().map(({id,key,label,group,state,attempt,message,kind,updatedAt,executor})=>({id,key,label,group,state,attempt,message,kind,updatedAt,executor})),worker:queue.worker(),pilot:config.pilot?{key:config.pilot.key,label:config.pilot.label,group:config.pilot.group}:null,inventoryAvailable:!!config.inventory});return true;}
+  if(req.method==='GET'&&url.pathname==='/workbuddy/status'){const jobs=queue.list();json(res,200,{summary:summarizeProduction(jobs,figures()),jobs:jobs.map(({id,key,label,group,state,attempt,message,kind,createdAt,updatedAt,executor,articleId,figureId,figureNumber})=>({id,key,label,group,state,attempt,message,kind,createdAt,updatedAt,executor,articleId,figureId,figureNumber})),worker:queue.worker(),pilot:config.pilot?{key:config.pilot.key,label:config.pilot.label,group:config.pilot.group}:null,inventoryAvailable:!!config.inventory});return true;}
   if(req.method==='GET'&&url.pathname==='/workbuddy/events'){try{json(res,200,{events:queue.events(url.searchParams.get('id'))});}catch(e){json(res,404,{error:e.message});}return true;}
   const workerRoute=url.pathname==='/workbuddy/worker',reviewRoute=url.pathname==='/workbuddy/review-candidate';
   if(req.method!=='POST'||(reviewRoute?!authorized(req,config.reviewerToken):workerRoute?!authorized(req,config.workerToken):req.headers.origin!==origin)){json(res,403,{error:'请求来源未授权'});return true;}
@@ -22,6 +23,7 @@ export function createWorkBuddyHandler({root,origin,config,publish,restore,verif
     if(action==='claim')result={job:queue.claim(body.session||'WorkBuddy')};
     else if(action==='heartbeat')result=queue.heartbeat(id,lease);
     else if(action==='progress')queue.progress(id,lease,body.message);
+    else if(action==='prepare-route')result={task:queue.prepareRoute(id,lease,body.productionRoute)};
     else if(action==='paused')queue.acknowledgePause(id,lease);
     else if(action==='fail')queue.fail(id,lease,body.message,body.needsInput===true);
     else if(action==='submit-candidate')queue.submitCandidate(id,lease,body.result);

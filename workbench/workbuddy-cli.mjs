@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
 const [configPath,action,...args]=process.argv.slice(2);
-if(!configPath||!action)throw Error('Usage: node workbuddy-cli.mjs <worker-config.json> claim|heartbeat|progress|run|submit-candidate|complete|fail|paused ...');
+if(!configPath||!action)throw Error('Usage: node workbuddy-cli.mjs <worker-config.json> claim|heartbeat|progress|prepare-route|run|submit-candidate|complete|fail|paused ...');
 const config=JSON.parse(fs.readFileSync(configPath,'utf8').replace(/^\uFEFF/,''));
 async function api(body){const response=await fetch(new URL('/workbuddy/worker',config.origin),{method:'POST',headers:{Authorization:'Bearer '+config.workerToken,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});const result=await response.json();if(!response.ok)throw Error(result.error||'工作台请求失败');return result;}
 if(action==='claim'){
@@ -12,7 +12,12 @@ if(action==='claim'){
 }else{
  const [leaseFile,...rest]=args;if(!leaseFile)throw Error('缺少本任务 lease.json 路径');
  const lease=JSON.parse(fs.readFileSync(leaseFile,'utf8'));
- if(action==='run'){
+ if(action==='prepare-route'){
+  if(!rest[0])throw Error('缺少 source-bound productionRoute JSON 路径');
+  const productionRoute=JSON.parse(fs.readFileSync(rest[0],'utf8').replace(/^\uFEFF/,''));
+  const result=await api({...lease,action,productionRoute});
+  const taskPath=path.join(path.dirname(leaseFile),'task.json');fs.writeFileSync(taskPath,JSON.stringify(result.task,null,2));console.log(JSON.stringify({task:result.task,taskPath}));
+ }else if(action==='run'){
   const [executable,...argv]=rest;if(!executable)throw Error('缺少工具命令');
   const state=await api({...lease,action:'heartbeat'});if(state.pauseRequested){await api({...lease,action:'paused'});console.log('已到安全停点，停止执行后续工具');process.exit(0);}
   await api({...lease,action:'progress',message:'执行工具：'+path.basename(executable)+' '+argv.join(' ').slice(0,4000)});
