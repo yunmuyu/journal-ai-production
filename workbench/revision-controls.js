@@ -1,8 +1,13 @@
 function revisionControls(f){
- const job=f.revisionJob,active=job&&['queued','running'].includes(job.state),accepted=f.status==='终检通过';
+ const job=f.revisionJob?.state==='ready'&&f.status==='异常'?null:f.revisionJob,active=job&&['queued','running'].includes(job.state),accepted=f.status==='终检通过';
  const labels={queued:'已排队',running:'AI 修订中',ready:'修订待确认',failed:'执行失败',interrupted:'执行中断',needs_input:'需要补充信息'};
  const retry=job&&['failed','interrupted','needs_input'].includes(job.state);
  return `<div class="revision-controls mt-2 mb-2"><button class="btn btn-sm btn-primary" data-revise="${e(f.id)}" data-retry="${retry?'1':'0'}" ${active||accepted?'disabled':''}>${active?e(labels[job.state]):retry?'重新提交修订':'开始修订'}</button><span class="text-secondary ms-2" role="status" data-revision-message="${e(f.id)}">${accepted?'已通过；新增或修改批注后可修订':job?e(labels[job.state]+'：'+job.message):'保存批注后，点击开始修订'}</span></div>`;
+}
+// Autosave preserves textarea focus and deliberately skips the full page render.
+function syncRevisionControl(id){
+ const button=document.querySelector('[data-revise="'+id+'"]'),figure=find(id);
+ if(button&&figure)button.closest('.revision-controls').outerHTML=revisionControls(figure);
 }
 document.addEventListener('click',async event=>{
  const button=event.target.closest('[data-revise]');if(!button||button.disabled)return;

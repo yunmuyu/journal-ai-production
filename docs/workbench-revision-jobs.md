@@ -19,7 +19,7 @@
 1. 导入 `createRevisionHandler` 与 `activateRevision`，从包外读取执行配置。`root` 指向本期内部工作台的 `revision-jobs`；不要指向用户交付目录。
 2. 把原有 `rows`、`articles`、刷新版本函数传给 handler；`activate` 调用 `activateRevision({rows,metadata,pending,link},record)`。`link` 必须注册并返回现有工作台的文件令牌。
 3. HTTP 路由先处理 `handler.handle(req,res,url)`；`/data` 刷新原状态后调用 `handler.decorate()`，附带每张图的任务状态。
-4. 预览路由支持元数据里的 `previewPath`，旧稿仍保留原预览逻辑。图卡调用 `revisionControls(f)`，附加 `revision-controls.js` 到原应用作用域，复用原 `save`、`refresh`、`find` 和转义函数 `e`。
+4. 自动保存成功并更新图件对象后调用 `syncRevisionControl(id)`，无需重画输入框即可启用按钮。预览路由支持元数据里的 `previewPath`，旧稿仍保留原预览逻辑。图卡调用 `revisionControls(f)`，附加 `revision-controls.js` 到原应用作用域，复用原 `save`、`refresh`、`find` 和转义函数 `e`。
 5. 已通过的当前版本不允许直接重跑旧批注；新增或修改批注保存后才能提交。历史输出文案使用“此前版本”，不把未验收候选标成“已通过”。
 
 包外配置中的 `toolHints` 可提供已验证 Python、字体 profile 等路径，避免后台反复寻找依赖；不得把凭据放进该字段。执行器复制输入及截图为任务快照，不修改原件权限。新版激活记录在服务启动时恢复，不依赖浏览器页面保持打开。
@@ -28,4 +28,4 @@
 
 使用仓库公开合成树图，从真实浏览器填写批注并点击按钮，经本机 Codex CLI 调用 direct-pdf 改根节点文字，回传 PDF/PNG 和8 pt字号，状态为待确认。重启服务后候选、批注、旧稿入口与 ready 状态恢复。首轮访问受限真实返回 needs_input；输入快照修复后第二轮完成。测试覆盖同源、版本冲突、重复提交、路径越界、崩溃恢复、多轮旧稿保留及已通过稿保护。
 
-这验证了一条实际执行链路，不代表任意复杂图、Adobe原生操作或整批制作均已自动化。工作台全套测试78通过、2个已有私有数据相关测试跳过；另外原自动保存/验收/自动审图3组回归通过。真实图件与截图证据保留在私有内部空间，不上传公开仓库。
+这验证了一条实际执行链路，不代表任意复杂图、Adobe原生操作或整批制作均已自动化。工作台全套测试79通过、2个已有私有数据相关测试跳过；另外原自动保存/验收/自动审图3组回归通过。真实图件与截图证据保留在私有内部空间，不上传公开仓库。
