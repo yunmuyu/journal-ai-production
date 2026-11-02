@@ -23,7 +23,17 @@
 - `catalog`：`batchHash,articles,archive,groups,completedKeys,productionInstructions`。articles 每项为 `id,author,title,word:{path,sha256}`。
 - `inventory`：来源核对任务，`kind:"inventory"`，包含唯一 key、label、group、sources 和核对指令。
 
-把 `workbench/workbuddy-skill/SKILL.md` 安装到 WorkBuddy 用户技能目录，并在旁边写入仅本机使用的 `connection.md`，提供 RUNNER、CONFIG、仓库、Python、字体 profile 路径。执行器 CONFIG 仅含 `origin,workerToken,session`，不提交 Git。
+把 `workbench/workbuddy-skill/SKILL.md` 安装到 WorkBuddy 用户技能目录，并在旁边写入仅本机使用的 `connection.md`，提供 RUNNER、CONFIG、仓库、Python、字体 profile 路径。执行器 CONFIG 包含 `origin,workerToken,session,engineRoot`，不提交 Git。`engineRoot` 指向已验证的公共 `portable-production/direct-pdf`；CLI 的 `run` 将其加入 PYTHONPATH，以 `python -m journal_pdf` 调用。运行前核实 `journal_pdf.__file__`，避免仓库已修复而安装引擎仍旧；不复制整套引擎覆盖运行环境。
+
+## 终审意见分流
+
+保存批注仅保存反馈；点击“提交终审意见”后进入 ChatGPT 待分流，不自动启动另一个 Codex 制作进程。普通修改交给 WorkBuddy；公共工具问题先修复并记录提交和测试证据，再派优先修订任务。执行失败返回协调者排障，通用重试按钮和接口不能绕过分流。
+
+接入 `createReviewTriage`（`workbench/review-triage.mjs`），配置仓库外 `root`、同源 `origin`、私有 `token`、WorkBuddy `queue`、文章和图件模型，以及 `refresh/activate` 适配器。处理器排在旧 `/revision-jobs` 路由前；旧 `createRevisionHandler` 设置 `enabled:false`，仅保留历史回放。先回放普通制作稿，再回放旧修订，最后回放 WorkBuddy 修订；`decorate()` 在旧修订装饰之后执行。
+
+协调者通过 Bearer 认证的 `/review-triage/resolve` 提交 `id,decision`。decision 包含 `kind:ordinary|tool_fix|mixed` 与明确 `instructions`；工具修复另需 `toolResolved,toolCommit,tests`。中断任务只有核实原执行停止后才传 `confirmedStopped:true`。修订绑定稿件图号、批注修订号及基稿版本；期间新批注或新稿出现时，旧结果拒绝覆盖。回传保留原反馈和版本，仍待用户确认。
+
+分流记录持久化不等于自动唤醒 ChatGPT；协调者需要在活动会话读取并处理。WorkBuddy 同样依赖已启动且继续领取任务的会话，页面排队状态不得冒称后台 AI 已启动。
 
 ## 可观察的操作
 

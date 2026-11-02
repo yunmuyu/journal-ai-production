@@ -17,7 +17,9 @@ if(action==='claim'){
   const state=await api({...lease,action:'heartbeat'});if(state.pauseRequested){await api({...lease,action:'paused'});console.log('已到安全停点，停止执行后续工具');process.exit(0);}
   await api({...lease,action:'progress',message:'执行工具：'+path.basename(executable)+' '+argv.join(' ').slice(0,4000)});
   let stopped=false;const timer=setInterval(()=>api({...lease,action:'heartbeat'}).catch(e=>{stopped=true;console.error(e.message);}),15000);timer.unref();
-  const child=spawn(executable,argv,{cwd:path.dirname(leaseFile),windowsHide:true,stdio:['ignore','pipe','pipe']});let tail='';
+  const env={...process.env};
+  if(config.engineRoot){if(!fs.existsSync(path.join(config.engineRoot,'journal_pdf')))throw Error('配置的公共引擎入口不存在');env.PYTHONPATH=config.engineRoot+(env.PYTHONPATH?path.delimiter+env.PYTHONPATH:'');}
+  const child=spawn(executable,argv,{cwd:path.dirname(leaseFile),env,windowsHide:true,stdio:['ignore','pipe','pipe']});let tail='';
   for(const stream of [child.stdout,child.stderr]){stream.setEncoding('utf8');stream.on('data',s=>{process.stdout.write(s);tail=(tail+s).slice(-12000);});}
   const code=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',resolve);}).finally(()=>clearInterval(timer));
   if(!stopped)await api({...lease,action:'progress',message:`工具结束（${code}）：\n${tail.replace(/\bsk-[\w-]{12,}/g,'[已隐藏]')}`});

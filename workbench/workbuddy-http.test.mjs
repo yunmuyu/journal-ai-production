@@ -22,6 +22,9 @@ test('HTTP browser start → executor CLI command log → artifact callback; aut
  response=await fetch(origin+'/workbuddy/events?id='+claim.job.id);assert.match(JSON.stringify(await response.json()),/fixture tool executed/);
  const pdf=path.join(claim.job.attemptDir,'fixture.pdf'),png=path.join(claim.job.attemptDir,'fixture.png');fs.writeFileSync(pdf,'%PDF-fixture');fs.writeFileSync(png,Buffer.from([137,80,78,71,13,10,26,10]));const result=path.join(root,'result.json');fs.writeFileSync(result,JSON.stringify({evidence:'transport fixture, not production artwork',outputs:[{number:'1',path:pdf,preview:png,sha256:createHash('sha256').update(fs.readFileSync(pdf)).digest('hex')}]}));
  await invoke('complete',claim.leaseFile,result);assert.equal(published,1);handler=createWorkBuddyHandler(options);assert.equal(restored,1);assert.equal(handler.queue.list()[0].state,'ready');
+ handler.queue.enqueue({...config.pilot,key:'revision-fixture',kind:'revision'});const revision=handler.queue.claim('fixture');handler.queue.fail(revision.id,revision.lease,'requires tool repair');
+ response=await fetch(origin+'/workbuddy/control',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({id:revision.id,action:'retry'})});
+ assert.equal(response.status,409);assert.equal(handler.queue.list().find(j=>j.id===revision.id).state,'failed');
 });
 test('partial inventory recheck dispatches only newly unblocked figures',async t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'wb-inventory-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));

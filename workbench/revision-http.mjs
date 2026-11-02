@@ -4,7 +4,7 @@ import {createRevisionJobs,atomicJson} from './revision-jobs.mjs';
 import {createCodexWorker,digest,validateResult} from './revision-worker.mjs';
 
 // Adapter owns candidate activation; worker only writes its isolated directory.
-export function createRevisionHandler({root,config,origin,rows,articles,refresh,activate,run=createCodexWorker(config)}){
+export function createRevisionHandler({root,config,origin,rows,articles,refresh,activate,run=createCodexWorker(config),enabled=true}){
  fs.mkdirSync(root,{recursive:true});
  const lock=path.join(root,'service.lock');
  if(fs.existsSync(lock)){
@@ -28,7 +28,7 @@ export function createRevisionHandler({root,config,origin,rows,articles,refresh,
   const record={at:new Date().toISOString(),jobId:job.id,figureId:job.figureId,feedbackRevision:job.input.feedback.revision,result};
   atomicJson(path.join(dir,'published.json'),record);activate(record);refresh();
  }});
- let timer=setInterval(()=>queue.drain().catch(error=>console.error('Revision queue:',error.message)),1000);timer.unref();
+ let timer=enabled?setInterval(()=>queue.drain().catch(error=>console.error('Revision queue:',error.message)),1000):null;timer?.unref();
  const json=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'}).end(JSON.stringify(body));};
  return {
   queue,
@@ -37,6 +37,7 @@ export function createRevisionHandler({root,config,origin,rows,articles,refresh,
   handle(req,res,url){
    if(!url.pathname.startsWith('/revision-jobs'))return false;
    if(req.method==='GET'&&url.pathname==='/revision-jobs'){json(res,200,{jobs:queue.list()});return true;}
+   if(!enabled){json(res,409,{error:'旧 Codex 制作入口已停用；请提交终审意见，由 ChatGPT 分流给 WorkBuddy'});return true;}
    if(req.method!=='POST'||req.headers.origin!==origin){json(res,403,{error:'只允许在工作台内提交'});return true;}
    if(!url.pathname.startsWith('/revision-jobs/')||!req.headers['content-type']?.startsWith('application/json')){json(res,400,{error:'提交格式不正确'});return true;}
    let size=0;const chunks=[];req.on('data',part=>{size+=part.length;if(size<=4096)chunks.push(part);});

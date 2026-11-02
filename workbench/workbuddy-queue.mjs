@@ -27,7 +27,7 @@ export function createWorkBuddyQueue({root,publish,now=()=>Date.now()}){
    expire();worker={session:String(session).slice(0,100),seenAt:now()};
    if(jobs.some(j=>['running','pausing','interrupted'].includes(j.state)&&j.lease))return null;
    // Group by verified kind/method; article is an identity, never a scheduling bucket.
-   const j=jobs.filter(j=>j.state==='queued').sort((a,b)=>a.group.localeCompare(b.group)||a.createdAt.localeCompare(b.createdAt))[0];if(!j)return null;
+   const j=jobs.filter(j=>j.state==='queued').sort((a,b)=>(a.priority??10)-(b.priority??10)||a.group.localeCompare(b.group)||a.createdAt.localeCompare(b.createdAt))[0];if(!j)return null;
    for(const s of j.sources)if(digest(s.path)!==s.sha256){j.state='failed';event(j,'源件哈希变化，领取已阻止');return null;}
    j.attempt++;j.state='running';j.session=session;j.lease=randomUUID();j.heartbeatAt=now();j.attemptDir=path.join(root,j.id,String(j.attempt));fs.mkdirSync(j.attemptDir,{recursive:true});event(j,'WorkBuddy 已领取：'+j.group);return structuredClone(j);
   },
@@ -36,6 +36,7 @@ export function createWorkBuddyQueue({root,publish,now=()=>Date.now()}){
   pause(id){const j=get(id);if(!['queued','running','interrupted'].includes(j.state))throw Error('当前任务不能暂停');j.pauseRequested=true;j.state=j.state==='queued'?'paused':'pausing';event(j,j.state==='pausing'?'请求安全暂停，等待 WorkBuddy 完成当前工具调用并保存进度':'已暂停，不会被领取');},
   acknowledgePause(id,lease){const j=claimed(id,lease);if(j.state!=='pausing')throw Error('未请求暂停');j.state='paused';delete j.lease;event(j,'WorkBuddy 已保存进度并暂停');},
   resume(id){const j=get(id);if(j.state!=='paused')throw Error('当前任务不处于暂停状态');j.state='queued';j.pauseRequested=false;event(j,'已继续：重新领取后复用上次候选和进度');},
+  revisePlan(id,plan,confirmedStopped=false){const j=get(id);if(!['failed','needs_input','interrupted'].includes(j.state)||j.state==='interrupted'&&!confirmedStopped)throw Error('执行中、未确认停止或已完成的任务不能改计划');j.instructions=plan.instructions;j.coordinatorDecision=structuredClone(plan.decision);event(j,'ChatGPT 已核对失败原因并更新执行说明');},
   retry(id,confirmedStopped){const j=get(id);if(!['failed','interrupted','needs_input'].includes(j.state))throw Error('当前任务不能重试');if(j.state==='interrupted'&&!confirmedStopped)throw Error('请先确认旧 WorkBuddy 任务已停止，避免重复执行');j.state='queued';j.pauseRequested=false;delete j.lease;event(j,'重试已排队，保留此前日志和候选');},
   fail(id,lease,message,needsInput=false){const j=claimed(id,lease);j.state=needsInput?'needs_input':'failed';delete j.lease;event(j,message);},
   async complete(id,lease,result){
