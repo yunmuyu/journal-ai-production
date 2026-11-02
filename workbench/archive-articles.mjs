@@ -2,13 +2,25 @@ import path from 'node:path';
 import fs from 'node:fs';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
+// Display metadata belongs to the persisted batch, never to author/figure identity.
+export function assignArchiveLabels(batch){
+ for(const group of Map.groupBy(batch.manuscripts,m=>m.author).values()){
+  if(group.length<2)continue;
+  const used=new Set(group.map(m=>m.displaySequence).filter(Number.isInteger));
+  const sharedPrefix=group.every(m=>m.title.startsWith('基于'));
+  for(const m of [...group].sort((a,b)=>a.member<b.member?-1:a.member>b.member?1:0)){
+   if(!m.displaySequence){let n=1;while(used.has(n))n++;m.displaySequence=n;used.add(n);}
+   if(!m.displayLabel)m.displayLabel=m.author+m.displaySequence+Array.from(sharedPrefix?m.title.slice(2):m.title).slice(0,2).join('');
+  }
+ }
+}
 export function registerArchiveArticles({articles,link,wordTokens},batch){
- const counts=new Map();for(const m of batch.manuscripts)counts.set(m.author,(counts.get(m.author)||0)+1);
+ assignArchiveLabels(batch);
  for(const m of batch.manuscripts){
   const id='PKG-'+createHash('sha256').update(batch.archiveSha256+'\0'+m.member).digest('hex').slice(0,20);
   if(articles.some(a=>a.id===id))continue;
   const word=link(pathToFileURL(m.wordPath));if(word)wordTokens.add(word.token);
-  articles.push({id,word,author:m.author,title:m.title,label:counts.get(m.author)>1?`${m.author} · ${m.title}`:m.author,editor:batch.editor,state:'未完成',figures:[],archiveHash:batch.archiveSha256,notices:[{text:'原包已登记，图号和图源待核对。尚未开始制作。'}]});
+  articles.push({id,word,author:m.author,title:m.title,label:m.displayLabel||m.author,editor:batch.editor,state:'未完成',figures:[],archiveHash:batch.archiveSha256,notices:[{text:'原包已登记，图号和图源待核对。尚未开始制作。'}]});
  }
 }
 // Existing workbenches remain authoritative. Match exact Word paths, never author alone.
