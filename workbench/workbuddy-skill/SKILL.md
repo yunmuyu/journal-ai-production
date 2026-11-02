@@ -22,6 +22,8 @@ description: 从现有期刊工作台领取已授权的按图种制作任务，�
 
 普通 JPG 的合同机械字段由 `node workbench/production-workspace.mjs task.json raster-plan.json existing-evidence.json quality-contract.json` 组装，路径均指向本次任务/实际证据。你先填写实际处理计划；工具自动绑定来源哈希、输出尺寸和运行代码，不替你选裁切或灰度。缺证据返回 `needs_evidence`，由你补实际历史核对等引用，不让ChatGPT逐图填表；不能把缺项伪填为已检查。生成合同后仍须真实 precheck、制作和 postcheck。
 
+常规 JPG 优先在一次 `run` 中调用 `node workbench/raster-job.mjs task.json raster-plan.json existing-evidence.json`，自动依次完成上述合同组装、precheck、render、机械检查与postcheck，生成待提交result并记录各阶段耗时。不要再把这些确定步骤拆成多轮AI准备和命令。调用前后由你实际看图，缺失证据或视觉问题不能跳过；命令不自动提交、不填写独立审阅通过。此组合入口已通过合成真实JPG和失败停产测试，真实作者任务性能尚待验证。
+
 ## 暂停与失败
 
 - `heartbeat LEASE_FILE` 返回 pauseRequested。为每段较长的阅读/判断前后续租，超过2分钟无心跳会被工作台标为状态待核实；原租约仍可续接，不要自行领取重复任务。
