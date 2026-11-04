@@ -1,8 +1,8 @@
 # 期刊 AI 生产工作台
 
-用于期刊图件的来源核对、保留原图加工、公共排版、PDF 检查、候选复核与受保护交付。本分支为 **2026.11.04-r45-clean-move 迁移预览版**；当前公共执行工具已汇总，已知限制如实保留。新电脑请先看 [搬家与安装说明](docs/NEW-COMPUTER.md)。
+用于期刊图件的来源核对、保留原图加工、公共排版、PDF 检查、候选复核与受保护交付。本分支为 **2026.11.04-r46-clean-move 迁移预览版**；当前公共执行工具已汇总，已知限制如实保留。新电脑请先看 [搬家与安装说明](docs/NEW-COMPUTER.md)。
 
-[下载本迁移预览版](https://github.com/yunmuyu/journal-ai-production/releases/tag/2026.11.04-r45-clean-move) · [安装、升级与回滚](docs/RELEASE-GUIDE.md) · [更新日志](CHANGELOG.md) · [本版验证与边界](release-notes/2026.11.04-r45-clean-move.md)
+[下载本迁移预览版](https://github.com/yunmuyu/journal-ai-production/releases/tag/2026.11.04-r46-clean-move) · [安装、升级与回滚](docs/RELEASE-GUIDE.md) · [更新日志](CHANGELOG.md) · [本版验证与边界](release-notes/2026.11.04-r46-clean-move.md)
 
 ## 选择入口
 

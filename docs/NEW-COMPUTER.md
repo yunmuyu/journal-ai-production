@@ -1,13 +1,13 @@
 # 新电脑迁移：代码与在制资料分开
 
-本次是 `2026.11.04-r45-clean-move` 迁移预览版，不宣称已通过全新电脑生产验收。原机公共源码已整理为独立发布分支；作者素材、批注和候选另存私有包。不要把旧工作目录整棵复制进代码仓库。
+本次是 `2026.11.04-r46-clean-move` 迁移预览版，不宣称已通过全新电脑生产验收。原机公共源码已整理为独立发布分支；作者素材、批注和候选另存私有包。不要把旧工作目录整棵复制进代码仓库。
 
 ## 安装公共工具
 
 Windows 10/11、Node.js 24、Python 3.12。下载本预览版的 portable ZIP 和 SHA256，解压到 `F:\期刊AI工作台\repo`。本次旧数据仍绑定绝对路径，保留这个位置可避免篡改历史来源及验收身份。如果新电脑没有 F 盘，可以在确认 F 盘未占用后，把空的数据目录挂载为 F 盘；不要覆盖已有盘符。
 
 ```powershell
-Get-FileHash .\journal-ai-production-2026.11.04-r45-clean-move-portable.zip -Algorithm SHA256
+Get-FileHash .\journal-ai-production-2026.11.04-r46-clean-move-portable.zip -Algorithm SHA256
 python .\scripts\release_bundle.py verify --root .
 .\scripts\setup-new-computer.ps1 -Python 'C:\Python312\python.exe' -RuntimeDirectory 'F:\期刊AI工作台\runtime\python'
 ```

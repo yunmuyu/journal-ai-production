@@ -12,5 +12,6 @@ test('multiple unaccepted revisions keep the original entry and preserve feedbac
  assert.equal(figure.previousOutputs,original);assert.equal(figure.revisionHistory.length,2);
  assert.equal(figure.feedback,feedback);assert.equal(figure.outputs[0].file.path,path.resolve('candidate-2.pdf'));
  assert.equal(context.pending['测试-1'].addressedFeedbackRevision,2);
- assert.equal(figure.status,undefined); // Candidate activation must not grant acceptance.
+ assert.equal(figure.status,'待终检'); // Candidate activation must not grant acceptance.
+ assert.equal(context.pending['测试-1'].manualStatus,'pending');
 });

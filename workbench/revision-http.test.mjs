@@ -53,7 +53,10 @@ test('Codex completed result uses the same route and independent-review boundary
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'codex-route-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const pdf=path.join(root,'candidate.pdf'),png=path.join(root,'preview.png');fs.writeFileSync(pdf,'%PDF-fixture');fs.writeFileSync(png,Buffer.from([137,80,78,71,13,10,26,10]));
  const input={id:'job',productionRoute:routeFixture(root,{raster:true}),outputs:[{number:'1',sha256:'old'}]};
+ input.productionRoute.processing={operation:'preserve',basis:'Synthetic screenshot source reviewed'};
  const result={status:'completed',evidence:'executor says passed',outputs:[{number:'1',path:pdf,preview:png,sha256:digest(pdf),fontLabel:''}]};
  assert.throws(()=>validateResult(root,input,result),/JPG/);
- input.productionRoute=routeFixture(root);assert.throws(()=>validateResult(root,input,result),/独立质量/);
+ input.productionRoute=routeFixture(root);
+ input.productionRoute.processing={operation:'vector-reletter',basis:'Synthetic native text source reviewed'};
+ assert.throws(()=>validateResult(root,input,result),/缺少逐图公共工具加工证据/);
 });

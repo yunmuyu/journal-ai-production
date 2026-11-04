@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "2026.11.04-r45-clean-move",
-  "createdAt": "2026-11-04T08:48:53.473Z",
+  "id": "2026.11.04-r46-clean-move",
+  "createdAt": "2026-11-04T08:56:50.936Z",
   "status": "migration-preview",
   "constraints": {
     "fontSizePt": {
@@ -34,6 +34,11 @@
       "passed": 737,
       "scope": "Existing Windows PDF engine; failures retained",
       "failed": 12
+    },
+    "workbenchFull": {
+      "passed": 261,
+      "skipped": 27,
+      "failed": 0
     }
   },
   "files": [
@@ -439,7 +444,7 @@
     }
   ],
   "skillSha256": "fbfa19e02afa62f702c20cf406e843f8ea9b7af219ce2da2a1b5292849241ab1",
-  "supersedes": "2026.10.22-r33-layout-capabilities",
+  "supersedes": "2026.11.04-r45-clean-move",
   "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged.",
   "sourceParent": "dd23ecab65f37ef797249c13c32de951dfa116ac",
   "productionRoute": "portable-production",
@@ -1550,7 +1555,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "bfd2c2ecd986d31c1fe917d0887a68a83346dc99bfdd35532083d6386cc7a41d",
+      "sha256": "2f3e28fda33f923faf2e4c7665c2f6ca8245ce0d51a521289ad75ff79d2d76fa",
       "bytes": 5517
     },
     {
@@ -2002,7 +2007,7 @@
     },
     {
       "path": "docs/NEW-COMPUTER.md",
-      "sha256": "a4180a51bf0b96a915f09170adef9175e66656eb3173092a89e2f1c39ac38ffc",
+      "sha256": "375ae69fb88a4a01722549389dfc4aabadd872b2e617ad7363885d83a1328ca5",
       "bytes": 4302
     },
     {
@@ -2327,7 +2332,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "fb0eed93988c110910fb9051e0218859e55c4937af96ae96ea3fb470d5c83cd9",
+      "sha256": "34ddeaa3737fa895aa5d0ff408f7615f1c4fd426a507d7a7cb5788ceda5bef9b",
       "bytes": 3698
     },
     {
@@ -2444,6 +2449,11 @@
       "path": "release-notes/2026.11.04-r45-clean-move.md",
       "sha256": "a973a659661d24d2a5613655ab55879f87ccd612e41e293896386bf461b693d4",
       "bytes": 1998
+    },
+    {
+      "path": "release-notes/2026.11.04-r46-clean-move.md",
+      "sha256": "b4fae08c07fbc843ecefe22cba74ad7bff7f8af1b2b6d0afec55d853cf3b46cc",
+      "bytes": 2324
     },
     {
       "path": "release-validation-20261014.json",
@@ -3627,8 +3637,8 @@
     },
     {
       "path": "workbench/revision-candidates.test.mjs",
-      "sha256": "157ce22c815632e655edb4d9a98cbe16335fd2896a15068d1bfa6e6c5027bd6b",
-      "bytes": 1184
+      "sha256": "f1aad66251266187dfbe0a2cd43680c29e5045925da8d17266bf59cbda46193e",
+      "bytes": 1253
     },
     {
       "path": "workbench/revision-controls.js",
@@ -3647,8 +3657,8 @@
     },
     {
       "path": "workbench/revision-http.test.mjs",
-      "sha256": "843055e2a35569e0f82ae5f1b104effacd15960d654668911ba65196a919df42",
-      "bytes": 4964
+      "sha256": "39c4a86f9b01b83404ecddaa5ccde759c976fe6822b7d55c96b974e47f742e86",
+      "bytes": 5204
     },
     {
       "path": "workbench/revision-jobs.mjs",
