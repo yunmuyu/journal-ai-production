@@ -5,6 +5,7 @@ Do not import the divergent root development diamond formula.
 from __future__ import annotations
 import re, math, copy
 from .common import FigureError, PT_PER_MM
+from .mathematical_signs import normalize_mathematical_signs
 
 RULESET = {
     'id': 'journal-editorial-20261016-r21-directpdf-bridge-4-unified-nodes',
@@ -81,14 +82,28 @@ def wrap_text(value, max_chars):
         raise FigureError('invalid_wrap_width', '换行宽度必须是不小于2的整数', max_chars=max_chars)
     output = []
     for paragraph in str(value).split('\n'):
+        if _CJK.search(paragraph) and not any(c.isspace() for c in paragraph):
+            from .chinese_wrap import wrap_chinese
+            output.append(wrap_chinese(paragraph, max_chars))
+            continue
         words = paragraph.split()
         line = ''
         for word in words:
             parts = []
-            while len(word) > max_chars:
-                parts.append(word[:max_chars - 1] + '-')
-                word = word[max_chars - 1:]
-            parts.append(word)
+            if _CJK.search(word):
+                tokens=re.findall(r'[A-Za-z0-9]+(?:[._:/-][A-Za-z0-9]+)*|[^A-Za-z0-9]',word)
+                part=''
+                for token in tokens:
+                    if part and len(part)+len(token)>max_chars:parts.append(part);part=''
+                    part+=token
+                if part:parts.append(part)
+            elif re.search(r'\d|[._:/-]',word) or re.fullmatch(r'[A-Z]{2,}',word):
+                parts.append(word)
+            else:
+                while len(word) > max_chars:
+                    parts.append(word[:max_chars - 1] + '-')
+                    word = word[max_chars - 1:]
+                parts.append(word)
             for part in parts:
                 candidate = part if not line else line + ' ' + part
                 if len(candidate) <= max_chars:
@@ -119,6 +134,17 @@ def normalize_chinese_punctuation(value):
 def display_content(content, role='label'):
     if role in _LITERAL_ROLES:
         return copy.deepcopy(content)
+    mathematical = role in ('formula', 'math')
+    if isinstance(content, str):
+        content = normalize_mathematical_signs(content, mathematical=mathematical)
+    elif isinstance(content, list):
+        content = copy.deepcopy(content)
+        normalized = normalize_mathematical_signs(''.join(p['text'] for p in content), mathematical=mathematical)
+        offset = 0
+        for part in content:
+            length = len(part['text'])
+            part['text'] = normalized[offset:offset + length]
+            offset += length
     from .quantity_spacing import normalize_quantity_spacing
     if isinstance(content,(str,list)):
         content=normalize_quantity_spacing(content,role)
@@ -175,7 +201,7 @@ def scale_scene(scene, factor):
         if 'padding_pt' in n:n['padding_pt']=[v*factor for v in n['padding_pt']]
     for p in scene.paths:
         p['points']=[[v*factor for v in q] for q in p['points']]
-        p['dash']=[v*factor for v in p['dash']];p['width']=p['width']*factor if p.get('source_legend_swatch') else STROKE;p['arrow_scale']=1
+        p['dash']=[v*factor for v in p['dash']];p['width']=p['width']*factor if p.get('source_legend_swatch') else STROKE;p['arrow_scale']=p.get('arrow_scale',1)*factor if p.get('arrow_style')=='block-outline' else 1
     for a in scene.assets:a['rect']=[v*factor for v in a['rect']]
     for background in scene.legend_backgrounds:background['rect']=[v*factor for v in background['rect']]
     for check in scene.axis_label_gap_checks+scene.axis_tick_gap_checks:

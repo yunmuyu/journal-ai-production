@@ -17,7 +17,7 @@ python -m task_quality verify <contract.json>
 
 [contract.example.json](contract.example.json) 仅含占位路径与零哈希，不能直接生产。所有 FileRef 均为 `{path, sha256}`，路径必须指向实际私有文件；sha256 为小写64位。主 `source` 必须是可生成单页预览的 PDF/JPG/PNG；完整 Word、PPTX、多附件和原图逐项列入非空 `source_inputs`，不要只登记提取图。不能由门禁推断未登记附件。
 
-`route` 只接受 diagram/circuit/source-preserving-chart/raster；data-redraw 拒绝。允许保留原图的统计图，不依据backend名称禁用。所有 route 最低人工项：source_content、visual、runtime_provenance；diagram/circuit 另需 topology、label_ownership。`allowed_changes` 和 `immutable_content` 是审阅约束声明，门禁不声称能自动证明标签或几何语义未改变。
+`route` 只接受 diagram/circuit/source-preserving-chart/raster；data-redraw 拒绝。raster 必须交付 JPG，其他三条路线必须交付 PDF，混搭在 precheck 拒绝。允许保留原图的统计图，不依据backend名称禁用。所有 route 最低人工项：source_content、visual、runtime_provenance；raster 另需 readability、grayscale_semantics，不能因为不测位图字号而取消内容、关键文字可辨认性和灰度语义复核；非 raster 另需 typography；diagram/circuit 另需 topology、label_ownership。`allowed_changes` 和 `immutable_content` 是审阅约束声明，门禁不声称能自动证明标签或几何语义未改变。
 
 history 的 `evidence` 指向历史检索完成回执，内容必须严格包含：
 
@@ -39,7 +39,9 @@ failure_policy声明最多1–3次语义尝试、local-only修复，预算未知
 
 submission严格包含artifacts(FileRef数组)与audit(FileRef)。实际workspace PDF/JPG集合必须精确匹配outputs。PDF实测单页、物理宽度；可选stroke_pt检查PyMuPDF识别的有色、非全透明且与页面相交矢量路径，容差±0.005 pt。填0.5可挡住0.510337等描边。统计曲线不适用统一线宽时显式填null，仍需人工核验。此检查不是完整PDF可见性/裁剪/遮挡引擎，嵌套图与特殊PDF结构仍要看预览。
 
-JPG实测实际格式、像素、DPI和物理宽度。物理宽度容差0.05mm；DPI容差0.5。每个产物及主source都由gate从当前字节重新生成PNG预览，不消费执行者自带截图。预览输出在workspace/.task-quality。
+JPG实测实际格式、像素、DPI、物理宽度和全部解码像素中性（RGB最大通道差大于2的像素数须为0）。物理宽度容差0.05mm；DPI容差0.5。不做截图OCR或像素字高推算，不用这些推算触发6pt门槛、重绘、拆图或双栏。像素中性只证明灰度编码，不能证明原来的颜色分类仍可区分；独立 grayscale_semantics 审阅必须核对文字、图例、线型或其他仍承载含义的依据。每个产物及主source都由gate从当前字节重新生成PNG预览，不消费执行者自带截图。预览输出在workspace/.task-quality。
+
+PDF另外重读实际可编辑文本span（index/text/size_pt/bbox）。audit 可选 `text_roles`，形如 `{"fig1":[{"index":0,"text":"x","size_pt":8.0,"bbox":[10,10,14,20],"role":"body"}]}`；必须逐项精确匹配该产物全部实际非空span，只接受 body/subscript/superscript。绑定为body且低于6pt（0.01pt浮点容差）硬拒绝。无角色证据的低字号span或没有可提取文字时保留 typography pending，不能自动按角标忽略；独立 typography 项必须引用源与全部预览，说明具体小字的语义、角色及可见性后才能结案。即使提供角标角色，独立typography仍必审，角色声明不是自动语义证明。原有direct-pdf的源字符、字体嵌入、设计字号与scene审计仍需执行并引用；本门禁不替代它们，也不能从PDF位图内部测出字号。
 
 audit是包装现有报告的薄回执（不得伪造既有报告内容）：
 

@@ -22,8 +22,8 @@ def test_requested_width_stretches_equal_cells_without_changing_gap(reg):
     scene = primitive(spec_for_width(), reg, 8).finish(220, 90)
     rects = [node['rect'] for node in scene.nodes]
     assert rects[-1][2] - rects[0][0] == pytest.approx(180)
-    assert [r[2]-r[0] for r in rects] == pytest.approx([58]*3)
-    assert [rects[i+1][0]-rects[i][2] for i in range(2)] == pytest.approx([3, 3])
+    assert [r[2]-r[0] for r in rects] == pytest.approx([(180-2*3.5)/3]*3)
+    assert [rects[i+1][0]-rects[i][2] for i in range(2)] == pytest.approx([3.5, 3.5])
     assert not audit_scene(scene)
     scale_scene(scene, .8)
     assert not audit_scene(scene)

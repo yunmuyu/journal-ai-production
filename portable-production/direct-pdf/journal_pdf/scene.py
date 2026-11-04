@@ -1,10 +1,12 @@
 from __future__ import annotations
 import math
-from .common import FigureError, contains, intersects, segment_hits, finite, digest_file, resolve_source
+from .common import FigureError, contains, intersects, segment_hits, finite, digest_file, resolve_source, PT_PER_MM
 from .boundary_ports import BoundaryGeometry, rectangular_path_bounds
 from .fonts import position_text
+from .text_geometry import segment_hits_text, polygon_hits_text
 from .flow_shapes import is_flow_terminal
 from .editorial import display_content, wrap_text, PAD_X, PAD_Y, STROKE, ARROW_LENGTH, diamond_size
+from .label_layout import layout_label, ellipse_size
 from .text_geometry import oblique,polygons,texts_intersect,segment_intersects_text,arrow_intersects_text
 
 def validate_node_dash(dash, *, id=None):
@@ -44,11 +46,10 @@ class Scene:
     def ident(self,id):
         if id in self._ids:raise FigureError('duplicate_object_id','重复对象ID',id=id)
         self._ids.add(id)
-    def text(self,id,content,x,y,align='center',rotation=0,owner=None,role='label',size=None,wrap_chars=None,vertical=False,gray=0):
+    def text(self,id,content,x,y,align='center',rotation=0,owner=None,role='label',size=None,wrap_chars=None,vertical=False,wrap_width_pt=None,gray=0):
         if isinstance(gray,bool) or gray not in (0,1):raise FigureError('text_gray','文字仅支持显式黑0或白1')
-        self.ident(id); source_content=content;content=display_content(content,role)
-        if wrap_chars is not None:
-            content=wrap_text(content,wrap_chars)
+        self.ident(id); source_content=content
+        content=layout_label(self.registry,content,size or self.size,role=role,wrap_chars=wrap_chars,wrap_width_pt=wrap_width_pt)
         m=self.registry.measure(content,size or self.size,role=role) if role!='label' else self.registry.measure(content,size or self.size)
         if vertical:m=self.registry.measure_vertical(content,size or self.size)
         p=position_text(m,x,y,align,rotation)
@@ -77,12 +78,10 @@ class Scene:
         if fill is not None:n['fill']=float(fill)
         if dash is not None:n['dash']=list(dash)
         self.nodes.append(n);return n
-    def box(self,id,content,x,y,w=None,h=None,kind='rectangle',padx=4.5,pady=2.7,wrap_chars=None,flow_role=None,text_role='label',vertical_text=False):
+    def box(self,id,content,x,y,w=None,h=None,kind='rectangle',padx=4.5,pady=2.7,wrap_chars=None,flow_role=None,text_role='label',vertical_text=False,wrap_width_pt=None):
         terminal=is_flow_terminal(content,flow_role)
         if terminal:kind='terminator'
-        display=display_content(content,text_role)
-        if wrap_chars is not None:
-            display=wrap_text(display,wrap_chars)
+        display=layout_label(self.registry,content,self.size,role=text_role,wrap_chars=wrap_chars,wrap_width_pt=wrap_width_pt)
         m=self.registry.measure(display,self.size,role=text_role) if text_role!='label' else self.registry.measure(display,self.size)
         if vertical_text:m=self.registry.measure_vertical(display,self.size)
         scale=self.size/8
@@ -92,6 +91,10 @@ class Scene:
             if h is None:h=dh
         expected_w=m['width']+2*padx*scale+(8 if kind=='inputOutput' else 0)
         expected_h=m['height']+2*pady*scale
+        if kind=='ellipse':
+            ew,eh=ellipse_size(m['width'],m['height'],padx=padx*scale,pady=pady*scale)
+            if w is None:w=ew
+            if h is None:h=eh
         if w is None:w=expected_w
         if h is None:h=expected_h
         node=self.shape(id,[x,y,x+w,y+h],kind)
@@ -99,18 +102,24 @@ class Scene:
         if kind in ('rectangle','roundrect','terminator'):
             node['padding_pt']=[padx*scale,pady*scale]
             node['measurement_contract']={'mode':'tight','expected_wh':[expected_w,expected_h]}
-        self.text(id+':text',display,x+w/2,y+h/2,owner=id,role=text_role,vertical=vertical_text)
+        self.text(id+':text',content,x+w/2,y+h/2,owner=id,role=text_role,vertical=vertical_text,
+                  wrap_chars=wrap_chars,wrap_width_pt=wrap_width_pt)
         return self.nodes[-1]
     def line(self,id,points,arrow=False,both=False,dash=None,width=.5,exact_terminal=False,endpoint_nodes=None,
-             shared_net=None,semantic_role='connection'):
+             shared_net=None,semantic_role='connection',arrow_style='standard'):
         self.ident(id); pts=[]
         for p in points:
             if not finite(p) or len(p)!=2:raise FigureError('path_point','无效线段坐标',id=id)
             if not pts or list(p)!=pts[-1]:pts.append(list(p))
         if len(pts)<2:raise FigureError('path_degenerate','零长度连接线',id=id)
+        if arrow_style not in ('standard','block-outline'):raise FigureError('arrow_style','未知箭头类型',id=id)
+        if arrow_style=='block-outline':
+            if not (arrow or both) or dash:raise FigureError('block_arrow_invalid','轮廓块箭头须为实线',id=id)
+            block_arrow_vertices(pts,both=both,scale=self.size/8)
         self.paths.append({'id':id,'points':pts,'arrow':arrow or both,'both':both,'dash':dash or [],'width':width,
                            'exact_terminal':bool(exact_terminal),'endpoint_nodes':endpoint_nodes,
-                           'shared_net':shared_net,'semantic_role':semantic_role})
+                           'shared_net':shared_net,'semantic_role':semantic_role,'arrow_style':arrow_style})
+        if arrow_style=='block-outline':self.paths[-1]['arrow_scale']=self.size/8
     def poly(self,id,points,fill=None,gray=0,width=.5,dash=None,closed=True,semantic_role=None,opacity=None):
         """闭合多边形（统计图数据几何）：0..1 墨量填充 + 0..1 灰度描边，不参与连接。"""
         self.ident(id); pts=[]
@@ -168,6 +177,27 @@ def ray_ellipse(rect,point):
     return [cx+dx/norm,cy+dy/norm]
 
 
+def require_arrow_styles(paths,required):
+    if not isinstance(required,dict):raise FigureError('arrow_style_evidence','箭头类型要求必须是对象')
+    indexed={path['id']:path for path in paths}
+    for ident,style in required.items():
+        item=indexed.get(ident)
+        if style not in ('standard','block-outline') or not item or not item.get('arrow') or item.get('arrow_style','standard')!=style:
+            raise FigureError('arrow_style_mismatch','已确认的箭头类型与重绘不一致',id=ident,expected=style)
+
+def block_arrow_vertices(points,scale=1.,both=False):
+    start,tip=points[0],points[-1];dx,dy=tip[0]-start[0],tip[1]-start[1];length=math.hypot(dx,dy)
+    symbol=2.5*PT_PER_MM*scale
+    if length<(24*scale if both else symbol):raise FigureError('block_arrow_short','块状箭头长度不足')
+    ux,uy=dx/length,dy/length
+    if any(abs((p[0]-start[0])*uy-(p[1]-start[1])*ux)>0.01 for p in points):raise FigureError('block_arrow_bend','块状箭头不支持折线')
+    def point(along,offset):return [start[0]+ux*along-uy*offset,start[1]+uy*along+ux*offset]
+    if both:
+        head=6*scale;wing=8.7*scale/2;shaft=wing*.48
+        return [point(head,-wing),point(0,0),point(head,wing),point(head,shaft),point(length-head,shaft),point(length-head,wing),point(length,0),point(length-head,-wing),point(length-head,-shaft),point(head,-shaft)]
+    head=0.52*symbol;shaft=0.48*symbol/2;wing=symbol/2
+    return [point(0,-shaft),point(length-head,-shaft),point(length-head,-wing),list(tip),point(length-head,wing),point(length-head,shaft),point(0,shaft)]
+
 def arrow_vertices(points,depth=4.4,width=3.7,at_start=False,scale=1.):
     depth*=scale;width*=scale
     tip=points[0] if at_start else points[-1];prev=points[1] if at_start else points[-2]
@@ -219,13 +249,71 @@ def _collinear_overlap_length(a,b,c,d,tolerance=.15):
     return max(0.,min(length,max(c0,c1))-max(0.,min(c0,c1)))
 
 
+def _segments_cross(a,b,c,d):
+    dx,dy=b[0]-a[0],b[1]-a[1];ex,ey=d[0]-c[0],d[1]-c[1]
+    denominator=dx*ey-dy*ex
+    if abs(denominator)<1e-9:return False
+    fx,fy=c[0]-a[0],c[1]-a[1]
+    u=(fx*ey-fy*ex)/denominator;v=(fx*dy-fy*dx)/denominator
+    return 0<=u<=1 and 0<=v<=1
+
+
 def audit_scene(s:Scene):
     issues=[];page=[0,0,s.width,s.height];nmap={n['id']:n for n in s.nodes}
     pmap={p['id']:p for p in s.paths}
-    boundaries=BoundaryGeometry({n['id']:tuple(n['rect']) for n in s.nodes if n['kind']=='rectangle'},
+    for ident,group in s.measurement_groups.items():
+        columns=group.get('grid_columns')
+        if columns is None:continue
+        ids=group['nodes'];expected=3*s.size/8
+        for i,node_id in enumerate(ids):
+            a=nmap[node_id]
+            for offset,axis in ((1,0),(columns,1)):
+                j=i+offset
+                if j>=len(ids) or (axis==0 and i//columns!=j//columns):continue
+                b=nmap[ids[j]];gap=b['rect'][axis]-a['rect'][axis+2]-(a['width']+b['width'])/2
+                aligned=abs(a['rect'][1-axis]-b['rect'][1-axis])<=.15
+                if abs(gap-expected)>.15 or not aligned:issues.append({'code':'measured_group_spacing','group':ident,'ids':[node_id,ids[j]],'actual_pt':gap,'expected_pt':expected})
+    if s.template=='hierarchy-tree':
+        groups=[]
+        index=0
+        while 'branch'+str(index) in nmap:
+            members=[n for n in s.nodes if n['id']=='branch'+str(index) or n['id'].startswith('leaf'+str(index)+'-')]
+            groups.append((min(n['rect'][1]-n['width']/2 for n in members),max(n['rect'][3]+n['width']/2 for n in members)))
+            index+=1
+        child_expected=3*s.size/8
+        for group_index in range(len(groups)):
+            children=sorted((n for n in s.nodes if n['id'].startswith('leaf'+str(group_index)+'-')),key=lambda n:n['rect'][1])
+            for left,right in zip(children,children[1:]):
+                gap=right['rect'][1]-left['rect'][3]-(left['width']+right['width'])/2
+                if abs(gap-child_expected)>.15:
+                    issues.append({'code':'tree_sibling_gap','ids':[left['id'],right['id']],'actual_pt':gap,'expected_pt':child_expected})
+        expected=6*s.size/8
+        for index,(before,after) in enumerate(zip(groups,groups[1:])):
+            gap=after[0]-before[1]
+            if abs(gap-expected)>.15:
+                issues.append({'code':'tree_group_gap','groups':[index,index+1],'actual_pt':gap,'expected_pt':expected})
+    if s.template=='bilateral-tree':
+        parents=s.layout_evidence.get('parent_map',{})
+        sides=s.layout_evidence.get('root_branch_sides',{})
+        for parent in set(parents.values()):
+            children=[key for key,value in parents.items() if value==parent]
+            subsets=([n for n in children if sides.get(n)==side] for side in ('left','right')) if parent=='root' else [children]
+            for subset in subsets:
+                ranges=[]
+                for child in subset:
+                    members=[n for n in s.nodes if n['id']==child or n['id'].startswith(child+'-')]
+                    if members:ranges.append((child,min(n['rect'][1]-n['width']/2 for n in members),max(n['rect'][3]+n['width']/2 for n in members)))
+                ranges.sort(key=lambda entry:entry[1])
+                for left,right in zip(ranges,ranges[1:]):
+                    grouped=parent=='root' or any(value in (left[0],right[0]) for value in parents.values())
+                    expected=(6 if grouped else 3)*s.size/8
+                    gap=right[1]-left[2]
+                    if abs(gap-expected)>.15:
+                        issues.append({'code':'tree_group_gap' if grouped else 'tree_sibling_gap','ids':[left[0],right[0]],'actual_pt':gap,'expected_pt':expected})
+    boundaries=BoundaryGeometry({n['id']:tuple(n['rect']) for n in s.nodes},
         {a['id']:tuple(a['rect']) for a in s.assets},
         {p['id']:rectangular_path_bounds(p['points']) for p in s.paths},
-        {t['id']:tuple(t['position']['bbox']) for t in s.texts},s.node_groups,page=tuple(page),page_inset_scale=s.layout_evidence.get('whole_artwork_scale',1.))
+        {t['id']:tuple(t['position']['bbox']) for t in s.texts},s.node_groups,page=tuple(page),page_inset_scale=s.layout_evidence.get('whole_artwork_scale',1.),node_shapes={n['id']:n['kind'] for n in s.nodes})
     from .source_shape_targets import audit_shape_targets
     source_shape_contracts,shape_issues=audit_shape_targets(s)
     issues.extend(shape_issues)
@@ -278,6 +366,25 @@ def audit_scene(s:Scene):
         if s.source_root is None:return False
         try:return digest_file(resolve_source(s.source_root,source_id))==expected
         except (FigureError,OSError):return False
+    if s.template=='primitive-scene':
+        boxes=[n for n in s.nodes if not n['container'] and n['kind']=='rectangle' and n['id'] in owner_text
+               and n['id'] not in source_shape_contracts and not fixed_valid(n,n.get('measurement_contract',{}))]
+        linked=set()
+        for p in s.paths:
+            ends=p.get('endpoint_nodes') or []
+            if len(ends)==2:
+                ids=[e.get('node') if isinstance(e,dict) else e for e in ends]
+                if all(isinstance(i,str) for i in ids):linked.add(frozenset(ids))
+        for index,a in enumerate(boxes):
+            for b in boxes[index+1:]:
+                if frozenset((a['id'],b['id'])) in linked:continue
+                ar,br=a['rect'],b['rect'];width=(a['width']+b['width'])/2
+                x_overlap=min(ar[2],br[2])-max(ar[0],br[0]);y_overlap=min(ar[3],br[3])-max(ar[1],br[1])
+                if x_overlap>0:gap=max(br[1]-ar[3],ar[1]-br[3])-width
+                elif y_overlap>0:gap=max(br[0]-ar[2],ar[0]-br[2])-width
+                else:continue
+                minimum=3*s.size/8
+                if gap<minimum-.15:issues.append({'code':'primitive_box_gap','ids':[a['id'],b['id']],'actual_pt':gap,'minimum_pt':minimum})
     for t in s.texts:
         b=t['position']['bbox']
         if not contains(page,b,.02):issues.append({'code':'text_outside_page','id':t['id'],'bounds':b})
@@ -298,6 +405,16 @@ def audit_scene(s:Scene):
                     mode=contract.get('mode')
                     if mode=='tight':expected=natural_wh(n,t)
                     elif mode=='measured-group':expected=group_expected(n,t,contract)
+                    elif mode=='multiport':
+                        targets=contract.get('targets',[]);side=contract.get('side')
+                        valid=isinstance(targets,list) and len(targets)>=2 and len(set(targets))==len(targets) and side in ('left','right') and all(i in nmap for i in targets)
+                        connected=[p for p in s.paths if p['id'].startswith('multiport:'+n['id']+':')]
+                        valid=valid and len(connected)==len(targets) and {p['id'].split(':',2)[-1] for p in connected}==set(targets)
+                        if valid:
+                            ys=[(nmap[i]['rect'][1]+nmap[i]['rect'][3])/2 for i in targets];own=natural_wh(n,t)
+                            expected=[own[0],max(own[1],max(ys)-min(ys)+8*s.size/8)]
+                            if abs((nb[1]+nb[3])/2-(min(ys)+max(ys))/2)>.15:expected=None
+                        else:expected=None
                     elif mode=='fixed' and fixed_valid(n,contract):expected=[]
                     else:expected=None
                     if expected is None:
@@ -363,8 +480,10 @@ def audit_scene(s:Scene):
                             if matched and 'page' in node_id:s.layout_evidence['page_external_ports'].append({'path':p['id'],'at_start':start,'declaration':node_id,'point':point,'verified':True})
                             if matched and 'node' in node_id:s.layout_evidence['node_boundary_ports'].append({'path':p['id'],'at_start':start,'declaration':node_id,'point':point,'verified':True})
                         if not matched:
+                            expected=list(boundaries.expected_point(node_id)) if 'source_asset' not in node_id else None
                             issues.append({'code':'arrow_endpoint_boundary_mismatch','id':p['id'],
-                                           'at_start':start,'declaration':node_id,'point':point})
+                                           'at_start':start,'declaration':node_id,'point':point,
+                                           'expected_point':expected,'delta_pt':[expected[i]-point[i] for i in (0,1)] if expected else None})
                     except FigureError as error:
                         issues.append(error.as_dict()|{'id':p['id'],'at_start':start})
                 elif isinstance(node_id,str) or node_id is None:
@@ -372,7 +491,9 @@ def audit_scene(s:Scene):
                     junction=node_id is None and any(q is not p and _matches_path_junction(point,q) for q in s.paths)
                     if not junction and (node is None or not _matches_node_port(point,node)):
                         issues.append({'code':'arrow_endpoint_node_port_mismatch','id':p['id'],'at_start':start,
-                                       'node':node_id,'point':point})
+                                       'node':node_id,'point':point,'node_rect':node['rect'] if node else None,
+                                       'candidate_points':{side:port(node,side) for side in ('left','right','top','bottom')} if node else {},
+                                       'required_binding':'明确side和fraction可得到唯一的期望坐标'})
                 else:
                     issues.append({'code':'arrow_endpoint_declaration_invalid','id':p['id'],'at_start':start})
         segments=list(zip(pts,pts[1:]))
@@ -393,7 +514,7 @@ def audit_scene(s:Scene):
                 issues.append({'code':'arrow_terminal_not_exact','id':p['id'],'at_start':start,
                                'actual_pt':actual,'required_pt':required})
             try:
-                vertices=arrow_vertices(pts,at_start=start,scale=p.get("arrow_scale",1))
+                vertices=block_arrow_vertices(pts,scale=p.get('arrow_scale',1),both=p.get('both',False)) if p.get('arrow_style')=='block-outline' else arrow_vertices(pts,at_start=start,scale=p.get("arrow_scale",1))
                 box=[min(q[0] for q in vertices),min(q[1] for q in vertices),max(q[0] for q in vertices),max(q[1] for q in vertices)]
                 if not contains(page,box):issues.append({'code':'arrow_outside_page','id':p['id']})
                 for t in s.texts:
@@ -410,6 +531,8 @@ def audit_scene(s:Scene):
                                p.get('semantic_role') in bus_roles and q.get('semantic_role') in bus_roles and
                                not p.get('arrow') and not q.get('arrow'))
             if explicitly_shared:continue
+            if (p['id'].startswith('multiport:') or q['id'].startswith('multiport:')) and any(_segments_cross(a,b,c,d) for a,b in zip(p['points'],p['points'][1:]) for c,d in zip(q['points'],q['points'][1:])):
+                issues.append({'code':'multiport_path_crossing','ids':[p['id'],q['id']]})
             overlap=0.
             for a,b in zip(p['points'],p['points'][1:]):
                 for c,d in zip(q['points'],q['points'][1:]):

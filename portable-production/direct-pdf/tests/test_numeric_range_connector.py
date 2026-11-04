@@ -7,7 +7,7 @@ from journal_pdf.editorial import display_content
     ('1~15 d','1～15 d'),
     ('1 ~ 15 d','1 ～ 15 d'),
     ('-1.50~+2.00','-1.50～+2.00'),
-    ('−0.5〜3.250','−0.5～3.250'),
+    ('−0.5〜3.250','-0.5～3.250'),
 ])
 def test_numeric_range_connector_uses_fullwidth_tilde_without_changing_values(source,expected):
  assert display_content(source,'axis-category')==expected

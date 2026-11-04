@@ -11,6 +11,13 @@ def main(argv=None):
     f.add_argument('--profile',required=True,type=Path);f.add_argument('--cache',type=Path);f.add_argument('--refresh',action='store_true');f.add_argument('--report',type=Path)
     i=sub.add_parser('inspect',help='只读检查PDF/SVG/PPTX/图片对象')
     i.add_argument('files',nargs='+',type=Path);i.add_argument('--output',required=True,type=Path)
+    sp=sub.add_parser('prepare-svg-pdf',help='将受支持的SVG准备为矢量PDF中间件')
+    sp.add_argument('input',type=Path);sp.add_argument('--source-sha256',required=True);sp.add_argument('--output',required=True,type=Path);sp.add_argument('--report',required=True,type=Path)
+    ts=sub.add_parser('prepare-text-shadows',help='发现文字阴影候选，或按具体确认准备派生源；不生成成图')
+    ts.add_argument('input',type=Path);ts.add_argument('--source-sha256',required=True);ts.add_argument('--bindings',required=True,type=Path);ts.add_argument('--report',required=True,type=Path)
+    ts.add_argument('--proposal',type=Path);ts.add_argument('--confirmation',type=Path);ts.add_argument('--output',type=Path);ts.add_argument('--page',type=int,default=0)
+    ps=sub.add_parser('propose-chart-series',help='查找原矢量曲线与图例样符的候选对应')
+    ps.add_argument('input',type=Path);ps.add_argument('--source-sha256',required=True);ps.add_argument('--frame',nargs=4,type=float,required=True);ps.add_argument('--plot',nargs=4,type=float,required=True);ps.add_argument('--swatch',nargs=2,type=int,action='append',required=True);ps.add_argument('--output',type=Path,required=True)
     for name in ('render','batch'):
         q=sub.add_parser(name);q.add_argument('input',type=Path);q.add_argument('--profile',required=True,type=Path)
         q.add_argument('--output',required=True,type=Path);q.add_argument('--cache',type=Path);q.add_argument('--overwrite',action='store_true')
@@ -30,7 +37,47 @@ def main(argv=None):
     av=ac.add_parser('review');av.add_argument('--job',required=True,type=Path);av.add_argument('--record',required=True,type=Path)
     args=p.parse_args(argv)
     try:
-        if args.command=='agent':
+        if args.command=='prepare-text-shadows':
+            from .source_text_shadows import discover_text_shadows,remove_confirmed_text_shadows
+            from .common import digest_file
+            if digest_file(args.input)!=args.source_sha256.lower():raise FigureError('text_shadow_source_changed','当前图源哈希不符')
+            if args.report.exists() or args.output and args.output.exists():raise FigureError('text_shadow_output_exists','禁止覆盖已有准备件或报告')
+            rows=read_json(args.bindings)
+            if isinstance(rows,dict):rows=rows['replacements']
+            if any((args.proposal,args.confirmation,args.output)):
+                if not all((args.proposal,args.confirmation,args.output)):raise FigureError('text_shadow_confirmation','执行须同时提供候选、确认和派生源路径')
+                data,out=remove_confirmed_text_shadows(args.input,args.page,rows,read_json(args.proposal),read_json(args.confirmation))
+                if digest_file(args.input)!=args.source_sha256.lower():raise FigureError('text_shadow_source_changed','准备期间图源已变化')
+                args.output.parent.mkdir(parents=True,exist_ok=True)
+                with args.output.open('xb') as dest:dest.write(data)
+                out.update(output=str(args.output.resolve()),output_sha256=digest_file(args.output))
+            else:out=discover_text_shadows(args.input,args.page,rows)
+            atomic_json(args.report,out)
+        elif args.command=='propose-chart-series':
+            import pymupdf as fitz
+            from .chart_vector_legend import propose_series_binding
+            from .common import digest_file
+            if args.output.exists():raise FigureError('chart_output_exists','候选报告已存在，禁止覆盖')
+            if digest_file(args.input)!=args.source_sha256.lower():raise FigureError('chart_source_changed','PDF源哈希不一致')
+            with fitz.open(args.input) as doc:
+                if len(doc)!=1:raise FigureError('chart_source_pages','当前候选发现要求单页PDF')
+                drawings=doc[0].get_drawings()
+                candidates=[propose_series_binding(drawings,a,b,args.frame,args.plot) for a,b in args.swatch]
+            if digest_file(args.input)!=args.source_sha256.lower():raise FigureError('chart_source_changed','扫描期间PDF源已改变')
+            out={'status':'needs_review','source':str(args.input.resolve()),'sourceSha256':args.source_sha256.lower(),'candidates':candidates,'warning':'候选必须结合当前图的文字与图例核对；不代表成图或已通过检查'}
+            atomic_json(args.output,out)
+        elif args.command=='prepare-svg-pdf':
+            from .assets import svg_root,svg_pdf_bytes
+            from .common import digest_file
+            if args.output.exists() or args.report.exists():raise FigureError('svg_output_exists','输出或报告已存在，禁止覆盖')
+            if digest_file(args.input)!=args.source_sha256.lower():raise FigureError('svg_source_changed','SVG源哈希不一致')
+            root=svg_root(args.input);data=svg_pdf_bytes(root)
+            if digest_file(args.input)!=args.source_sha256.lower():raise FigureError('svg_source_changed','转换期间SVG源已改变')
+            args.output.parent.mkdir(parents=True,exist_ok=True);args.report.parent.mkdir(parents=True,exist_ok=True)
+            with args.output.open('xb') as dest:dest.write(data)
+            out={'status':'intermediate','source':str(args.input.resolve()),'sourceSha256':args.source_sha256.lower(),'output':str(args.output.resolve()),'outputSha256':digest_file(args.output),'maskCount':len(root.xpath('.//s:mask',namespaces={'s':'http://www.w3.org/2000/svg'}))}
+            atomic_json(args.report,out)
+        elif args.command=='agent':
             from .agent_entry import prepare,complete,review
             if args.action=='prepare':out=prepare(args.files,args.job,workers=args.workers)
             elif args.action=='status':out=read_json(args.job/'job.json')

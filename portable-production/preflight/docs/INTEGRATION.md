@@ -17,13 +17,23 @@ Word 当前身份及完整图号、交付范围、源版本配对、同图已确
 
 栏宽建议是候选，不因Word图宽超过80mm就自动锁双栏。默认8pt先测实际容量；6～8pt的整图适配继承现行规则，不按旧序列导出8/7/6三套。不把原图CSS字体诊断或屏幕缩放当最终真实字体测量。
 
+### 按处理路线声明交付与核验（2026-11-02）
+
+报告不再把全部来源写成 PDF。每图 `required_delivery_format` 来自明确处理路线：`drawio_native_relayout` 与需换字的 `raster_chart_preserve` 为 PDF；`raster_preserve` 为 JPG；未明确加工方式的 `raster_panel_assembly`、`manual_review` 为 null，`delivery_contract` 保持 pending。报告级 `required_delivery_formats` 是已知格式集合；只有所有图格式明确时旧标量 `required_delivery_format` 才为 pdf/jpg/mixed，否则为 null。消费端必须逐图读取，不可把 mixed/null 回退为 PDF。仓库内检索未发现此旧标量的生产消费端；外部自建消费端未验证。
+
+`raster_preserve` 只适用于已核对为截图、照片或不宜可靠重绘的复杂位图。必须有指向实际探测 raster 的 `selected_primary`，并提供 `source_selection`：`alternatives_checked:true`、覆盖本图全部候选的 `reviewed_source_ids`、`content_kind:screenshot|photo|complex-raster`、具体 `observation` 与 `preserve_reason`。该声明仍需对照原包与可编辑/矢量替代源证据，不能仅凭后缀推断，也不能声称已检索未登记的附件。
+
+纯位图保留路线的 `font_contract` 是 not-applicable；不得用截图像素字高触发重绘、拆图或双栏。实际 JPG 格式、灰度后信息、裁切完整性、尺寸与关键内容可辨仍分别核验，`actual_image_and_data_audit` 保持 pending。重绘/换字路线的字号与实际 PDF 门禁不变。前置筛选始终不制作、不替代独立后检、不放行用户批准。
+
+本补充验证的是 preflight 路由输出及回归测试。`localflow.publish` 目前仍仅接受 PDF，JPG 未接入该发布器；JPG 候选须经已验证的工作台接入与独立后检进入待终审，不得复制覆盖已批准交付版。不能据此宣称截图全链路或外部 Agent 已自动接通。
+
 ## 与既有 productionDecision 并存
 
 正式前仍需 `find-prior-artwork.mjs` 和 `prepare-decisions.mjs` 对本机权威记录读取案例、同图用户纠正和原有已验收成果。本轮没有 record-root、production-results.json、evidence 或跨月作图目录，故标记为 **未读取**，不是“已检索无匹配”。
 
 `python -m journal_preflight bridge legacy.json screening.json --out <新合并候选.json>` 仅在完全相同、显式给定的 figure ID 下添加 `aiProposal.preflightV2`。不覆盖 productionDecision、旧建议、caseRetrieval、userCorrectionContext、验收历史或锁定栏宽；未匹配的ID原样保留。现有ID映射必须由接入Agent显式提供，不能按作者名/文件名猜。
 
-桥接输出仍然是候选。后续正式消费端必须以本机最新用户纠正和原有栏宽决定再校验，不能拿本轮建议盖过已确认值。`ready_for_publication` 固定 false；没有 `.ai` 不阻塞直接PDF路线，但字体、颜色、数据与实际PDF检查不能删。
+桥接输出仍然是候选。后续正式消费端必须以本机最新用户纠正和原有栏宽决定再校验，不能拿本轮建议盖过已确认值。`ready_for_publication` 固定 false；没有 `.ai` 不阻塞直接PDF路线，但该路线的字体、颜色、数据与实际PDF检查不能删；JPG则保留对应的实际图像及内容检查。
 
 ## 边界
 

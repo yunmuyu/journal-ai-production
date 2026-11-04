@@ -1,5 +1,5 @@
 from __future__ import annotations
-import collections, hashlib, io, math, os, tempfile, time
+import collections, hashlib, io, math, os, re, tempfile, time
 from pathlib import Path
 import pymupdf as fitz
 from PIL import Image,ImageChops
@@ -9,15 +9,27 @@ from .fonts import draw_text
 from .pdf_fonts import finalize_font_descriptors
 from .font_descriptors import FontSafetyError, audit_document
 from dataclasses import asdict
-from .scene import audit_scene, arrow_vertices
+from .scene import audit_scene, arrow_vertices, block_arrow_vertices
 from .layouts import DIAGRAMS
 from .charts import chart
 from .editorial import engine_signature,RULESET
 from .numeric_audit import missing_numeric_labels
 
 
+def numeric_values_missing(expected, extracted_text):
+    """Match complete numeric values even when PDF extraction joins adjacent labels."""
+    if not expected:return {}
+    variants=sorted(expected,key=len,reverse=True)
+    pattern=re.compile(r'(?<![\d.,+\-])(?:'+'|'.join(re.escape(value) for value in variants)+r')(?![\d.,])')
+    actual=collections.Counter(match.group() for line in extracted_text.splitlines() for match in pattern.finditer(line))
+    return dict(expected-actual)
+
+
 def draw_path(page,p):
     pts=[list(v) for v in p['points']]
+    if p.get('arrow_style')=='block-outline':
+        sh=page.new_shape();sh.draw_polyline(block_arrow_vertices(pts,scale=p.get('arrow_scale',1),both=p.get('both',False)))
+        sh.finish(width=p['width'],color=(0,),fill=(1,),closePath=True);sh.commit();return
     heads=[]
     for start in ([False,True] if p['both'] else [False] if p['arrow'] else []):
         heads.append(arrow_vertices(pts,at_start=start,scale=p.get("arrow_scale",1)))
@@ -44,6 +56,51 @@ def draw_path(page,p):
         sh=page.new_shape();sh.draw_polyline(vertices);sh.finish(color=None,fill=(0,),closePath=True);sh.commit()
 
 
+def draw_scene_elements(page,scene,assets,reg):
+    """Render one scene, preserving backgrounds and keeping arrows above ordinary objects."""
+    reports=[]
+    # Register scene subsets first: imported PDF forms may already expose the
+    # same resource names with different, incomplete glyph subsets.
+    for face, buffer in (reg.document_fonts.items() if scene.texts else []):
+        page.insert_font(fontname='JFW_'+face,fontbuffer=buffer)
+    for a in scene.assets:
+        if a['role']!='legend-swatch':reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
+    if scene.legend_backgrounds:
+        if any(a['role']=='legend-swatch' for a in scene.assets):
+            raise FigureError('legend_background_asset_unsupported','白底图例暂不支持未显式分组的图例资产')
+        legend_foreground={i for bg in scene.legend_backgrounds for i in bg['foreground_path_ids']}
+        legend_nodes={i for bg in scene.legend_backgrounds for i in bg['foreground_node_ids']}
+        legend_texts={i for bg in scene.legend_backgrounds for i in bg['foreground_text_ids']}
+        for p in scene.paths:
+            if p['id'] not in legend_foreground:draw_path(page,p)
+        for n in scene.nodes:
+            if not n.get('invisible') and n['id'] not in legend_nodes:draw_node(page,n)
+        for t in scene.texts:
+            if t['id'] not in legend_texts:draw_text(page,reg,t)
+        for bg in scene.legend_backgrounds:
+            page.draw_rect(fitz.Rect(bg['rect']),color=None,fill=(1,1,1),width=0,overlay=True)
+            for p in scene.paths:
+                if p['id'] in bg['foreground_path_ids']:draw_path(page,p)
+            for n in scene.nodes:
+                if n['id'] in bg['foreground_node_ids'] and not n.get('invisible'):draw_node(page,n)
+            for t in scene.texts:
+                if t['id'] in bg['foreground_text_ids']:draw_text(page,reg,t)
+        scene.layout_evidence['legend_backgrounds']=[{'frame_id':bg['frame_id'],'rect':bg['rect'],'fill':'opaque-white'} for bg in scene.legend_backgrounds]
+    else:
+        for p in scene.paths:
+            if not p.get('arrow') and not p.get('both'):draw_path(page,p)
+        for n in scene.nodes:
+            if not n.get('invisible') and 'fill' not in n:draw_node(page,n)
+        for p in scene.paths:
+            if p.get('arrow') or p.get('both'):draw_path(page,p)
+        for n in scene.nodes:
+            if not n.get('invisible') and 'fill' in n:draw_node(page,n)
+        for a in scene.assets:
+            if a['role']=='legend-swatch':reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
+        for t in scene.texts:draw_text(page,reg,t)
+    return reports
+
+
 def draw_node(page,n):
     r=fitz.Rect(n['rect']);kind=n['kind'];sh=page.new_shape()
     if kind=='rectangle':sh.draw_rect(r)
@@ -67,7 +124,9 @@ def draw_node(page,n):
               dashes=('['+' '.join(map(str,n['dash']))+'] 0') if n.get('dash') else None,closePath=True);sh.commit()
 
 
-def compile_figure(spec,reg,assets,root,verified_sources=None):
+def compile_figure(spec,reg,assets,root,verified_sources=None,export_padding_pt=0):
+    from .rebuild_fidelity import prepare_rebuild_fidelity, audit_rebuild_fidelity
+    spec=prepare_rebuild_fidelity(spec)
     from .editorial import scale_scene
     kind=spec.get('kind');policy=spec.get('policy',{});mode=policy.get('column','single')
     if mode not in ('single','double','auto'):raise FigureError('column_policy','栏宽选项为single/double/auto')
@@ -85,9 +144,12 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
     def build(font_size):
         if kind=='chart':value=chart(spec,reg,font_size,assets,root)
         elif kind in DIAGRAMS:
-            # stage-grid 可以按块声明裁图图标，需要Assets与源图根目录；其余图种签名不变。
-            value=(DIAGRAMS[kind](spec,reg,font_size,assets,root) if kind=='stage-grid'
-                   else DIAGRAMS[kind](spec,reg,font_size))
+            if kind=='scene' and spec.get('chart_vector_layout') is not None:
+                from .chart_vector_layout import layout_vector_chart
+                laid_out,chart_evidence=layout_vector_chart(spec,reg,root,font_size)
+                value=DIAGRAMS[kind](laid_out,reg,font_size)
+                value.layout_evidence['chart_vector_layout']=chart_evidence
+            else:value=(DIAGRAMS[kind](spec,reg,font_size,assets,root) if kind=='stage-grid' else DIAGRAMS[kind](spec,reg,font_size))
         else:raise FigureError('unsupported_figure_kind','未实现的图种，不生成冒充成果的空页',kind=kind)
         value=attach_trusted_sources(value)
         if kind=='scene':
@@ -97,7 +159,7 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
                 if 'clipped_viewport' in item and item.get('source_svg_group') is not True:raise FigureError('source_svg_clip_unproven','源裁切选项仅用于SVG源图组')
                 if 'source_shape_replacements' in item and item.get('source_mixed_body') is not True:raise FigureError('source_shape_mode','shape替换仅接受显式源混合图体')
                 path=resolve_source(root,item['path']);source_kind=item['source_kind'];clip=item['clip']
-                if source_kind=='raster':asset=assets.raster(path,clip,gray=item.get('gray',True))
+                if source_kind=='raster':asset=assets.raster(path,clip,gray=item.get('gray',True),masks=item.get('masks'),approved_empty_regions=item.get('approved_empty_regions'),text_replacements=item.get('text_replacements',[]))
                 elif source_kind=='pdf':
                     if 'source_path_indices' in item and item.get('source_vector_glyph') is not True:raise FigureError('source_icon_selection_unavailable','源路径重放未通过真实像素验证，禁止使用')
                     if item.get('source_vector_body') is True and item.get('source_icon') is True:raise FigureError('source_asset_mode_conflict','源图体与源图标不可同时声明')
@@ -139,11 +201,21 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
                 white_bound.update(bind_source_text(value,spec['source_text_bindings'],root))
             if any(t.get('gray',0)==1 and t['id'] not in white_bound for t in value.texts):
                 raise FigureError('source_text_color','白字仅用于已核对原白字的完整PDF文字登记')
+            if spec.get('mixed_layout'):
+                from .mixed_layout import apply_mixed_layout
+                apply_mixed_layout(value,spec['mixed_layout'])
         return value
     scene=build(size)
     initial_width=scene.width
     layout_build_count=1
-    limit=col*PT_PER_MM-.5
+    # Reserve the two export margins before fitting the complete artwork.
+    limit=col*PT_PER_MM-2*export_padding_pt-.5
+    if kind=='tree' and scene.width>limit:
+        from .layouts import compact_tree_to_width
+        compact,attempts=compact_tree_to_width(spec,reg,size,limit,policy.get('max_height_mm',240)*PT_PER_MM)
+        layout_build_count+=attempts
+        if compact is not None:
+            scene=attach_trusted_sources(compact)
     factor=min(1.,limit/scene.width)
     if factor<1 and any(p.get('exact_terminal') for p in scene.paths):
         def rebuild(font_size):
@@ -200,6 +272,7 @@ def compile_figure(spec,reg,assets,root,verified_sources=None):
         'production_font_policy':spec.get('ingest_provenance',{}).get('production_font_policy'),
         'optimization_claim':'feasible measured template layout; not a proven global optimum'})
     if issues:raise FigureError('no_feasible_layout','布局未通过实际几何检查，不输出定稿',attempts=attempts)
+    audit_rebuild_fidelity(scene,spec)
     return scene
 
 
@@ -227,6 +300,8 @@ def pdf_audit(path:Path,scene,reg):
     hist=dif.histogram();off=sum(hist[3:]);color_ok=off==0
     ink=ImageChops.difference(img,Image.new('RGB',img.size,'white')).getbbox()
     if not ink:raise FigureError('empty_pdf','最终PDF没有可见内容')
+    text_bounds=[span['bbox'] for block in p.get_text('dict')['blocks'] if block['type']==0 for line in block['lines'] for span in line['spans'] if span['text'].strip()]
+    text_margin=min((min(box[0],box[1],p.rect.width-box[2],p.rect.height-box[3]) for box in text_bounds),default=None)
     from .axis_units import audit_axis_titles
     axis_units=audit_axis_titles(scene,p.get_text())
     from .quantity_spacing import audit_quantity_spacing
@@ -263,6 +338,7 @@ def pdf_audit(path:Path,scene,reg):
             'editable_text_pure_black':black_ok,'editable_text_declared_black_white_exact':declared_colors_ok,'effective_path_strokes_05pt':not stroke_bad,
             'editable_text_rotation_exact':rotation_audit['ok'],'text_rotation':rotation_audit,
             'editable_text_font_styles_exact':font_style_audit['ok'],'text_font_styles':font_style_audit,
+            'pre_export_font_bbox_margin_pt':text_margin,'editable_text_margin_passed':None,
             'audited_stroke_count':icon_audit['audited_stroke_count'],'stroke_violations':stroke_bad,
             'source_path_ownership':icon_audit,
             'source_image_ownership':icon_audit['image_ownership'],
@@ -284,6 +360,8 @@ def pdf_audit(path:Path,scene,reg):
 
 def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=False):
     start=time.perf_counter()
+    diagnostic_only=spec.get('policy',{}).get('diagnostic_only',False)
+    if not isinstance(diagnostic_only,bool):raise FigureError('diagnostic_policy','diagnostic_only must be boolean')
     crop_padding=spec.get('policy',{}).get('export_crop_padding_pt',2.0)
     if isinstance(crop_padding,bool) or not isinstance(crop_padding,(int,float)) or not math.isfinite(crop_padding) or not 0<=crop_padding<=12:
         raise FigureError('export_crop_padding_invalid','导出裁切留白必须为0到12pt的有限数值')
@@ -297,8 +375,10 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         if sha!=v['sha256']:raise FigureError('source_hash_mismatch','原始素材与制作说明绑定的版本不同',source=v['path'])
         bindings.append({'path':v['path'],'sha256':sha,'role':v.get('role','source')})
     if not bindings and not spec.get('synthetic',False):raise FigureError('source_identity_missing','真实图件必须绑定原始素材哈希')
+    if crop_padding<2 and not diagnostic_only:
+        raise FigureError('text_export_margin','生产候选导出留白不得低于2pt；较小留白仅供显式诊断，不能回传候选')
     scene=compile_figure(spec,reg,assets,source_root,
-                         verified_sources={b['path']:b['sha256'] for b in bindings})
+                         verified_sources={b['path']:b['sha256'] for b in bindings},export_padding_pt=crop_padding)
     if spec.get('kind')=='scene':
         frames=[x['id'] for x in scene.paths+scene.nodes if x['id']=='legend-frame']
         bound={bg['frame_id'] for bg in scene.legend_backgrounds}
@@ -324,41 +404,8 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
     tempdir=Path(tempfile.mkdtemp(prefix='.build-',dir=folder));tmp=tempdir/'figure.pdf'
     try:
         reg.prepare_document_fonts(scene.texts)
-        doc=fitz.open();page=doc.new_page(width=scene.width,height=scene.height);asset_reports=[]
-        # Register scene subsets first: imported PDF forms may already expose the
-        # same resource names with different, incomplete glyph subsets.
-        for face, buffer in reg.document_fonts.items():
-            page.insert_font(fontname='JFW_'+face,fontbuffer=buffer)
-        for a in scene.assets:
-            if a['role']!='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
-        if scene.legend_backgrounds:
-            if any(a['role']=='legend-swatch' for a in scene.assets):
-                raise FigureError('legend_background_asset_unsupported','白底图例暂不支持未显式分组的图例资产')
-            legend_foreground={i for bg in scene.legend_backgrounds for i in bg['foreground_path_ids']}
-            legend_nodes={i for bg in scene.legend_backgrounds for i in bg['foreground_node_ids']}
-            legend_texts={i for bg in scene.legend_backgrounds for i in bg['foreground_text_ids']}
-            for p in scene.paths:
-                if p['id'] not in legend_foreground:draw_path(page,p)
-            for n in scene.nodes:
-                if not n.get('invisible') and n['id'] not in legend_nodes:draw_node(page,n)
-            for t in scene.texts:
-                if t['id'] not in legend_texts:draw_text(page,reg,t)
-            for bg in scene.legend_backgrounds:
-                page.draw_rect(fitz.Rect(bg['rect']),color=None,fill=(1,1,1),width=0,overlay=True)
-                for p in scene.paths:
-                    if p['id'] in bg['foreground_path_ids']:draw_path(page,p)
-                for n in scene.nodes:
-                    if n['id'] in bg['foreground_node_ids'] and not n.get('invisible'):draw_node(page,n)
-                for t in scene.texts:
-                    if t['id'] in bg['foreground_text_ids']:draw_text(page,reg,t)
-            scene.layout_evidence['legend_backgrounds']=[{'frame_id':bg['frame_id'],'rect':bg['rect'],'fill':'opaque-white'} for bg in scene.legend_backgrounds]
-        else:
-            for p in scene.paths:draw_path(page,p)
-            for n in scene.nodes:
-                if not n.get('invisible'):draw_node(page,n)
-            for a in scene.assets:
-                if a['role']=='legend-swatch':asset_reports.append(assets.place(page,a['asset'],a['rect'])|{'id':a['id'],'role':a['role']})
-            for t in scene.texts:draw_text(page,reg,t)
+        doc=fitz.open();page=doc.new_page(width=scene.width,height=scene.height)
+        asset_reports=draw_scene_elements(page,scene,assets,reg)
         doc.set_metadata({'title':id,'author':'Journal Direct PDF candidate','subject':'实验样张；须真实字体和本机终检，不自动发布',
                           'creator':f'journal-direct-pdf {__version__}','producer':'PyMuPDF direct vector/mixed renderer; no Adobe runtime'})
         crop_pix=page.get_pixmap(dpi=300,colorspace=fitz.csRGB,alpha=False)
@@ -371,13 +418,18 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         scene.layout_evidence['export_crop']={'method':'actual-PDF-300dpi-ink','source_page_rect':list(page.rect),
               'crop_box':list(crop),'protection_pt':crop_padding,'rescaled':False,'scene_coordinates':'before CropBox offset'}
         page.set_cropbox(crop)
+        if page.rect.width>scene.layout_evidence['column_mm']*PT_PER_MM+.01:
+            raise FigureError('export_column_width','加保护留白后的实际PDF超过栏宽，须重新紧凑排版',width_mm=page.rect.width/PT_PER_MM)
         try:
             finalize_font_descriptors(doc)
         except FontSafetyError as error:
             raise FigureError('font_descriptor_incomplete',str(error),xref=error.xref,reason=error.code) from error
-        doc.save(tmp,garbage=4,deflate=True);doc.close()
+        doc.save(tmp,garbage=3 if any(a["asset"].audit.get("mode")=="source-mixed-body" for a in scene.assets) else 4,deflate=True);doc.close()
         drawing_finished=time.perf_counter()
         audit,img=pdf_audit(tmp,scene,reg)
+        if scene.layout_evidence.get('chart_vector_layout'):
+            from .chart_vector_layout import audit_vector_chart_pdf
+            audit['chart_vector_layout']=audit_vector_chart_pdf(tmp,scene)
         from .final_visibility import audit_final_visibility
         final_visibility_audit=audit_final_visibility(tmp,scene,reg,assets,original_asset_references,source_structure_audit,
             required=spec.get('policy',{}).get('require_final_visibility',False),
@@ -388,7 +440,13 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         # Scene-coordinate audits precede the final page-box normalization.
         # Its separate saved-PDF audit verifies margins and original rendering.
         os.replace(padded_tmp,tmp)
+        audit['minimum_text_margin_pt']=min(export_padding_audit['pages'][0]['measured_margins_pt'])
+        audit['editable_text_margin_passed']=True
+        audit['text_margin_scope']='saved PDF visible ink; verified by export_padding_audit'
         with fitz.open(tmp) as padded_doc:
+            audit['pre_export_page_mm']=[audit['width_mm'],audit['height_mm']]
+            audit['width_mm']=padded_doc[0].rect.width/PT_PER_MM
+            audit['height_mm']=padded_doc[0].rect.height/PT_PER_MM
             padded_pix=padded_doc[0].get_pixmap(dpi=300,colorspace=fitz.csRGB,alpha=False)
             img=Image.frombytes('RGB',(padded_pix.width,padded_pix.height),padded_pix.samples)
         preview_tmp=tempdir/'figure.png';img.save(preview_tmp,optimize=True)
@@ -411,10 +469,17 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         for b in bindings:
             if digest_file(resolve_source(source_root,b['path']))!=b['sha256']:
                 raise FigureError('source_changed_during_render','输出前发现源文件变化')
+        source_path_coverage={}
+        declared_assets={a['id']:a for a in spec.get('assets',[])}
+        for asset in asset_reports:
+            declaration=declared_assets.get(asset['id'],{}).get('nontext_path_bindings')
+            if declaration is not None and asset.get('mode')=='source-vector-body':
+                from .source_path_text_coverage import validate_nontext_paths
+                source_path_coverage[asset['id']]=validate_nontext_paths(Path(asset['source_path']),asset['source_page'],asset['source_clip'],declaration)
         unverified_assets=[{'id':a['id'],'mode':a['mode'],'source_sha256':a.get('source_sha256')}
-                           for a in asset_reports if a.get('mode') in ('source-vector-body','source-mixed-body')]
+                           for a in asset_reports if a.get('mode') in ('source-vector-body','source-mixed-body') and a['id'] not in source_path_coverage]
         typography_coverage={'status':'unverified' if unverified_assets else 'declared-scene-checked',
-                             'unverified_assets':unverified_assets,
+                             'unverified_assets':unverified_assets,'nontext_path_registration':source_path_coverage,
                              'scope':'Native PDF text checks do not inspect text retained as source paths or image pixels.'}
         if unverified_assets:
             warnings.append({'code':'source_text_coverage','message':'原图路径或像素中的文字尚未逐项核对；原生文字替换通过不等于全图字号、字体与布局合格。'})
@@ -428,7 +493,7 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         result={'schema_version':1,'engine_version':__version__,'engine_signature':engine_signature(),
                 'editorial_ruleset':RULESET,'editorial_coverage':'partial-see-RULE-COVERAGE.md','id':id,'author':author,'kind':spec['kind'],
                 'status':candidate_status,
-                'mechanical_checks_passed':True,'overall_checks_passed':not unverified_assets and not editorial_review,
+                'mechanical_checks_passed':True,'overall_checks_passed':not unverified_assets and not diagnostic_only and not editorial_review,
                 'typography_coverage':typography_coverage,'ready_for_publication':False,
                 'backend':'direct-pdf','required_artifact':'pdf','ai_required':False,
                 'editable_policy':spec.get('policy',{}),'spec_hash':digest_json(spec),'source_bindings':bindings,'font':reg.summary(),

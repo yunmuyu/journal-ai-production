@@ -185,9 +185,12 @@ def columns(spec, registry, size):
     from .layouts import primitive
     children = []
     for column in column_specs:
+        # The compositor owns column titles. Passing one to graph would create
+        # a second title and shift each child by its different measured height.
+        child_spec = {key: value for key, value in column.items() if key != 'title'}
         match column.get('kind', 'graph'):
-            case 'graph': children.append(graph(column, registry, size))
-            case 'scene': children.append(primitive(column, registry, size))
+            case 'graph': children.append(graph(child_spec, registry, size))
+            case 'scene': children.append(primitive(child_spec, registry, size))
             case _: raise FigureError('columns_child_kind', '子列仅支持graph或scene')
     scale = size / 8
     outer_margin = 0

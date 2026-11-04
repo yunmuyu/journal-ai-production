@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import {mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync, copyFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {repoRoot, readRelease} from '../scripts/common.mjs';
+import {pathToFileURL} from 'node:url';
+import {repoRoot, readRelease, sha256} from '../scripts/common.mjs';
 import {run} from '../scripts/run.mjs';
-import {install} from '../scripts/install.mjs';
 
 function fixture() {
   const root = mkdtempSync(path.join(tmpdir(), 'jfw-collaboration-'));
@@ -18,6 +18,28 @@ function fixture() {
   writeFileSync(configFile, JSON.stringify({runtimePath, workspaceRoot, recordRoot: root, pathMapFile: path.join(root, 'map.json'), python: process.execPath, flowchartRoot: root, skillsRoot}));
   writeFileSync(path.join(root, 'map.json'), JSON.stringify({mappings: []}));
   return {root, runtimePath, configFile, workspaceRoot, skillsRoot};
+}
+
+async function installerFixture() {
+  const f = fixture();
+  // Exercise unchanged installer code against a self-consistent isolated release.
+  // The working tree skill can legitimately be newer than the historical RELEASE.
+  const releaseRoot = path.join(f.root, 'release');
+  const scripts = path.join(releaseRoot, 'collaboration', 'scripts');
+  mkdirSync(scripts, {recursive: true});
+  for (const name of ['install.mjs', 'common.mjs'])
+    copyFileSync(path.join(repoRoot, 'collaboration', 'scripts', name), path.join(scripts, name));
+  const runtime = Buffer.from('fixture runtime bytes\n');
+  const skill = Buffer.from('# Fixture release skill\n');
+  mkdirSync(path.join(releaseRoot, 'production-runtime', 'adobe'), {recursive: true});
+  mkdirSync(path.join(releaseRoot, 'skill'));
+  writeFileSync(path.join(releaseRoot, 'production-runtime', 'adobe', 'common.jsx'), runtime);
+  writeFileSync(path.join(releaseRoot, 'skill', 'SKILL.md'), skill);
+  const release = {id: 'installer-fixture', skillSha256: sha256(skill),
+    files: [{path: 'adobe/common.jsx', sha256: sha256(runtime), bytes: runtime.length}]};
+  writeFileSync(path.join(releaseRoot, 'RELEASE.json'), JSON.stringify(release));
+  const {install} = await import(pathToFileURL(path.join(scripts, 'install.mjs')).href);
+  return {...f, releaseRoot, release, install, runtime, skill};
 }
 
 test('status is read-only and passes configured environment', () => {
@@ -67,8 +89,8 @@ test('runtime drift refuses execution before touching job', () => {
   assert.equal(existsSync(path.join(f.workspaceRoot, 'new-job')), false);
 });
 
-test('installer dry run makes no target; apply copies only release and backs up old file', () => {
-  const f = fixture();
+test('installer dry run makes no target; apply copies only release and backs up old file', async () => {
+  const f = await installerFixture(), {install} = f;
   const target = path.join(f.skillsRoot, 'journal-figure-workflow');
   const dry = install(['--config', f.configFile]);
   assert.equal(dry.mode, 'dry-run');
@@ -81,9 +103,11 @@ test('installer dry run makes no target; apply copies only release and backs up 
   assert.equal(readFileSync(path.join(applied.backup, 'runtime', 'adobe', 'common.jsx'), 'utf8'), 'old');
   assert.equal(readFileSync(path.join(target, 'extra.txt'), 'utf8'), 'keep');
   const receipt = JSON.parse(readFileSync(applied.receiptFile, 'utf8'));
-  assert.equal(receipt.releaseId, readRelease().release.id);
+  assert.equal(receipt.releaseId, f.release.id);
   assert.equal(receipt.files.length, dry.count);
   assert.equal(readdirSync(path.join(target, 'runtime')).length > 0, true);
+  assert.deepEqual(readFileSync(path.join(target, 'runtime', 'adobe', 'common.jsx')), f.runtime);
+  assert.deepEqual(readFileSync(path.join(target, 'SKILL.md')), f.skill);
 });
 
 test('workRoot takes precedence and direct CLI status leaves no event', () => {
@@ -126,14 +150,24 @@ test('render completion records one invocation identity, plan hash and elapsed w
  assert.ok(Number.isFinite(events[1].durationMs)&&events[1].durationMs>=0);
 });
 
-test('installer restores a partially-written existing file when copy throws',()=>{
- const f=fixture(),target=path.join(f.skillsRoot,'journal-figure-workflow/runtime',readRelease().release.files[0].path);mkdirSync(path.dirname(target),{recursive:true});writeFileSync(target,'previous');
+test('installer restores a partially-written existing file when copy throws',async()=>{
+ const f=await installerFixture(),{install}=f,target=path.join(f.skillsRoot,'journal-figure-workflow/runtime',f.release.files[0].path);mkdirSync(path.dirname(target),{recursive:true});writeFileSync(target,'previous');
  assert.throws(()=>install(['--config',f.configFile,'--apply'],{copy:(_from,to)=>{writeFileSync(to,'partial');throw Error('disk full');}}),/previous files restored/);
  assert.equal(readFileSync(target,'utf8'),'previous');
 });
-test('installer removes new partial files and restores on final hash validation failure',()=>{
- const f=fixture(),target=path.join(f.skillsRoot,'journal-figure-workflow/runtime',readRelease().release.files[0].path);
+test('installer removes new partial files and restores on final hash validation failure',async()=>{
+ const f=await installerFixture(),{install}=f,target=path.join(f.skillsRoot,'journal-figure-workflow/runtime',f.release.files[0].path);
  assert.throws(()=>install(['--config',f.configFile,'--apply'],{copy:(from,to)=>{copyFileSync(from,to);if(to===target)writeFileSync(to,'corrupt');}}),/previous files restored/);
  assert.equal(existsSync(target),false);
  assert.equal(existsSync(path.join(f.skillsRoot,'journal-figure-workflow/SKILL.md')),false);
+});
+
+test('installer rejects source skill or runtime drift before touching target',async()=>{
+ for(const kind of ['skill','runtime']){
+  const f=await installerFixture(),{install}=f;
+  const changed=kind==='skill'?path.join(f.releaseRoot,'skill/SKILL.md'):path.join(f.releaseRoot,'production-runtime',f.release.files[0].path);
+  writeFileSync(changed,'tampered');
+  assert.throws(()=>install(['--config',f.configFile,'--apply']),/hash mismatch/i);
+  assert.equal(existsSync(path.join(f.skillsRoot,'journal-figure-workflow')),false);
+ }
 });

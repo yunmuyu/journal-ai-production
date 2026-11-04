@@ -10,6 +10,15 @@ from journal_pdf.common import FigureError, PT_PER_MM
 from journal_pdf.raster_preprocess import main, preprocess_raster
 
 
+
+def create_test_symlink(link, target, *, target_is_directory=False):
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except OSError as error:
+        if getattr(error, 'winerror', None) == 1314:
+            pytest.skip('Windows does not grant symlink creation; these guards also run on Linux CI')
+        raise
+
 @pytest.fixture
 def locations(tmp_path):
     source = tmp_path / "source"
@@ -225,7 +234,7 @@ def test_source_output_overlap_blocked_before_write(locations, where):
     elif where == "parent":
         output = source_root.parent
     else:
-        output.symlink_to(source_root, target_is_directory=True)
+        create_test_symlink(output, source_root, target_is_directory=True)
     with pytest.raises(FigureError) as exc:
         preprocess_raster(source, output, source_root=source_root, figure_id="synthetic")
     assert exc.value.code == "output_source_overlap"
@@ -238,7 +247,7 @@ def test_source_outside_root_and_symlink_escape_blocked(locations, tmp_path):
     Image.new("L", (8, 8)).save(other)
     for source in (other, locations[0] / "link.png"):
         if source != other:
-            source.symlink_to(other)
+            create_test_symlink(source, other)
         with pytest.raises(FigureError) as exc:
             run(locations, source)
         assert exc.value.code == "source_outside_root"
@@ -261,7 +270,7 @@ def test_dangling_output_symlink_protected(locations, tmp_path):
     locations[1].mkdir()
     link = locations[1] / "synthetic"
     target = tmp_path / "not-created"
-    link.symlink_to(target, target_is_directory=True)
+    create_test_symlink(link, target, target_is_directory=True)
     with pytest.raises(FigureError) as exc:
         run(locations, source)
     assert exc.value.code == "raster_output_exists"

@@ -25,6 +25,13 @@ def content(value):
     return value
 
 
+def svg_tick(tick):
+    result={'text':tick['text_hint'],'position':tick['position']}
+    try:group_number(tick['text_hint'])
+    except FigureError:result['categorical']=True
+    return result
+
+
 def validate_production_policy_exception(record,reply_sha256,source_sha256,size):
     """Validate binding, not approval authenticity. Only the production caller supplies this.
     Semantic replies cannot grant themselves a design-size policy exception.
@@ -48,7 +55,7 @@ def compile_reply_figure(reply,source,page,*,production_policy_exception=None):
     require(isinstance(reply,dict),'semantic_schema','图件回复必须是对象')
     allowed={'id','author','source_id','page_id','kind','review','axis_ref','x_ticks','y_ticks','x_title','y_title',
              'legend_rows','no_legend','ignored_legends','mask_review','chart_ref','accept_source_text_hints','series_pairs','nodes','edges',
-             'outline_chart','direction','scope_refs','scope_reason','ignored_texts','ignored_ticks','policy','model','structure','tree_layout','root_vertical'}
+             'outline_chart','direction','scope_refs','scope_reason','ignored_texts','ignored_ticks','policy','model','structure','tree_layout','root_vertical','title_ref'}
     require(not set(reply)-allowed,'semantic_unknown_fields','回复含未允许字段；不接受路径/命令/自定义坐标',fields=sorted(set(reply)-allowed))
     id=safe_name(reply['id']);author=safe_name(reply.get('author','未归属'))
     review=reply.get('review',{})
@@ -114,10 +121,10 @@ def _raster(reply,source,page,base):
     g=page['geometry'];axis=lookup(g['axes'],reply.get('axis_ref'),'axis')
     xt=_ticks(reply.get('x_ticks'),axis['x_ticks']);yt=_ticks(reply.get('y_ticks'),axis['y_ticks'])
     selected=reply.get('legend_rows',[])
-    no_legend=reply.get('no_legend',False)
+    no_legend=reply.get('no_legend',not selected and bool(reply['review'].get('no_legend_reason')))
     require(isinstance(no_legend,bool),'legend_absence_schema','no_legend须为布尔值')
     if no_legend:
-        reason=reply['review'].get('legend_absence_reason')
+        reason=reply['review'].get('legend_absence_reason',reply['review'].get('no_legend_reason'))
         require(not selected and isinstance(reason,str) and bool(reason.strip()),
             'legend_absence_review','无图例须明确声明、给出实图依据，且不能同时选中图例')
         ignored_legends=reply.get('ignored_legends',[])
@@ -154,7 +161,7 @@ def _raster(reply,source,page,base):
     if no_legend:
         return base|{'kind':'chart','source_kind':'raster','source':source['snapshot'],'plot_clip':axis['plot_clip'],
             'axis_frame_source':axis['frame'],'x_ticks':xt,'y_ticks':yt,'x_title':content(reply['x_title']),'y_title':content(reply['y_title']),
-            'series':[],'legend_placement':'none','legend_frame':False,'plot_width_pt':180,
+            'series':[],'masks':[],'approved_empty_regions':[],'legend_review':{'present':False,'source_sha256':source['sha256'],'reason':reason},'legend_placement':'none','legend_frame':False,'plot_width_pt':180,
             'tick_length_source_units':0,'tick_source_evidence':{'mode':'geometry-candidate-confirmed','axis_id':axis['id'],
                 'note':'No legend or masks; inward ticks independently confirmed by reviewer'}}
     r=union_rect(rects);pad=3;f=axis['frame'];mask=[max(f[0]+2,r[0]-pad),max(f[1]+2,r[1]-pad),min(f[2]-2,r[2]+pad),min(f[3]-2,r[3]+pad)]
@@ -173,10 +180,32 @@ def _raster(reply,source,page,base):
 def _svg(reply,source,page,base):
     require(page['kind']=='svg','source_kind_mismatch','SVG路线只接受原SVG')
     c=lookup(page['chart_candidates'],reply.get('chart_ref'),'chart')
+    require(not c.get('unresolved_patch_series'),'svg_bar_binding','未能完整绑定填充图形，禁止忽略数据')
+    plot_text = c.get('unhandled_plot_text', [])
+    title_ref = reply.get('title_ref')
+    if title_ref is not None:
+        title = lookup(plot_text, title_ref, 'plot-title')
+        base['plot_title'] = content(title['text'])
+        base['ingest_provenance']['plot_title_ref'] = title_ref
+    remaining = [item for item in plot_text if item['id'] != title_ref]
+    require(not remaining,'svg_plot_text_unbound','图内标题或数据文字尚未绑定，禁止忽略原文',objects=remaining)
     require(reply.get('accept_source_text_hints') is True,'svg_text_hint_review','转曲SVG注释只是提示；须看图确认后接受')
     require(c['x_ticks'] and c['y_ticks'] and set(c['titles'])=={'x','y'},'svg_chart_incomplete','缺少可绑定刻度/轴题')
-    for t in c['x_ticks']+c['y_ticks']:group_number(t['text_hint'])
     pairs=reply.get('series_pairs',[])
+    if not pairs and not c['legend_rows']:
+        reason=reply['review'].get('no_legend_reason')
+        require(isinstance(reason,str) and bool(reason.strip()),'legend_absence_review','无图例须核对原图并说明依据')
+        require(bool(c['series_groups']),'svg_series_identity','无图例仍需原始曲线系列')
+        require(c['tick_length'] is not None,'svg_tick_geometry','没有可靠刻线几何')
+        return base|{'kind':'chart','source_kind':'svg','source':source['snapshot'],'axes_id':c['axes_id'],
+            'plot_clip':c['plot_clip'],'axis_frame_source':c['frame'],'plot_width_pt':180,
+            'x_ticks':[svg_tick(t) for t in c['x_ticks']],
+            'y_ticks':[svg_tick(t) for t in c['y_ticks']],
+            'x_title':c['titles']['x']['text_hint'],'y_title':c['titles']['y']['text_hint'],
+            'series':[],'series_source_groups':c['series_groups'],'legend_source_id':None,
+            'legend_review':{'present':False,'source_sha256':source['sha256'],'reason':reason},
+            'protected_path_points':c['protected_path_points'],'tick_length_source_units':c['tick_length'],
+            'restore_verified_tick_stubs':True,'tick_source_evidence':{'mode':'original-svg-use-and-def','axes_id':c['axes_id']}}
     require(len(pairs)==len(c['legend_rows']),'svg_series_coverage','图例绑定不完整')
     require(len({p['row_ref'] for p in pairs})==len(pairs),'svg_duplicate_legend','图例重复绑定')
     require({p['source_group'] for p in pairs}==set(c['series_groups']) and len(pairs)==len(c['series_groups']),
@@ -185,14 +214,15 @@ def _svg(reply,source,page,base):
     for p in pairs:
         row=lookup(c['legend_rows'],p['row_ref'],'legend-row')
         entries.append({'id':p['source_group'],'label':row['text_hint'],'source_group':p['source_group'],
+            'source_groups':c.get('series_group_members',{}).get(p['source_group'],[p['source_group']]),
             'swatch_group':row['swatch_group'],'swatch_clip':row['swatch_clip']})
     require(c['tick_length'] is not None,'svg_tick_geometry','没有可靠刻线几何')
     return base|{'kind':'chart','source_kind':'svg','source':source['snapshot'],'axes_id':c['axes_id'],
         'plot_clip':c['plot_clip'],'axis_frame_source':c['frame'],'plot_width_pt':180,
-        'x_ticks':[{'text':t['text_hint'],'position':t['position']} for t in c['x_ticks']],
-        'y_ticks':[{'text':t['text_hint'],'position':t['position']} for t in c['y_ticks']],
+        'x_ticks':[svg_tick(t) for t in c['x_ticks']],
+        'y_ticks':[svg_tick(t) for t in c['y_ticks']],
         'x_title':c['titles']['x']['text_hint'],'y_title':c['titles']['y']['text_hint'],
-        'series':entries,'legend_source_id':c['legend_id'],'legend_placement':'outside-top','legend_frame':False,
+        'series':entries,'legend_source_id':c['legend_id'],'legend_placement':'auto-inside','legend_frame':False,
         'protected_path_points':c['protected_path_points'],'tick_length_source_units':c['tick_length'],
         'restore_verified_tick_stubs':True,'tick_source_evidence':{'mode':'original-svg-use-and-def','axes_id':c['axes_id']}}
 
@@ -202,6 +232,10 @@ def _diagram(reply,source,page,base):
     nodes=reply.get('nodes',[]);edges=reply.get('edges',[])
     require(isinstance(nodes,list) and 1<=len(nodes)<=80 and isinstance(edges,list),'diagram_schema','节点或连接列表无效')
     originals=page.get('objects',[]);byid={r['id']:r for r in originals};used=[];out=[]
+    title_ref=reply.get('title_ref');title=None
+    if title_ref is not None:
+        require(page['kind']!='raster','native_title_required','图内标题必须绑定原生文字')
+        title=content(lookup(originals,title_ref,'title').get('text'));used.append(title_ref)
     for n in nodes:
         require(not set(n)-{'id','ref','refs','join','text','shape'} and ('ref' in n)!=('refs' in n)
                 and ('join' not in n or 'refs' in n),'diagram_node_schema','节点只能绑定单个ref或原生文字refs，不接受手写坐标')
@@ -285,7 +319,7 @@ def _diagram(reply,source,page,base):
                     require(e.get('arrow') is False and not e.get('both',False),
                         'native_arrow_direction_mismatch','原生无箭头连接不能默认添加箭头')
         eout.append(ee)
-    return base|{'kind':'graph','nodes':out,'edges':eout,'direction':reply.get('direction','TB'),
+    return base|{'kind':'graph','nodes':out,'edges':eout,'direction':reply.get('direction','TB'),**({'title':title} if title is not None else {}),
         'source_scope':{'refs':scope or used,'reason':reply.get('scope_reason'),'ignored':reply.get('ignored_texts',[])}}
 
 

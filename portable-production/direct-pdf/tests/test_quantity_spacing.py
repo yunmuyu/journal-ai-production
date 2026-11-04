@@ -164,6 +164,7 @@ def test_render_pipeline_rejects_quantity_when_both_formatters_are_bypassed(reg,
     source=tmp_path/'source';source.mkdir()
     monkeypatch.setattr('journal_pdf.scene.display_content',lambda content,role='label':content)
     monkeypatch.setattr('journal_pdf.fonts.display_content',lambda content,role='label':content)
+    monkeypatch.setattr('journal_pdf.label_layout.display_content',lambda content,role='label':content)
     spec={'id':'bypass','author':'Synthetic','synthetic':True,'kind':'scene','width_pt':100,'height_pt':60,
           'texts':[{'id':'caption','text':[{'text':'52.4KB'}],'x':50,'y':30}],
           'policy':{'export_crop_padding_pt':4}}

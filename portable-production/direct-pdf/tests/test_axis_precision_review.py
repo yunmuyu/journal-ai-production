@@ -74,6 +74,8 @@ def test_chart_groups_axes_before_precision_review(reg,tmp_path):
           'plot_width_pt':180,'x_title':'x','y_title':'y','series':[],
           'x_ticks':[{'text':str(i),'position':i*200} for i in range(3)],
           'y_ticks':[{'text':v,'position':i*100} for i,v in enumerate(['0','0.2','0.4','1'])]}
+    from journal_pdf.common import digest_file
+    spec['legend_review']={'present':False,'source_sha256':digest_file(source),'reason':'Synthetic blank plot explicitly has no legend'}
     assets=Assets()
     try:
         scene=chart(spec,reg,8,assets,tmp_path)

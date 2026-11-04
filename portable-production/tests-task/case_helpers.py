@@ -34,7 +34,7 @@ def make_case(tmp_path):
             code=[ref(tmp_path / 'code.py')], font_profile=ref(tmp_path / 'font.json')),
         outputs=[dict(id='fig1', path='fig1.pdf', delivery_target=str(tmp_path / 'authors' / 'fig1.pdf'), format='pdf', width_mm=84.666667,
             pixels=[], dpi=300, stroke_pt=.5)],
-        mechanical=['dimensions', 'coverage'], manual_review=['source_content', 'visual', 'runtime_provenance'],
+        mechanical=['dimensions', 'coverage'], manual_review=['source_content', 'visual', 'runtime_provenance', 'typography'],
         allowed_changes=['font'], immutable_content=['labels', 'geometry'],
         failure_policy=dict(max_attempts=3, repair='local-only', time_budget_seconds=None, cost_budget=None))
     return contract

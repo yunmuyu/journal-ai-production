@@ -36,6 +36,12 @@ def test_absent_setting_uses_two_point_export_behavior(reg,tmp_path):
     assert size==other_size and crop==other_crop and pixels==other_pixels
 
 
+def test_quarter_point_crop_cannot_publish_text_without_actual_safe_margins(reg,tmp_path):
+    with pytest.raises(FigureError) as error:
+        render_sample(reg,tmp_path,'unsafe',.25)
+    assert error.value.code=='text_export_margin'
+
+
 @pytest.mark.parametrize('value',[-.01,12.01,float('inf'),float('-inf'),float('nan'),True,False,'4',None,[],{}])
 def test_invalid_export_padding_is_rejected_before_outputs_or_scene_construction(tmp_path,value):
     spec={'policy':{'export_crop_padding_pt':value}}

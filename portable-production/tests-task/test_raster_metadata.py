@@ -13,6 +13,7 @@ from task_quality.storage import ref
 def test_exif_rational_dpi_jpeg_postcheck_cli_emits_serializable_numbers(tmp_path):
     contract = make_case(tmp_path)
     contract['route'] = 'raster'
+    contract['manual_review'] = ['source_content', 'visual', 'runtime_provenance', 'readability', 'grayscale_semantics']
     output = contract['outputs'][0]
     output.update(path='fig1.jpg', format='jpg', pixels=[1200, 600], width_mm=101.6, stroke_pt=None,
                   delivery_target=str(tmp_path / 'authors' / 'fig1.jpg'))

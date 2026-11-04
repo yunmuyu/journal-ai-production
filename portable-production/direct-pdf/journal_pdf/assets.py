@@ -3,7 +3,7 @@ This module never guesses data points or paints missing curves.
 """
 from __future__ import annotations
 from pathlib import Path
-import copy, hashlib, io, re
+import copy, hashlib, io, re, math
 from dataclasses import dataclass, field
 from PIL import Image, ImageDraw, ImageChops
 from lxml import etree as ET
@@ -26,7 +26,7 @@ class Asset:
     svg_bytes: bytes|None=None
 
 
-def svg_root(path: Path):
+def svg_root(path: Path, *, allow_embedded_images=False):
     parser=ET.XMLParser(resolve_entities=False,no_network=True,load_dtd=False,huge_tree=False,remove_comments=False)
     root=ET.parse(str(path),parser).getroot()
     if root.tag!='{'+SVGNS+'}svg': raise FigureError('svg_root','不是SVG文件')
@@ -40,7 +40,11 @@ def svg_root(path: Path):
         for k,v in e.attrib.items():
             if k.startswith('on'): raise FigureError('svg_script','拒绝SVG事件处理器')
             if k in ('href',XLINK) and not v.startswith('#'):
-                raise FigureError('svg_external_resource','拒绝SVG外部资源和数据资源',href=v[:120])
+                if allow_embedded_images and local=='image' and v.startswith('data:'):
+                    from .svg_embedded import embedded_image
+                    embedded_image(v)
+                else:
+                    raise FigureError('svg_external_resource','拒绝SVG外部资源和数据资源',href=v[:120])
             if 'url(' in v and re.search(r'url\(\s*[\'"]?(?!#)',v):
                 raise FigureError('svg_external_style','拒绝SVG外部样式资源')
     return root
@@ -49,6 +53,7 @@ def svg_root(path: Path):
 def svg_pdf_bytes(root):
     # Lazy dependency: missing Windows Cairo DLL blocks SVG only, not diagrams.
     # Do not silently substitute a converter that drops dashed strokes.
+    root=_prepare_rectangular_masks(root)
     try:
         import cairosvg
     except (ImportError, OSError) as e:
@@ -57,13 +62,58 @@ def svg_pdf_bytes(root):
     return cairosvg.svg2pdf(bytestring=ET.tostring(root), unsafe=False)
 
 
+def _prepare_rectangular_masks(root):
+    """Convert strictly simple white rectangle masks to vector clipping paths."""
+    masks=root.xpath('.//s:mask',namespaces=NS)
+    if not masks:return root
+    if root.xpath('.//s:style',namespaces=NS):
+        raise FigureError('svg_mask_unsupported','带样式表的 SVG 遮罩无法安全转换')
+    result=copy.deepcopy(root)
+    for mask in result.xpath('.//s:mask',namespaces=NS):
+        ident=mask.get('id');children=list(mask)
+        if not ident or set(mask.attrib)!={'id'} or len(children)!=1 or children[0].tag!='{'+SVGNS+'}rect':
+            raise FigureError('svg_mask_unsupported','SVG mask 必须是单一白色矩形')
+        rect=children[0]
+        if set(rect.attrib)!={'x','y','width','height','fill'} or rect.get('fill')!='white' or len(rect):
+            raise FigureError('svg_mask_unsupported','SVG mask 矩形必须为不透明白色且无其他样式')
+        try:values=[float(rect.get(key)) for key in ('x','y','width','height')]
+        except (TypeError,ValueError) as exc:raise FigureError('svg_mask_unsupported','SVG mask 坐标必须是有限数值') from exc
+        if not all(math.isfinite(v) for v in values) or values[2]<=0 or values[3]<=0:
+            raise FigureError('svg_mask_unsupported','SVG mask 矩形尺寸无效')
+        if len(result.xpath('//*[@id=$id]',id=ident))!=1:
+            raise FigureError('svg_mask_unsupported','SVG mask ID 不唯一')
+        users=result.xpath('//*[@mask=$value]',value=f'url(#{ident})')
+        if len(users)!=1 or users[0].get('clip-path') is not None or any('mask:' in e.get('style','').lower().replace(' ','') for e in result.iter() if isinstance(e.tag,str)):
+            raise FigureError('svg_mask_unsupported','SVG mask 引用或裁切关系不明确')
+        users[0].set('clip-path',users[0].attrib.pop('mask'))
+        mask.tag='{'+SVGNS+'}clipPath';mask.set('clipPathUnits','userSpaceOnUse')
+    return result
+
+
 def element(root,id):
     rows=root.xpath('//*[@id=$id]',id=id)
     if len(rows)!=1:raise FigureError('svg_object_identity','SVG对象ID缺失或不唯一',id=id,count=len(rows))
     return rows[0]
 
 
-def geometry_signature(root,ids):
+def unit_length_svg_transform(transform: str) -> bool:
+    cursor=0
+    for match in re.finditer(r'(translate|matrix)\(([^)]*)\)',transform):
+        if transform[cursor:match.start()].strip():return False
+        try:values=[float(v) for v in re.split(r'[\s,]+',match.group(2).strip()) if v]
+        except ValueError:return False
+        if not all(math.isfinite(v) for v in values):return False
+        if match.group(1)=='translate':
+            if len(values) not in (1,2):return False
+        else:
+            if len(values)!=6:return False
+            a,b,c,d,_,_=values
+            if not (math.isclose(a*a+b*b,1.,abs_tol=1e-9) and math.isclose(c*c+d*d,1.,abs_tol=1e-9) and math.isclose(a*c+b*d,0.,abs_tol=1e-9)):return False
+        cursor=match.end()
+    return not transform[cursor:].strip()
+
+
+def geometry_signature(root,ids,*,include_dash=True):
     rows=[]; seen=set()
     fields={'d','points','x','y','x1','x2','y1','y2','cx','cy','r','rx','ry','width','height','transform','clip-path',XLINK,'href'}
     def record(ident):
@@ -76,12 +126,40 @@ def geometry_signature(root,ids):
             style=p.get('style','')
             protected={k.strip():v.strip() for term in style.split(';') if ':' in term for k,v in [term.split(':',1)]
                        if k.strip() in ('stroke-width','stroke-dasharray','stroke-dashoffset','stroke-linecap','stroke-linejoin')}
+            if not include_dash:
+                protected.pop('stroke-dasharray',None);protected.pop('stroke-dashoffset',None)
             if attrs or protected:rows.append([ident,ET.QName(p).localname,attrs,protected])
             for value in attrs.values():
                 for ref in re.findall(r'url\(#([^)]*)\)',value):record(ref)
                 if value.startswith('#'):record(value[1:])
     for ident in ids:record(ident)
     return digest_json(rows)
+
+
+def distinguish_series_dash(root,group_id):
+    group=element(root,group_id)
+    paths=group.findall('s:path',NS)
+    if len(paths)!=1 or paths[0].get('transform'):
+        raise FigureError('svg_series_style_unsupported','仅接受无变换的单条原始矢量曲线',group=group_id)
+    target=paths[0];style=target.get('style','')
+    if 'stroke-dasharray' in style or target.get('stroke-dasharray'):
+        raise FigureError('svg_series_style_unsupported','源线已有虚线样式，禁止覆盖',group=group_id)
+    target.set('style',style.rstrip(';')+';stroke-dasharray:7,4')
+
+
+def indistinct_solid_pair(path,series_ids):
+    if len(series_ids)!=2:return []
+    root=svg_root(path);grays=[]
+    for ident in series_ids:
+        group=element(root,ident);paths=group.findall('s:path',NS)
+        if len(paths)!=1 or group.get('transform') or paths[0].get('transform'):return []
+        target=paths[0];style=target.get('style','')
+        if 'stroke-dasharray' in style or target.get('stroke-dasharray'):return []
+        match=re.search(r'(?:^|;)\s*stroke\s*:\s*#([0-9a-fA-F]{6})(?:;|$)',style)
+        if not match:return []
+        color=match.group(1);rgb=[int(color[i:i+2],16) for i in (0,2,4)]
+        grays.append(round(.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2]))
+    return [series_ids[1]] if abs(grays[0]-grays[1])<64 else []
 
 
 def grayscale_svg(root):
@@ -219,8 +297,8 @@ class Assets:
         a.doc=fitz.open(stream=data,filetype='pdf');self._cache[key]=a;self.stats['preparations']+=1
         return a
 
-    def svg_chart(self,path: Path,axes_id: str,plot_rect,series_ids,legend_id,gray=True):
-        sha=digest_file(path); key=digest_json(['svg-chart',sha,axes_id,plot_rect,series_ids,legend_id,gray])
+    def svg_chart(self,path: Path,axes_id: str,plot_rect,series_ids,legend_id,gray=True,dashed_series=(),replaced_text_groups=()):
+        sha=digest_file(path); key=digest_json(['svg-chart',sha,axes_id,plot_rect,series_ids,legend_id,gray,list(dashed_series),list(replaced_text_groups)])
         if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
         root=svg_root(path)
         # Preserve all definitions; remove only identified text/legend/other axes.
@@ -238,7 +316,7 @@ class Assets:
         for e in root.findall('.//s:g',NS):
             if not e.get('id','').startswith('text_'):continue
             ancestors=[a.get('id','') for a in e.iterancestors()]
-            if legend_id not in ancestors and not any(a.startswith('matplotlib.axis_') for a in ancestors):
+            if e.get('id') not in replaced_text_groups and legend_id not in ancestors and not any(a.startswith('matplotlib.axis_') for a in ancestors):
                 unhandled.append(e.get('id'))
         if unhandled:
             raise FigureError('svg_unhandled_source_text',
@@ -251,32 +329,41 @@ class Assets:
                 if par is not None:par.remove(e);removed.append(ident)
         after=geometry_signature(root,series_ids)
         if before!=after:raise FigureError('svg_data_changed','SVG数据路径在处理时发生改变')
+        immutable=geometry_signature(root,series_ids,include_dash=False)
+        for group_id in dashed_series:
+            if group_id not in series_ids:raise FigureError('svg_series_identity','虚线目标不属于原系列',group=group_id)
+            distinguish_series_dash(root,group_id)
+        if geometry_signature(root,series_ids,include_dash=False)!=immutable:raise FigureError('svg_data_changed','样式调整改变了原数据路径')
         n=grayscale_svg(root) if gray else 0
         # Render vector SVG to vector PDF, retaining original viewBox coordinates.
         data=svg_pdf_bytes(root)
         a=Asset(key,'pdf',str(path),sha,list(plot_rect),data,
                 {'mode':'svg-vector-preserve','series_ids':series_ids,'geometry_before':before,'geometry_after':after,
-                 'geometry_unchanged':True,'removed_groups':removed,'grayscale_operations':n,
+                 'geometry_unchanged':True,'removed_groups':removed,'grayscale_operations':n,'dashed_series':list(dashed_series),
                  'curve_values_reconstructed':False})
         a.svg_bytes=ET.tostring(root)
         a.doc=fitz.open(stream=data,filetype='pdf');self._cache[key]=a;self.stats['preparations']+=1;return a
 
-    def svg_swatch(self,path:Path,group_id:str,clip,gray=True):
-        sha=digest_file(path);key=digest_json(['svg-swatch',sha,group_id,clip,gray])
+    def svg_swatch(self,path:Path,group_id:str,clip,gray=True,dashed=False):
+        sha=digest_file(path);key=digest_json(['svg-swatch',sha,group_id,clip,gray,dashed])
         if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
         root=svg_root(path);saved=copy.deepcopy(element(root,group_id));all_defs(root)
         defs=copy.deepcopy(root.find('s:defs',NS));new=ET.Element(root.tag,nsmap=root.nsmap,attrib=dict(root.attrib))
         if defs is not None:new.append(defs)
         new.append(saved)
+        if dashed:distinguish_series_dash(new,group_id)
         n=grayscale_svg(new) if gray else 0
         data=svg_pdf_bytes(new)
         a=Asset(key,'pdf',str(path),sha,list(clip),data,{'mode':'original-svg-legend-swatch','group_id':group_id,'grayscale_operations':n})
         a.svg_bytes=ET.tostring(new)
         a.doc=fitz.open(stream=data,filetype='pdf');self._cache[key]=a;self.stats['preparations']+=1;return a
 
-    def raster(self,path:Path,clip,*,masks=None,approved_empty_regions=None,gray=True,swatch=False):
+    def raster(self,path:Path,clip,*,masks=None,approved_empty_regions=None,gray=True,swatch=False,text_replacements=None):
         masks=masks or [];approved_empty_regions=approved_empty_regions or []
-        sha=digest_file(path);key=digest_json(['raster',sha,clip,masks,approved_empty_regions,gray,swatch])
+        if text_replacements is not None:
+            from .source_icon_text import validate_raster_replacements
+            text_replacements=validate_raster_replacements(text_replacements,masks)
+        sha=digest_file(path);key=digest_json(['raster',sha,clip,masks,approved_empty_regions,gray,swatch,text_replacements])
         if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
         opened=Image.open(path);source_alpha_present='A' in opened.getbands()
         if source_alpha_present:
@@ -311,6 +398,7 @@ class Assets:
         a=Asset(key,'raster',str(path),sha,[0,0,*work.size],dataio.getvalue(),
                 {'mode':'original-raster-swatch' if swatch else 'raster-protected-viewport',
                  'source_clip_pixels':list(clip),'approved_empty_regions':approved_empty_regions,'masks':masks,
+                 'text_replacements':text_replacements or [],
                  'protected_pixels_unchanged_before_color_conversion':preserved,'grayscale':gray,
                  'source_alpha_present':source_alpha_present,
                  'transparent_pixels_composited_to_white':source_alpha_present,
@@ -345,7 +433,7 @@ class Assets:
             transform=e.get('transform','')
             # The supported Matplotlib viewport contains no visible scale/shear.
             # Unused font definitions are exempt; their outlines are never painted.
-            if transform and re.sub(r'translate\([^)]*\)\s*','',transform).strip():
+            if not unit_length_svg_transform(transform):
                 raise FigureError('svg_stroke_transform_unsupported','可见SVG对象存在未适配变换',transform=transform)
         changed=0;geometry_before=[];geometry_after=[]
         for e in root.iter():

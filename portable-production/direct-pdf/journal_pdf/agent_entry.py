@@ -92,6 +92,7 @@ def prepare(files:list[Path],job_dir:Path,*,workers:int=1):
                 if page.get(key):comp[key]='evidence/'+rec['id']+'/'+page[key]
             comp['text_objects']=[{k:q.get(k) for k in ('id','kind','text','shape_hint','parent_id','rect','confidence')} for q in page.get('objects',[]) if q.get('text')]
             comp['native_connectors']=[{k:q.get(k) for k in ('id','from_ref','to_ref','endpoints','head','tail')} for q in page.get('objects',[]) if q.get('kind')=='native-connector']
+            comp['layout_relations']=page.get('layout_relations',{})
             if page['kind']=='raster':comp['geometry']=page['geometry']
             else:comp['chart_candidates']=page.get('chart_candidates',[])
             pages.append(comp)
@@ -368,6 +369,8 @@ def compact_request(request):
                 row['shape_candidates']=[{'id':q['id'],'kind':q['kind']} for q in g['shapes']]
             else:
                 row['charts']=[{'id':c['id'],'titles':c['titles'],'series_groups':c['series_groups'],
+                    'unhandled_plot_text':c.get('unhandled_plot_text',[]),
+                    'series_group_members':c.get('series_group_members',{}),
                     'legend_rows':[{'id':q['id'],'text_hint':q['text_hint'],'swatch_group':q['swatch_group']} for q in c['legend_rows']],
                     **{key:[{'id':q['id'],'text_ref':q['text_ref'],'text_hint':q['text_hint']} for q in c[key]] for key in ('x_ticks','y_ticks')}} for c in p.get('chart_candidates',[])]
             pages.append(row)

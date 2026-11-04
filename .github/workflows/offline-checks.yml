@@ -11,9 +11,27 @@ jobs:
       - run: node --test knowledge/production-policy.test.mjs knowledge/decision-corrections.test.mjs workbench/feedback-summary.test.mjs collaboration/current-delivery.test.mjs collaboration/tests/seal-release.test.mjs collaboration/tests/entrypoints.test.mjs collaboration/tests/snapshot-baseline.test.mjs collaboration/state-transfer/merge.test.mjs tests/font-policy.test.mjs tests/local-paths.test.mjs workbench/classification-store.test.mjs
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - run: python -m unittest discover -s tests -p test_release_bundle.py -v
+      - run: node --test tests/private-migration.test.mjs tests/migration-review-state.test.mjs
       - run: python -m unittest discover -s portable-production/tests-local -p test_engine_directory.py -v
         env:
           PYTHONPATH: portable-production
       - run: python scripts/release_bundle.py build --root . --output "${{ runner.temp }}/journal-portable.zip"
+  production-routes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r portable-production/direct-pdf/requirements.txt pytest
+      - name: Common raster, quality gate and source routing
+        run: python -m pytest portable-production/tests-raster portable-production/tests-task portable-production/preflight/tests -q
+        env:
+          PYTHONPATH: portable-production:portable-production/preflight
+      - name: Workbench dispatch and return gates
+        run: node --test workbench/*.test.mjs

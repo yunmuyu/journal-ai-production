@@ -54,11 +54,27 @@ def build(root: Path, output: Path) -> dict:
     tracked = set(subprocess.check_output(
         ["git", "-C", str(root), "ls-files", "-z"]).decode("utf-8").split("\0"))
     payload = {}
+    # Adobe compatibility stays a component of the same release, not a second
+    # install/version. Its sealed runtime is required by the existing adapters.
+    for item in release.get("files", []):
+        name = "production-runtime/" + item["path"]
+        data = file_bytes(root, name)
+        if digest(data) != item["sha256"] or len(data) != item["bytes"]:
+            raise ValueError(f"Release hash mismatch: {name}")
+        payload[name] = data
     for item in release["portableFiles"]:
         name = "portable-production/" + item["path"]
         data = file_bytes(root, name)
         if digest(data) != item["sha256"] or len(data) != item["bytes"]:
             raise ValueError(f"Release hash mismatch: {name}")
+        payload[name] = data
+    for item in release.get("publicFiles", []):
+        name = item["path"]
+        data = file_bytes(root, name)
+        if digest(data) != item["sha256"] or len(data) != item["bytes"]:
+            raise ValueError(f"Release hash mismatch: {name}")
+        if name in payload:
+            raise ValueError(f"Duplicate release input: {name}")
         payload[name] = data
     for name in ("README.md", "CHANGELOG.md", "RELEASE.json",
                  "docs/RELEASE-GUIDE.md", "scripts/release_bundle.py",

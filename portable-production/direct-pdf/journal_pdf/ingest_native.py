@@ -175,7 +175,15 @@ def _group_bounds(el,root,pad=1.):
 
 
 def svg_pages(path,folder):
-    root=svg_root(path);view=[float(x) for x in root.get('viewBox','').replace(',',' ').split()]
+    root=svg_root(path,allow_embedded_images=True);view=[float(x) for x in root.get('viewBox','').replace(',',' ').split()]
+    if not view:
+        try:
+            width,height=(float(root.get(key,'')) for key in ('width','height'))
+            if math.isfinite(width) and math.isfinite(height) and width>0 and height>0:
+                view=[0.,0.,width,height]
+        except ValueError:
+            pass
+    if len(view)!=4 and any('%' in root.get(key,'') for key in ('width','height')):raise FigureError('svg_viewbox_required','相对宽高无法绑定原坐标')
     if len(view)!=4:
         # Inventory only: no inference that an anonymous outlined SVG is a chart.
         from .source_outline_chart import primitive_inventory
@@ -195,6 +203,29 @@ def svg_pages(path,folder):
             objects.append({'id':ident,'kind':'svg-text-hint','text':text,'source_group':ident,'ancestors':anc,
                 'confidence':'native-text' if q.findall('.//s:text',NS) else 'outlined-comment-needs-visual-confirmation',
                 'transform':[e.get('transform') for e in q.iter() if isinstance(e.tag,str) and e.get('transform')][:4]})
+    # Ordinary SVG exports often have unlabelled text and paths rather than
+    # Matplotlib's text_ groups. Preserve source identity, not inferred topology.
+    if not objects:
+        serial=0
+        used_ids=set(ids)
+        for q in root.iter():
+            if not isinstance(q.tag,str):continue
+            ancestors=list(q.iterancestors())
+            if any(isinstance(a.tag,str) and ET.QName(a).localname in ('defs','clipPath','mask','symbol') for a in ancestors):continue
+            tag=ET.QName(q).localname
+            if tag not in ('text','path','rect','circle','ellipse','line','polyline','polygon'):continue
+            text=''.join(q.itertext()) if tag=='text' else None
+            if tag=='text' and not text.strip():continue
+            serial+=1
+            if serial>LIMITS['objects']:raise FigureError('source_object_limit','SVG对象超过候选输入上限')
+            ident='svg-native-'+str(serial)
+            while ident in used_ids:ident='_'+ident
+            used_ids.add(ident)
+            transforms=[a.get('transform') for a in reversed(ancestors) if a.get('transform')]
+            if q.get('transform'):transforms.append(q.get('transform'))
+            objects.append({'id':ident,'kind':'svg-native-text' if text is not None else 'svg-geometry',
+                'text':text,'source_xpath':root.getroottree().getpath(q),'svg_tag':tag,
+                'transform':transforms,'confidence':'native-text' if text is not None else 'source-geometry-no-topology'})
     charts=[]
     for axes in root.findall('.//s:g',NS):
         aid=axes.get('id','')
@@ -227,16 +258,60 @@ def svg_pages(path,folder):
             if orientation and tg is not None:titles[orientation]={'ref':tg.get('id'),'text_hint':_comment_text(tg)}
         legend=next((q for q in axes.findall('s:g',NS) if q.get('id','').startswith('legend_')),None)
         series=[q for q in axes.findall('s:g',NS) if q.get('id','').startswith(('line2d_','PathCollection_'))]
+        # Unlabelled bar charts have one clipped rectangular patch per bar.
+        # Retain only shapes whose geometry is unambiguous, never reconstruct values.
+        unresolved_patch_series=False
+        if legend is None:
+            for q in axes.findall('s:g',NS):
+                if not q.get('id','').startswith('patch_') or q is patch or q.get('transform'):continue
+                node=q.find('s:path',NS)
+                if node is None or not node.get('clip-path') or node.get('transform'):continue
+                points=simple_path_points(node.get('d'))
+                if points and points[-1]==points[0]:points=points[:-1]
+                if len(points)==4 and len({x for x,y in points})==2 and len({y for x,y in points})==2 and len({tuple(p) for p in points})==4:
+                    series.append(q)
+                else:unresolved_patch_series=True
+        else:
+            unresolved_patch_series=any(q.get('id','').startswith('patch_') and q is not patch and q.find('s:path',NS) is not None and q.find('s:path',NS).get('clip-path') for q in axes.findall('s:g',NS))
         rows=[]
         if legend is not None:
             children=list(legend)
             for idx,q in enumerate(children):
                 if not isinstance(q.tag,str) or not q.get('id','').startswith('text_'):continue
-                sw=next((v for v in reversed(children[:idx]) if isinstance(v.tag,str) and v.get('id','').startswith(('line2d_','PathCollection_'))),None)
+                sw=next((v for v in reversed(children[:idx]) if isinstance(v.tag,str) and v.get('id','').startswith(('line2d_','PathCollection_','patch_'))),None)
                 if sw is None:continue
                 bounds=_group_bounds(sw,root)
                 if bounds:rows.append({'id':legend.get('id')+'-row-'+str(len(rows)+1),'label_ref':q.get('id'),
                     'text_hint':_comment_text(q),'swatch_group':sw.get('id'),'swatch_clip':bounds})
+        members={}
+        data_labels=[]
+        if legend is not None and unresolved_patch_series:
+            bar_patches=[q for q in axes.findall('s:g',NS)
+                         if q.get('id','').startswith('patch_') and q is not patch
+                         and q.find('s:path',NS) is not None
+                         and q.find('s:path',NS).get('clip-path')]
+            def rectangle(group):
+                node=group.find('s:path',NS)
+                points=simple_path_points(node.get('d'))
+                if points and points[-1]==points[0]:points=points[:-1]
+                return (not group.get('transform') and not node.get('transform') and len(points)==4
+                        and len({x for x,y in points})==2 and len({y for x,y in points})==2
+                        and len({tuple(p) for p in points})==4)
+            def fill(group):
+                node=group.find('s:path',NS)
+                style=dict(t.strip().split(':',1) for t in node.get('style','').split(';') if ':' in t)
+                return style.get('fill',node.get('fill','')).strip()
+            if rows and all(row['swatch_group'].startswith('patch_') for row in rows):
+                colors=[fill(root.xpath('//*[@id=$id]',id=row['swatch_group'])[0]) for row in rows]
+                if all(colors) and len(set(colors))==len(colors) and all(rectangle(q) and fill(q) in colors for q in bar_patches):
+                    candidate_members={row['swatch_group']:[q.get('id') for q in bar_patches if fill(q)==color]
+                                       for row,color in zip(rows,colors)}
+                    if all(candidate_members.values()):
+                        members=candidate_members
+                        series=bar_patches
+                        unresolved_patch_series=False
+                        data_labels=[q.get('id') for q in axes.findall('s:g',NS)
+                                     if q.get('id','').startswith('text_') and _comment_text(q).replace('.','',1).isdigit()]
         protected=[]
         for q in series:
             for p in q.findall('.//s:path',NS):
@@ -245,7 +320,10 @@ def svg_pages(path,folder):
                 if pts:protected.append(pts)
         charts.append({'id':aid,'kind':'matplotlib-svg-chart','axes_id':aid,'frame':frame,'plot_clip':frame,
             'x_ticks':ticks['x'],'y_ticks':ticks['y'],'titles':titles,'legend_id':legend.get('id') if legend is not None else None,
-            'legend_rows':rows,'series_groups':[q.get('id') for q in series],'protected_path_points':protected,
+            'legend_rows':rows,'series_groups':list(members) if members else [q.get('id') for q in series],
+            'series_group_members':members,'data_label_groups':data_labels,'unresolved_patch_series':unresolved_patch_series,
+            'unhandled_plot_text':[{'id':q.get('id'),'text':_comment_text(q)} for q in axes.findall('s:g',NS) if q.get('id','').startswith('text_') and _comment_text(q).strip()],
+            'protected_path_points':protected,
             'tick_length':max(tick_lengths) if tick_lengths else None,'confidence':'native-geometry-semantic-confirmation-required'})
     outline_inventory=None
     if not charts:
@@ -257,14 +335,20 @@ def svg_pages(path,folder):
     with fitz.open(stream=raw,filetype='pdf') as doc:
         p=doc[0];p.get_pixmap(matrix=fitz.Matrix(min(2.,1600/p.rect.width),min(2.,1600/p.rect.width)),alpha=False).save(folder/'svg-preview.png')
     return [{'id':'svg-1','kind':'svg','size':view[2:],'viewbox':view,'coordinate_unit':'svg-user-unit','preview':'svg-preview.png',
-        'objects':objects,**({'outline_inventory':outline_inventory} if outline_inventory else {}),'chart_candidates':charts,'warnings':[] if charts else [{'code':'svg_structure_unrecognized','message':'已保留原文/对象，未假装任意SVG都是Matplotlib图'}],
+        'objects':objects,**({'outline_inventory':outline_inventory} if outline_inventory else {}),'chart_candidates':charts,'warnings':[] if charts else [{'code':'outlined_svg_registration_required' if outline_inventory else 'svg_structure_unrecognized','message':'已保留原文/对象，未假装任意SVG都是Matplotlib图'}],
         'counts':{'text_hints':len(objects),'charts':len(charts)},'analysis':{'svg_full_preview_conversions':1,'ocr_calls':0}}]
 
 
 def extract_native(path:Path,folder:Path):
     if path.stat().st_size>LIMITS['bytes']:raise FigureError('source_size_limit','源文件超过本候选输入上限')
     suffix=path.suffix.lower()
-    if suffix=='.pdf':return pdf_pages(path,folder)
-    if suffix=='.pptx':return pptx_pages(path,folder)
-    if suffix=='.svg':return svg_pages(path,folder)
-    raise FigureError('unsupported_native_source','原生对象适配器不支持此类型',extension=suffix)
+    if suffix=='.pdf':pages=pdf_pages(path,folder)
+    elif suffix=='.pptx':pages=pptx_pages(path,folder)
+    elif suffix=='.svg':pages=svg_pages(path,folder)
+    else:raise FigureError('unsupported_native_source','原生对象适配器不支持此类型',extension=suffix)
+    from .layout_relations import extract_layout_relations
+    from .common import digest_file
+    source_hash=digest_file(path)
+    for page in pages:
+        page['layout_relations']=extract_layout_relations(page.get('objects',[]),source_hash,page['id'],page['coordinate_unit'])
+    return pages

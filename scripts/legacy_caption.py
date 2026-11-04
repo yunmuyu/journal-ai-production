@@ -112,9 +112,8 @@ def find_docx_caption_media(docx_path: Path) -> List[dict]:
 
     Multi-image *single-caption* figures are marked as composites so process_one_word can crop
     the complete rendered group from the Word-generated PDF instead of extracting only one raw
-    media file.  Multi-caption paragraphs intentionally fall back to PDF geometry, because that
-    preserves Word's crop/recolor/layout and lets horizontal caption alignment choose the correct
-    left/right picture.
+    media file. Multi-caption paragraphs use document order only for adjacent,
+    unmodified inline OLE previews. Other layouts retain the PDF geometry fallback.
     """
     if not docx_path.exists():
         return []
@@ -172,6 +171,25 @@ def find_docx_caption_media(docx_path: Path) -> List[dict]:
                 # Two captions + two pictures in the same Word paragraph are best recovered
                 # from the rendered PDF, not raw media, because Word may apply crop/grayscale.
                 if len(caps) > 1:
+                    # Bind only adjacent, unmodified inline OLE previews by
+                    # document order; ambiguous media retain the PDF fallback.
+                    positions = {m['object_paragraph_index'] for m in members}
+                    objects = paragraphs[next(iter(positions))].findall('./w:r/w:object', OOXML_NS) if len(positions) == 1 else []
+                    previews = [o.findall('./v:shape/v:imagedata', OOXML_NS) for o in objects]
+                    shapes = [o.find('./v:shape', OOXML_NS) for o in objects]
+                    safe = (len(members) == len(caps) == len(objects)
+                            and positions == {i - 1}
+                            and all(len(p) == 1 and set(p[0].attrib) <= {'{' + OOXML_NS['r'] + '}id', '{urn:schemas-microsoft-com:office:office}title'} for p in previews)
+                            and all(s is not None and 'position' not in s.get('style', '').lower() and 'rotation' not in s.get('style', '').lower() for s in shapes)
+                            and [_paragraph_media_targets(o, rels) for o in objects] == [[m['target']] for m in members])
+                    if safe:
+                        for (no, caption), member in zip(caps, members):
+                            results.append({'figure_no': no, 'caption': caption,
+                                            'target': member['target'], 'member': member['member'], 'ext': member['ext'],
+                                            'paragraph_index': i, 'object_paragraph_index': member['object_paragraph_index'],
+                                            'members': [member], 'member_count': 1, 'composite': False,
+                                            'mapping_basis': 'adjacent-inline-ole-caption-order'})
+                        continue
                     # Returning no direct-media candidate forces the PDF path.  The improved
                     # horizontal ranking in _nearby_raster_bbox maps left caption -> left image,
                     # right caption -> right image.

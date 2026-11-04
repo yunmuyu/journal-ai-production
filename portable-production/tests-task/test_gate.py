@@ -106,6 +106,8 @@ def test_verify_detects_changes(tmp_path, target):
 
 def test_jpg_actual_pixels_dpi(tmp_path):
     contract = make_case(tmp_path)
+    contract['route'] = 'raster'
+    contract['manual_review'] = ['source_content', 'visual', 'runtime_provenance', 'readability', 'grayscale_semantics']
     contract['outputs'] = [dict(id='fig1', path='fig1.jpg', delivery_target=str(tmp_path / 'authors' / 'fig1.jpg'), format='jpg', width_mm=25.4,
         pixels=[300, 150], dpi=300, stroke_pt=None)]
     precheck(contract)

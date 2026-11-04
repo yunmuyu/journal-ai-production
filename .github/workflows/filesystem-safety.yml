@@ -10,7 +10,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - run: python -m pip install PyMuPDF==1.26.7 Pillow==12.3.0 lxml==6.1.1 fonttools==4.63.0 pytest==9.0.2
       - run: python -m pytest portable-production/direct-pdf/tests/test_raster_preprocess.py portable-production/tests-local/test_native_jpg_publishing.py -k 'symlink or cross_format' -q
         env:

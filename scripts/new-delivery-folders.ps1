@@ -5,9 +5,12 @@ param(
  [Parameter(Mandatory)][string]$Editor,
  [Parameter(Mandatory)][ValidateRange(1,999)][int]$Count,
  [string[]]$Authors,
- [string]$Unrar='C:\Program Files\WinRAR\UnRAR.exe'
+ [string]$Unrar='C:\Program Files\WinRAR\UnRAR.exe',
+ [string]$ManifestPath,
+ [string]$SourceRoot
 )
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'archive-manuscripts.ps1')
 function SafeName([string]$value){
  if([string]::IsNullOrWhiteSpace($value) -or $value -match '[<>:"/\\|?*\x00-\x1f]' -or $value -match '[. ]$' -or $value -match '^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)'){throw "Unsafe folder name: $value"}
 }
@@ -19,21 +22,7 @@ $articles=@()
 if($Authors){
  foreach($author in $Authors){$articles+= [pscustomobject]@{author=$author;title=''}}
 }else{
- if($ext -eq '.zip'){
-  Add-Type -AssemblyName System.IO.Compression.FileSystem
-  $zip=[IO.Compression.ZipFile]::Open($Archive,[IO.Compression.ZipArchiveMode]::Read,[Text.Encoding]::GetEncoding(936))
-  try {$names=@($zip.Entries | ForEach-Object FullName)}finally{$zip.Dispose()}
- }else{
-  if(-not(Test-Path -LiteralPath $Unrar)){throw 'Supply -Unrar or an explicitly verified -Authors list'}
-  $names=@(& $Unrar lb -scu $Archive)
-  if($LASTEXITCODE -ne 0){throw 'RAR listing failed'}
- }
- foreach($name in $names){
-  $leaf=($name -split '[/\\]')[-1]
-  if($leaf -notmatch '\.docx?$' -or $leaf.StartsWith('~$')){continue}
-  if($leaf -notmatch '^\d+\s+\[.*?\]\s*\d+(?:\.\d+)?[pP]\s+(\S+)\s+(.+)\.docx?$'){throw "Unrecognized manuscript name; supply verified -Authors: $leaf"}
-  $articles+=[pscustomobject]@{author=$Matches[1];title=$Matches[2].Trim()}
- }
+ $articles=@(Read-ArchiveManuscripts $Archive $Unrar)
 }
 if($articles.Count -ne $Count){throw "Expected $Count articles, found $($articles.Count); no delivery files created"}
 $relative=@()
@@ -49,8 +38,21 @@ $batch=Join-Path $Destination "$Month`月-$Editor-$Count`篇"
 $copy=Join-Path $batch ([IO.Path]::GetFileName($Archive))
 $hash=(Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash
 if((Test-Path -LiteralPath $copy) -and (Get-FileHash -LiteralPath $copy).Hash -ne $hash){throw 'An archive with the same name but different content already exists'}
+if($SourceRoot){
+ if($Authors){throw 'Source extraction requires verified manuscript members, not -Authors'}
+ foreach($article in $articles){
+  $word=Join-Path $SourceRoot $article.member
+  if((Test-Path -LiteralPath $word) -and (Get-FileHash -LiteralPath $word).Hash.ToLowerInvariant() -ne $article.sha256){throw "Existing Word differs; no overwrite: $word"}
+ }
+}
 New-Item -ItemType Directory -Path $batch -Force | Out-Null
 foreach($name in $relative){New-Item -ItemType Directory -Path (Join-Path $batch $name) -Force | Out-Null}
 if(-not(Test-Path -LiteralPath $copy)){Copy-Item -LiteralPath $Archive -Destination $copy}
 if((Get-FileHash -LiteralPath $copy).Hash -ne $hash){throw 'Copied archive hash mismatch'}
-[pscustomobject]@{batch=$batch;articles=$articles.Count;authors=@($articles.author|Select-Object -Unique).Count;archiveSha256=$hash}
+if($SourceRoot){foreach($article in $articles){
+ $word=Join-Path $SourceRoot $article.member
+ if(-not(Test-Path -LiteralPath $word)){New-Item -ItemType Directory -Path ([IO.Path]::GetDirectoryName($word)) -Force|Out-Null;[IO.File]::WriteAllBytes($word,$article.bytes)}
+}}
+$receipt=[pscustomobject]@{batch=$batch;articles=$articles.Count;authors=@($articles.author|Select-Object -Unique).Count;archiveSha256=$hash.ToLowerInvariant();manuscripts=@($articles|ForEach-Object {[pscustomobject]@{author=$_.author;title=$_.title;member=$_.member;sha256=$_.sha256;wordPath=$(if($SourceRoot){Join-Path $SourceRoot $_.member}else{''})}})}
+if($ManifestPath){[IO.File]::WriteAllText($ManifestPath,($receipt|ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))}
+$receipt|Select-Object batch,articles,authors,archiveSha256

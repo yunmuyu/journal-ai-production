@@ -173,11 +173,15 @@ class Contract:
             raise GateError('data_redraw_forbidden', 'Source-preserving charts are supported; data redraw is not')
         if route not in ('diagram', 'circuit', 'source-preserving-chart', 'raster'):
             raise GateError('invalid_schema', 'Unsupported professional route')
+        expected_format = 'jpg' if route == 'raster' else 'pdf'
+        if any(output.format != expected_format for output in outputs):
+            raise GateError('route_format_mismatch', f'{route} requires {expected_format} outputs')
         mechanical = texts(row['mechanical'])
         if not set(mechanical).issubset({'dimensions', 'coverage', 'pixels', 'dpi', 'stroke', 'artifact_set', 'preview_hashes'}):
             raise GateError('unsupported_check', 'Unknown mechanical semantics must remain manual')
         manual = texts(row['manual_review'])
         minimum = {'source_content', 'visual', 'runtime_provenance'}
+        minimum.update(('readability', 'grayscale_semantics') if route == 'raster' else ('typography',))
         if route in ('diagram', 'circuit'):
             minimum.update(('topology', 'label_ownership'))
         if not minimum.issubset(manual):

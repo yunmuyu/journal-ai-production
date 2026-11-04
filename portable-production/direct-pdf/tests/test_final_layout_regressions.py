@@ -81,8 +81,9 @@ class FinalLayoutRegressions(unittest.TestCase):
                 builds = []
                 def build(spec, reg, size):
                     builds.append(size)
-                    return types.SimpleNamespace(width=size * width_per_pt, height=100, size=size,
-                        paths=[{'exact_terminal': exact}], layout_evidence={})
+                    result = Scene(None, size).finish(size * width_per_pt, 100)
+                    result.paths = [{'exact_terminal': exact}]
+                    return result
                 editorial = types.ModuleType('journal_pdf.editorial')
                 editorial.scale_scene = lambda scene, factor: scene
                 self.context.update(DIAGRAMS={'synthetic': build}, audit_scene=lambda scene: [])

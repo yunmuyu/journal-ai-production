@@ -33,7 +33,7 @@ def _topological(nodes,edges):
     return rank
 
 
-def _route(start,end,obstacles,xs,ys,occupied=()):
+def _route(start,end,obstacles,xs,ys,occupied=(),*,forbidden_end_direction=None):
     """Rectilinear visibility grid: limits enforce predictable running time."""
     xs=sorted(set([round(float(x),5) for x in [*xs,start[0],end[0]]]));ys=sorted(set([round(float(y),5) for y in [*ys,start[1],end[1]]]))
     if len(xs)*len(ys)>22000:raise FigureError('route_budget','路由网格超过候选上限；需分组或专用布局')
@@ -46,6 +46,7 @@ def _route(start,end,obstacles,xs,ys,occupied=()):
         for di,dj,nd in [(1,0,0),(-1,0,0),(0,1,1),(0,-1,1)]:
             ii,jj=i+di,j+dj
             if not (0<=ii<len(xs) and 0<=jj<len(ys)):continue
+            if (ii,jj)==t and forbidden_end_direction is not None and (di,dj)==tuple(forbidden_end_direction):continue
             a,b=[xs[i],ys[j]],[xs[ii],ys[jj]]
             if any(segment_hits(a,b,r,.3) for r in obstacles):continue
             if any(_collinear_overlap_length(a,b,c,d)>.15 for c,d in occupied):continue
@@ -82,9 +83,29 @@ def graph(spec,reg,size):
         elif kind=='inputOutput':w,h=m['width']+2*PAD_X*scale+8,m['height']+2*PAD_Y*scale
         else:w,h=m['width']+2*PAD_X*scale,m['height']+2*PAD_Y*scale
         dim[n['id']]=(w,h)
+    explicit_groups={};node_group={};node_specs={n['id']:n for n in nodes}
+    groups=spec.get('equal_width_groups',[])
+    if not isinstance(groups,list):raise FigureError('measured_group_invalid','图测量分组须为明确成员清单')
+    for group in groups:
+        if (not isinstance(group,dict) or set(group)-{'id','nodes'}
+                or not isinstance(group.get('id'),str) or not group['id']
+                or not isinstance(group.get('nodes'),list) or not group['nodes']
+                or any(not isinstance(i,str) for i in group['nodes'])):
+            raise FigureError('measured_group_invalid','图等宽分组只接受id与nodes；位置仍由图布局计算')
+        key='graph-measured-'+group['id'];members=group['nodes']
+        if key in explicit_groups or len(set(members))!=len(members):
+            raise FigureError('measured_group_invalid','测量分组ID或成员重复',group=group['id'])
+        for member in members:
+            node=node_specs.get(member)
+            if node is None or member in node_group or node.get('container') or node.get('shape','rectangle')!='rectangle':
+                raise FigureError('measured_group_invalid','测量分组只接受未重复归组的普通矩形',group=group['id'],node=member)
+        width=max(dim[member][0] for member in members)
+        explicit_groups[key]={'axis':'column','nodes':list(members)}
+        for member in members:
+            dim[member]=(width,dim[member][1]);node_group[member]=key
     # Same semantic rank: normal boxes share height/width where it doesn't corrupt diamond calibration.
     for r in ranks:
-        group=[n for n in nodes if rank[n['id']]==r and n.get('shape','rectangle')=='rectangle']
+        group=[n for n in nodes if rank[n['id']]==r and n.get('shape','rectangle')=='rectangle' and n['id'] not in node_group]
         if group:
             if direction=='TB':
                 h=max(dim[n['id']][1] for n in group)
@@ -145,8 +166,9 @@ def graph(spec,reg,size):
             rank_gaps[source_rank]=max(rank_gaps[source_rank],ROUTE_SOURCE_STUB+target_stub)
     along=sum(thick.values())+sum(rank_gaps.values())
     s=Scene(reg,size);s.template='semantic-graph';placed={};primary=margin
+    s.measurement_groups.update(explicit_groups)
     for r in ranks:
-        rectangle_ids=[n['id'] for n in nodes if rank[n['id']]==r and n.get('shape','rectangle')=='rectangle']
+        rectangle_ids=[n['id'] for n in nodes if rank[n['id']]==r and n.get('shape','rectangle')=='rectangle' and n['id'] not in node_group]
         group_id='graph-rank-'+str(r)
         group_axis='row' if direction=='TB' else 'column'
         if rectangle_ids:
@@ -160,9 +182,20 @@ def graph(spec,reg,size):
             if n['id'] in rectangle_ids:
                 placed[n['id']]['measurement_contract']={'mode':'measured-group','group':group_id,
                     'axis':group_axis,'expected_wh':[w,h]}
+            if n['id'] in node_group:
+                placed[n['id']]['measurement_contract']={'mode':'measured-group','group':node_group[n['id']],
+                    'axis':'column','expected_wh':[w,h]}
             secondary+=(w if direction=='TB' else h)+sibling_gap
         primary+=thick[r]+rank_gaps.get(r,0)
     width,height=(cross+2*margin,along+2*margin) if direction=='TB' else (along+2*margin,cross+2*margin)
+    # Vertical labels sit beside the shaft, not inside the node-width envelope.
+    # Reserve the preferred right side only; symmetric padding wastes column width.
+    for e in edges:
+        if (direction=='TB' and e.get('label') and not e.get('return_edge')
+                and e.get('from_port','bottom')=='bottom' and e.get('to_port','top')=='top'
+                and rank[e['to']]==rank[e['from']]+1
+                and abs(cross_centers[e['from']]-cross_centers[e['to']])<1e-5):
+            width=max(width,margin+cross_centers[e['from']]+3.3+labels[id(e)]['width']+margin)
     xs=[2.,width-2];ys=[2.,height-2]
     for n in placed.values():
         x,y,r,b=n['rect'];xs +=[x-6,r+6,(x+r)/2];ys +=[y-6,b+6,(y+b)/2]
@@ -232,7 +265,7 @@ def graph(spec,reg,size):
             occupied=[(a,b) for path in s.paths for a,b in zip(path['points'],path['points'][1:])]
             route_xs=xs+[p[0]+offset for pair in occupied for p in pair for offset in (-2.,2.)]
             route_ys=ys+[p[1]+offset for pair in occupied for p in pair for offset in (-2.,2.)]
-            try:route=_route(u,v,obstacles,route_xs,route_ys,occupied)
+            try:route=_route(u,v,obstacles,route_xs,route_ys,occupied,forbidden_end_direction=vec[ts])
             except FigureError as error:
                 if error.code!='graph_route_blocked':raise
                 details={'edge':ident,'from':e['from'],'to':e['to'],'from_port':ss,'to_port':ts,
@@ -283,4 +316,19 @@ def graph(spec,reg,size):
         'global_optimum_proven':False,'source_semantics_review_required':True,
         'arrow5_shaft_length_pt':ARROW_LENGTH,'arrow5_depth_pt':ARROW_DEPTH,
         'unlabeled_boundary_gap_pt':ARROW_BOUNDARY_GAP,'rank_gaps_pt':rank_gaps}
+    title=spec.get('title')
+    if title is not None:
+        if not isinstance(title,str) or not title.strip():raise FigureError('graph_title_invalid','图内标题必须为非空文字')
+        measured=reg.measure(display_content(title,'title'),size)
+        new_width=max(width,measured['width']+2*margin)
+        dx=(new_width-width)/2;dy=measured['height']+6*scale
+        for node in s.nodes:node['rect']=[node['rect'][0]+dx,node['rect'][1]+dy,node['rect'][2]+dx,node['rect'][3]+dy]
+        for path in s.paths:path['points']=[[x+dx,y+dy] for x,y in path['points']]
+        for text in s.texts:
+            text['x']+=dx;text['y']+=dy
+            x0,y0,x1,y1=text['position']['bbox'];text['position']['bbox']=[x0+dx,y0+dy,x1+dx,y1+dy]
+            text['position']['offset']=[text['position']['offset'][0]+dx,text['position']['offset'][1]+dy]
+        s.text('graph-title',title,new_width/2,margin/2+measured['height']/2,role='title')
+        s.layout_evidence['source_title']='graph-title'
+        width=new_width;height+=dy
     return s.finish(width,height)

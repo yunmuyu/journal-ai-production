@@ -16,6 +16,38 @@ var json=stringify;
 var req=eval('('+readUtf8(WScript.Arguments(0)).replace(/^\uFEFF/,'')+')');
 var ext=fso.GetExtensionName(req.input).toLowerCase(),app=null,doc=null,pp=null,pres=null,security=null,out=[],result,start=new Date().getTime();
 function output(name,scope){var p=fso.BuildPath(req.directory,name);return {path:p,kind:'pdf',scope:scope};}
+function applyPptxPlan(presentation,plan){
+ if(plan.slide>presentation.Slides.Count)throw Error('pptx_plan_slide_missing');
+ var shapes=presentation.Slides.Item(plan.slide).Shapes,byId={},i,j,shape,ids;
+ for(i=1;i<=shapes.Count;i++){shape=shapes.Item(i);if(byId[shape.Id])throw Error('pptx_shape_duplicate_id');byId[shape.Id]=shape;}
+ function requireShape(id){var item=byId[id];if(!item)throw Error('pptx_plan_shape_missing: '+id);return item;}
+ ids=plan.shadowShapeIds||[];for(i=0;i<ids.length;i++)requireShape(ids[i]);
+ if(plan.stroke)for(i=0;i<plan.stroke.shapeIds.length;i++){
+  shape=requireShape(plan.stroke.shapeIds[i]);if(!shape.Line.Visible)throw Error('pptx_plan_stroke_not_visible: '+shape.Id);
+ }
+ var series=plan.dashedSeries||[],groups=[];
+ for(i=0;i<series.length;i++){
+  ids=series[i].curveShapeIds.concat(series[i].legendShapeIds);var color=null,items=[];
+  for(j=0;j<ids.length;j++){
+   shape=requireShape(ids[j]);if(shape.Type!==9||!shape.Line.Visible)throw Error('pptx_plan_series_not_visible: '+shape.Id);
+   if(color===null)color=shape.Line.ForeColor.RGB;
+   else if(color!==shape.Line.ForeColor.RGB)throw Error('pptx_plan_series_color_conflict: '+shape.Id);
+   items.push(shape);
+  }
+  for(j=1;j<=shapes.Count;j++){
+   shape=shapes.Item(j);
+   if(shape.Type!==9||!shape.Line.Visible||shape.Line.ForeColor.RGB!==color)continue;
+   var found=false;for(var k=0;k<ids.length;k++)if(ids[k]===shape.Id)found=true;
+   if(!found)throw Error('pptx_plan_series_incomplete: '+shape.Id);
+  }
+  groups.push(items);
+ }
+ ids=plan.shadowShapeIds||[];for(i=0;i<ids.length;i++)requireShape(ids[i]).Shadow.Visible=0;
+ if(plan.stroke){var weight=plan.stroke.finalStrokePt*plan.stroke.sourcePlotWidthPt/plan.stroke.targetPlotWidthPt;
+  for(i=0;i<plan.stroke.shapeIds.length;i++)requireShape(plan.stroke.shapeIds[i]).Line.Weight=weight;
+ }
+ for(i=0;i<groups.length;i++)for(j=0;j<groups[i].length;j++)groups[i][j].Line.DashStyle=4;
+}
 var stage='start';
 try{
  if(ext==='doc'||ext==='docx'){
@@ -25,7 +57,8 @@ try{
  }else if(ext==='emf'||ext==='wmf'){
   app=new ActiveXObject('PowerPoint.Application');doc=app.Presentations.Add(false);var slide=doc.Slides.Add(1,12);var picture=slide.Shapes.AddPicture(req.input,false,true,0,0,-1,-1);doc.PageSetup.SlideWidth=picture.Width;doc.PageSetup.SlideHeight=picture.Height;var o=output('metafile.pdf','metafile');doc.SaveAs(o.path,32);out.push(o);
  }else if(/^ppt[xm]?$/.test(ext)){
-  app=new ActiveXObject('PowerPoint.Application');security=app.AutomationSecurity;app.AutomationSecurity=3;doc=app.Presentations.Open(req.input,true,false,false);
+  app=new ActiveXObject('PowerPoint.Application');security=app.AutomationSecurity;app.AutomationSecurity=3;doc=app.Presentations.Open(req.input,req.pptxPlan?false:true,false,false);
+  if(req.pptxPlan){applyPptxPlan(doc,req.pptxPlan);doc.Save();}
   var o=output('slides.pdf','all_slides');o.pages=doc.Slides.Count;doc.SaveAs(o.path,32);out.push(o);
  }else if(/^vsd[xm]?$/.test(ext)){
   app=new ActiveXObject('Visio.InvisibleApp');doc=app.Documents.OpenEx(req.input,2+64+128);

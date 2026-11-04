@@ -49,6 +49,11 @@ def test_manual_cjk_breaks_do_not_leave_one_character_line(source,expected):
 def test_latin_wrap_prefers_words_and_marks_word_internal_breaks():
  assert wrap_text('media layer',6)=='media\nlayer'
  assert wrap_text('media',4)=='med-\nia'
+ assert wrap_text('RL116B',4)=='RL116B'
+ assert wrap_text('192.168.0.1',4)=='192.168.0.1'
+ assert wrap_text('ABC-DEF',4)=='ABC-DEF'
+ assert wrap_text('型号RL116B',4)=='型号\nRL116B'
+ assert wrap_text('网络交换芯片',4)=='网络\n交换芯片'
 
 def test_graph_uses_local_label_gap_and_exact_unlabeled_arrow5_shaft(reg):
  from journal_pdf.graph_layout import graph
@@ -357,3 +362,9 @@ def test_rich_runs_keep_explicit_math_semantics_and_true_baseline(reg):
  assert m['glyphs'][1]['face']=='latin' and m['glyphs'][1]['size']==pytest.approx(5.6)
  assert m['glyphs'][1]['y']==pytest.approx(2.0)
  assert m['glyphs'][-1]['face']=='latin_italic' and m['glyphs'][-1]['y']==pytest.approx(2.0)
+
+
+def test_chinese_wrap_keeps_compound_and_original_characters():
+    from journal_pdf.editorial import wrap_text
+    assert wrap_text('温度采集电路',4) == '温度\n采集电路'
+    assert wrap_text('网络交换芯片',4) == '网络\n交换芯片'

@@ -68,4 +68,4 @@ def test_unconnected_measured_group_defaults_to_visible_clearance(reg,size):
           'measured_groups':[{'id':'g','axis':'row','nodes':['a','b'],'origin':[5,5]}]}
     scene=primitive(spec,reg,size)
     a,b=scene.nodes
-    assert b['rect'][0]-a['rect'][2]-(a['width']+b['width'])/2==pytest.approx(2.5*size/8)
+    assert b['rect'][0]-a['rect'][2]-(a['width']+b['width'])/2==pytest.approx(3*size/8)

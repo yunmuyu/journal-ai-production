@@ -137,6 +137,8 @@ def test_explicit_no_legend_preserves_plot_and_axes_without_invented_objects(reg
  # Given: a verified source viewport with explicitly no legend.
  spec=_synthetic(tmp_path)
  spec['series']=[]
+ spec.pop('masks',None);spec.pop('approved_empty_regions',None)
+ spec['legend_review']={'present':False,'source_sha256':__import__('hashlib').sha256((tmp_path/spec['source']).read_bytes()).hexdigest(),'reason':'Synthetic source viewport explicitly reviewed as no legend'}
  for key in ('masks','approved_empty_regions','legend_safe_region','legend_placement','legend_frame'):
   spec.pop(key,None)
  assets=Assets()
@@ -159,6 +161,8 @@ def test_right_endpoint_tick_expands_canvas_without_moving_source_anchor(reg,tmp
  # Given: the last numeric label extends beyond the old fixed right margin.
  spec=_synthetic(tmp_path)
  spec['series']=[]
+ spec.pop('masks',None);spec.pop('approved_empty_regions',None)
+ spec['legend_review']={'present':False,'source_sha256':__import__('hashlib').sha256((tmp_path/spec['source']).read_bytes()).hexdigest(),'reason':'Synthetic source viewport explicitly reviewed as no legend'}
  spec['x_ticks']=[{'text':'0','position':50},{'text':'1000.00','position':450}]
  assets=Assets()
  try:
