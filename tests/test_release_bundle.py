@@ -63,6 +63,22 @@ class ReleaseBundleTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Release hash mismatch"):
             bundle.build(self.root, Path(self.temp.name) / "bad.zip")
 
+    def test_workbench_and_shared_tools_are_included_and_sealed(self):
+        tool = self.root / "workbench/runner.mjs"
+        tool.parent.mkdir()
+        tool.write_bytes(b"export {};\n")
+        subprocess.run(["git", "-C", str(self.root), "add", "workbench"], check=True)
+        self.release["publicFiles"] = [{"path": "workbench/runner.mjs", "bytes": 11,
+            "sha256": hashlib.sha256(tool.read_bytes()).hexdigest()}]
+        self.save_release()
+        output = Path(self.temp.name) / "full.zip"
+        bundle.build(self.root, output)
+        with zipfile.ZipFile(output) as archive:
+            self.assertIn(f"journal-ai-production-{self.identity}/workbench/runner.mjs", archive.namelist())
+        tool.write_bytes(b"tampered")
+        with self.assertRaisesRegex(ValueError, "Release hash mismatch"):
+            bundle.build(self.root, Path(self.temp.name) / "bad.zip")
+
     def test_untracked_and_private_manifest_inputs_are_rejected(self):
         for name in ("secret.py", "config.local.json"):
             data = b"private"

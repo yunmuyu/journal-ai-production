@@ -60,6 +60,14 @@ def build(root: Path, output: Path) -> dict:
         if digest(data) != item["sha256"] or len(data) != item["bytes"]:
             raise ValueError(f"Release hash mismatch: {name}")
         payload[name] = data
+    for item in release.get("publicFiles", []):
+        name = item["path"]
+        data = file_bytes(root, name)
+        if digest(data) != item["sha256"] or len(data) != item["bytes"]:
+            raise ValueError(f"Release hash mismatch: {name}")
+        if name in payload:
+            raise ValueError(f"Duplicate release input: {name}")
+        payload[name] = data
     for name in ("README.md", "CHANGELOG.md", "RELEASE.json",
                  "docs/RELEASE-GUIDE.md", "scripts/release_bundle.py",
                  f"release-notes/{identity}.md"):

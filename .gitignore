@@ -1,4 +1,9 @@
 node_modules/
+outputs/
+**/outputs/
+migration-private/
+*.local.json
+LOCAL-OPEN-QUESTIONS-*.md
 __pycache__/
 *.pyc
 .env
