@@ -88,3 +88,16 @@ class ReleaseBundleTest(unittest.TestCase):
             self.save_release()
             with self.assertRaisesRegex(ValueError, "Untracked|Private"):
                 bundle.build(self.root, Path(self.temp.name) / "bad.zip")
+
+    def test_compatibility_runtime_is_part_of_the_same_sealed_bundle(self):
+        runtime = self.root / 'production-runtime' / 'adapter.jsx'
+        runtime.parent.mkdir()
+        runtime.write_bytes(b'// adapter\n')
+        subprocess.run(['git', '-C', str(self.root), 'add', 'production-runtime'], check=True)
+        self.release['files'] = [{'path': 'adapter.jsx', 'bytes': runtime.stat().st_size,
+            'sha256': hashlib.sha256(runtime.read_bytes()).hexdigest()}]
+        self.save_release()
+        output = Path(self.temp.name) / 'runtime.zip'
+        bundle.build(self.root, output)
+        with zipfile.ZipFile(output) as archive:
+            self.assertIn(f'journal-ai-production-{self.identity}/production-runtime/adapter.jsx', archive.namelist())

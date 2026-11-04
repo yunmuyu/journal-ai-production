@@ -54,6 +54,9 @@ def test_final_pdf_with_source_bound_annotation(reg,tmp_path):
           'y_ticks':[{'id':i,'point':[20,y]} for i,y in [('y1',75),('y2',55),('y3',35)]],
           'x_title_id':'xt','y_title_id':'yt','annotations':[{'parts':[{'id':'note','offset_y_pt':2}],'evidence':'source text'}]},
           'policy':{'column':'single','font_sizes':[8]}}
+    from journal_pdf.source_path_text_coverage import path_fingerprint
+    with fitz.open(path) as original:
+        spec['assets'][0]['nontext_path_bindings']=[{'index':i,'sha256':path_fingerprint(row),'role':'curve','basis':'Synthetic plot strokes drawn in this fixture; native text separately bound'} for i,row in enumerate(original[0].get_drawings())]
     assets=Assets()
     try:
         result=render_one(spec,reg,assets,root,tmp_path/'output')

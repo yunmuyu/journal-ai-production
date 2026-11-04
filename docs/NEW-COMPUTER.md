@@ -1,45 +1,50 @@
-# 新电脑迁移：代码与在制资料分开
+# 新电脑接续生产
 
-本次是 `2026.11.04-r46-clean-move` 迁移预览版，不宣称已通过全新电脑生产验收。原机公共源码已整理为独立发布分支；作者素材、批注和候选另存私有包。不要把旧工作目录整棵复制进代码仓库。
+公共工具以 GitHub main 和最新正式 Release 为准。日常入口只有仓库根目录的 `journal.mjs`；内部模块、历史实验和旧数据目录的 server.mjs 都不是另一套生产入口。
 
-## 安装公共工具
+## 1. 安装工具和运行环境
 
-Windows 10/11、Node.js 24、Python 3.12。下载本预览版的 portable ZIP 和 SHA256，解压到 `F:\期刊AI工作台\repo`。本次旧数据仍绑定绝对路径，保留这个位置可避免篡改历史来源及验收身份。如果新电脑没有 F 盘，可以在确认 F 盘未占用后，把空的数据目录挂载为 F 盘；不要覆盖已有盘符。
+使用 Windows 10/11、Node.js 24、Python 3.12。将 `journal-ai-production.zip` 解压，内部仓库目录放到 `F:\期刊AI工作台\repo`。私有资料保留历史绝对路径；新机须具备 F 盘及这些目录的写入权限，不直接批量替换 JSON 路径。
 
 ```powershell
-Get-FileHash .\journal-ai-production-2026.11.04-r46-clean-move-portable.zip -Algorithm SHA256
+Get-FileHash .\journal-ai-production.zip -Algorithm SHA256
+Set-Location 'F:\期刊AI工作台\repo'
 python .\scripts\release_bundle.py verify --root .
 .\scripts\setup-new-computer.ps1 -Python 'C:\Python312\python.exe' -RuntimeDirectory 'F:\期刊AI工作台\runtime\python'
 ```
 
-安装脚本只安装现有锁定依赖，不安装 Office、Adobe、字体或 Cairo 的系统 DLL。CairoSVG 导入失败时先补齐可信 Cairo 运行环境；不要改质量门规避。EMF/WMF/PPTX/Word 转换还需要本机安装相应 Office；VSD/VSDX 需要 Visio。常规 JPG 不需要 Photoshop。Adobe 特殊路线仍串行，另按兼容路线安装验证。
+安装使用同一份锁定依赖。CairoSVG 需要 Cairo 原生运行库；Office 转换需要相应 Office，VSD/VSDX 需要 Visio。普通 JPG 无需 Photoshop；Adobe 特殊路线仍单槽。商业应用与商业字体不随包分发，须在新机合法安装。字体 profile 只记录路径，不含字体文件。
 
-商业字体不随代码或迁移包分发。私有包保留字体 profile；在新电脑合法安装相应字体，并核对 profile 的路径、字形名称和字重。
+## 2. 恢复私有资料
 
-## 恢复私有资料
-
-私有包是内容哈希去重的 `private-data` 目录，附 `MIGRATION-MANIFEST.json`，不要上传公共 GitHub。它保留工作台当前引用的稿件、原图、当前候选、批注、验收记录和必要来源证据；不携带未被引用的实验目录、失败尝试、旧虚拟环境、缓存和凭据。
+`journal-production-data.zip` 只在两台电脑之间传递，**不要上传公共 GitHub**。解压得到 `private-data`，含去重文件和 MIGRATION-MANIFEST.json。
 
 ```powershell
 node .\scripts\private-migration.mjs verify 'D:\搬家包\private-data'
 node .\scripts\private-migration.mjs restore-original-paths 'D:\搬家包\private-data'
 ```
 
-恢复程序先校验所有文件，遇到不同内容的同名目标就退出，不覆盖。当前迁移策略恢复原绝对路径（包括少量旧用户目录下仍被引用的文件），不是随意更名搬目录。权限或盘符不满足时先解决路径；不要直接替换全部 JSON 字符串，否则会破坏来源哈希和验收版本。新机安装字体后，用原位置的私有工作台主机脚本接续，而不是用旧十月示例工作台重新初始化。
+恢复先校验全部文件；遇到不同内容的同名目标就停止，绝不覆盖。包保留原稿、源图、当前候选、批注、验收、发布回执及可复用方案；不迁移旧虚拟环境、实验引擎、私有工作台代码和无引用失败目录。当前证据引用的历史文件仍保留，不按年龄删除。
 
-本地 reviewer/worker token 在导出时清空，首次配置重新生成；GitHub、模型 API 等凭据必须在新电脑单独配置。不要复制原机账号密钥。
+## 3. 绑定并启动唯一入口
+
+安装字体后核对 fonts.local.json。workspace-roots.json 记录稿件根目录。本地 token 导出时清空，配置时自动重建；账号/API 密钥在新机单独配置。
 
 ```powershell
-node .\scripts\configure-local.mjs 'F:\期刊AI工作台\runtime\python\Scripts\python.exe' 'F:\2026年11月\作图\过程资料\november-workbench\fonts.local.json' 'F:\2026年11月\作图\过程资料\november-workbench' 'F:\期刊AI工作台\machine.local.json'
-node 'F:\2026年11月\作图\过程资料\november-workbench\server.mjs'
+node .\journal.mjs configure --python 'F:\期刊AI工作台\runtime\python\Scripts\python.exe' --fonts 'F:\2026年11月\作图\过程资料\november-workbench\fonts.local.json' --data 'F:\2026年11月\作图\过程资料\november-workbench' --config 'F:\期刊AI工作台\machine.local.json'
+node .\journal.mjs doctor --config 'F:\期刊AI工作台\machine.local.json'
+node .\journal.mjs start --config 'F:\期刊AI工作台\machine.local.json'
 ```
 
-配置程序实际加载字体和依赖、计算新引擎签名及 Python/profile 哈希，不复用旧虚拟环境签名。私有案例通过新配置的 `caseIndexPath` 接入现有入口；公共仓库只携带空案例库。没有私有状态时只能测试公共引擎，不能宣称恢复了当前生产工作台。
+默认工作台 http://127.0.0.1:18741。首次恢复需要数分钟，等 /data 就绪，不循环重启。关闭此终端进程即可停止，再用同一 start 接续。需要更新现有配置时 configure 加 `--refresh`，不复制旧引擎签名。
 
-## 新机验收与继续生产
+## 4. 验收和继续制作
 
-工作台启动可能需数分钟，等待 HTTP `/data` 就绪，不循环重启。核对搬家清单中的文章、图件数、当前候选 SHA256、批注及终检通过数。任何缺项先记录，不重建台账或把已有通过稿当作待制作。
+```powershell
+node .\journal.mjs status --config 'F:\期刊AI工作台\machine.local.json'
+node .\journal.mjs produce --config 'F:\期刊AI工作台\machine.local.json' --request 'D:\任务\request.json'
+```
 
-用一张尚未完成且已有明确方案的图，通过 `workbench/production-runner.mjs` 原入口执行，验证候选可见后再并行。至少五张条件具备时并行，Adobe 单槽；接单到可见争取三分钟。只把工作台可见计作交付，终审由用户决定。
+request.json 沿用统一 production-runner 契约，不新增执行器。核对搬家清单的文章、图件、输出哈希、批注和终审状态；已有通过稿不重做。至少五张条件具备时并行，接单到可见争取三分钟，必要检查保留，终审由用户完成。
 
-原机基线有 12 项失败、737 项通过，集中在列布局边界和旧测试夹具的场景字段。完整失败摘要见本预览版发布说明。WorkBuddy 重跑指出的混合图灰度、Word 裁区及特殊编码文本仍须专项修复；本次迁移没有把它们标为已解决。新机首次完整交付尚需验收。
+本版在原机隔离数据目录验证工作台恢复，并以真实 PDF 和 HTTP 工作台验证并行加工回传；不等于已在另一台实体电脑验收。新机仍须通过依赖、字体、资料和一张真实任务验证。缺少语义绑定的图件不会因迁移自动变为可执行。

@@ -1,10 +1,10 @@
 # 期刊 AI 生产工作台
 
-用于期刊图件的来源核对、保留原图加工、公共排版、PDF 检查、候选复核与受保护交付。本分支为 **2026.11.04-r46-clean-move 迁移预览版**；当前公共执行工具已汇总，已知限制如实保留。新电脑请先看 [搬家与安装说明](docs/NEW-COMPUTER.md)。
+唯一生产入口为 `node journal.mjs`。工作台、PDF、JPG和批量回传共用一份外置配置，不另选私有server、localflow或旧runtime。新电脑按[安装说明](docs/NEW-COMPUTER.md)接续。
 
-[下载本迁移预览版](https://github.com/yunmuyu/journal-ai-production/releases/tag/2026.11.04-r46-clean-move) · [安装、升级与回滚](docs/RELEASE-GUIDE.md) · [更新日志](CHANGELOG.md) · [本版验证与边界](release-notes/2026.11.04-r46-clean-move.md)
+[下载当前生产版](https://github.com/yunmuyu/journal-ai-production/releases/latest) · [安装、升级与回滚](docs/NEW-COMPUTER.md) · [更新日志](CHANGELOG.md)
 
-## 选择入口
+## 内部组件
 
 | 用途 | 入口 | 说明 |
 |---|---|---|
@@ -17,18 +17,19 @@
 
 ## 快速开始
 
-1. 从 Release 下载 `journal-ai-production-…-portable.zip` 与 `.sha256`，按安装指南校验后解压。
+1. 从 Release 下载 `journal-ai-production.zip` 与 `.sha256`，按安装指南校验后解压。
 2. 使用 Python 3.12 或以上版本；复用已验证环境，或在独立环境安装锁定依赖。字体、Cairo DLL、Adobe 不随包分发。
 3. 在包外准备机器配置和合法字体，运行依赖检查、字体检查与一次真实样本验收，再开始新批次。
 
 ```powershell
 python scripts/release_bundle.py verify --root .
-Set-Location portable-production
-python -m localflow --help
-python -m localflow --config <包外的配置.json> status
+node journal.mjs doctor --config '<机器配置.json>'
+node journal.mjs start --config '<机器配置.json>'
+node journal.mjs status --config '<机器配置.json>'
+node journal.mjs produce --config '<机器配置.json>' --request '<本轮任务.json>'
 ```
 
-完整配置、字体检查和首次样本步骤见[安装指南](docs/RELEASE-GUIDE.md)。包校验或命令启动成功，仅说明相应检查通过。
+produce委托现有production-runner，JPG由同一执行器分流raster-batch。内部组件文档的直调示例只用于开发和特殊兼容，不是其他生产入口。具备条件时至少5图并行，Adobe串行；已有候选先复用，卡点记录并跳过，终审由用户完成。
 
 ## 发布与维护
 

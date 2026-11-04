@@ -150,6 +150,38 @@ def test_labelled_tick_cannot_be_silently_omitted():
     assert compile_reply_figure(rep,source,page)['kind']=='chart'
 
 
+def test_raster_no_legend_requires_explicit_review_and_accounts_for_candidates():
+    from journal_pdf.agent_spec import compile_reply_figure
+    source={'id':'source-1','snapshot':'x.png','sha256':'a'*64}
+    axis={'id':'axis','frame':[0,0,200,200],'plot_clip':[0,0,200,200],
+          'x_ticks':[{'id':'x0','position':0,'label_candidate':True}],
+          'y_ticks':[{'id':'y0','position':100,'label_candidate':True}]}
+    page={'id':'image-1','kind':'raster','geometry':{'axes':[axis],'legend_rows':[]}}
+    rep={'id':'x','kind':'raster-chart','review':{'source_checked':True,'labels_checked':True,'inward_ticks_confirmed':True},
+         'axis_ref':'axis','x_ticks':[{'ref':'x0','text':'0'}],'y_ticks':[{'ref':'y0','text':'0'}],
+         'x_title':'x','y_title':'z','legend_rows':[]}
+    # Given: omitting legend data is not itself proof of a legend-free source.
+    with pytest.raises(FigureError):compile_reply_figure(rep,source,page)
+    rep.update(no_legend=True)
+    with pytest.raises(FigureError) as error:compile_reply_figure(rep,source,page)
+    assert error.value.code=='legend_absence_review'
+    rep['review']['legend_absence_reason']='Synthetic scalar field has axes and no series legend.'
+    # When / Then: explicit review produces a mask-free, legend-free chart.
+    spec=compile_reply_figure(rep,source,page)
+    assert spec['series']==[] and spec['legend_placement']=='none'
+    assert not spec.get('masks') and not spec.get('approved_empty_regions')
+    rep['legend_rows']=[{'ref':'conflicting-legend'}]
+    with pytest.raises(FigureError) as error:compile_reply_figure(rep,source,page)
+    assert error.value.code=='legend_absence_review'
+    rep['legend_rows']=[]
+    # A detected candidate must be accounted for; the flag cannot erase it silently.
+    page['geometry']['legend_rows']=[{'id':'false-legend'}]
+    with pytest.raises(FigureError) as error:compile_reply_figure(rep,source,page)
+    assert error.value.code=='unaccounted_legend_candidates'
+    rep['ignored_legends']=[{'ref':'false-legend','reason':'Candidate is an interior data mark, not a legend.'}]
+    assert compile_reply_figure(rep,source,page)['series']==[]
+
+
 def test_review_crop_keeps_overlapping_leading_digit_piece():
     from journal_pdf.ingest_geometry import extend_label_left
     pieces=[{'rect':[10,5,29,25]},{'rect':[28,5,42,25]}]

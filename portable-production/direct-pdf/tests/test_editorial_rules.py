@@ -88,7 +88,8 @@ def test_graph_branch_buses_keep_real_arrow5_shaft_and_one_merge_arrow(reg):
                 {'id':'merge-left','from':'left','to':'target'},
                 {'id':'merge-right','from':'right','to':'target'}]}
  s=graph(spec,reg,8)
- branch_gap=ARROW_LENGTH+2*PT_PER_MM
+ # The approved no-arrow branch stub is 6 pt; the terminal arrow still needs 3 mm.
+ branch_gap=ARROW_LENGTH+6
  assert s.layout_evidence['rank_gaps_pt']==pytest.approx({0:branch_gap,1:branch_gap})
  arrow_paths=[p for p in s.paths if p['arrow']]
  terminal_segments=[(tuple(p['points'][-2]),tuple(p['points'][-1])) for p in arrow_paths]
@@ -224,7 +225,7 @@ def test_summary_identity_band_keeps_size_and_complete_id(reg,tmp_path,simple_sp
   r=render_one(simple_spec,reg,a,src,out)
   name=make_summary([r],out,reg);d=fitz.open(out/name);single=fitz.open(out/r['output_pdf'])
   assert simple_spec['id'] in d[0].get_text()
-  ev=json.loads((out/'summary-audit.json').read_text())['pages'][0]
+  ev=json.loads((out/'summary-audit.json').read_text(encoding="utf-8"))['pages'][0]
   rect=fitz.Rect(ev['target_rect_pt'])
   assert rect.width==pytest.approx(single[0].rect.width) and rect.height==pytest.approx(single[0].rect.height)
   assert ev['label_font_size_pt']==7 and ev['figure_scale']==1

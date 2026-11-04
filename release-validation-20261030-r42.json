@@ -1,0 +1,8 @@
+{
+  "platform": "Windows",
+  "full_regression": "1291 passed, 3 failed, 0 skipped, 7 subtests passed; 178.29 seconds",
+  "targeted_regression": "58 source/reference/final-visibility tests passed",
+  "known_limit": "Three local symlink fixtures fail at setup with WinError 1314. No Developer Mode or test weakening. Filesystem safety CI covers these separately.",
+  "source_regressions": "Private real figure: 122 objects checked; regenerated PDF pixel-identical to approved output at 300 dpi. Three saved-PDF mutations (icon, block arrow, text erased) rejected. No private source assets included.",
+  "review_scope": "Visibility is not source-topology proof. Unbound original relationships remain not-checked. Exterior blank padding and open white regions, identical overpaint, white text, and InDesign/print acceptance retain documented limits."
+}

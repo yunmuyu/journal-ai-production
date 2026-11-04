@@ -19,7 +19,7 @@ def test_warm_cache_has_zero_scan_and_zero_rehash(profile,tmp_path,monkeypatch):
 
 
 def test_changed_configured_file_invalidates_only_that_face(profile,tmp_path):
-    d=json.loads(profile.read_text());paths={}
+    d=json.loads(profile.read_text(encoding="utf-8"));paths={}
     for s in d['faces'].values():
         old=s['path']
         if old not in paths:
@@ -34,7 +34,7 @@ def test_changed_configured_file_invalidates_only_that_face(profile,tmp_path):
 
 
 def test_missing_font_never_falls_back(profile,tmp_path):
-    d=json.loads(profile.read_text());d['faces']['cn']['path']=str(tmp_path/'missing.ttf')
+    d=json.loads(profile.read_text(encoding="utf-8"));d['faces']['cn']['path']=str(tmp_path/'missing.ttf')
     p=tmp_path/'profile.json';p.write_text(json.dumps(d))
     with pytest.raises(FigureError,match="不存在"):FontRegistry(p,tmp_path/'cache')
 
@@ -82,3 +82,16 @@ def test_partial_runs_keep_styles(reg):
     m=reg.measure([{'text':'K','style':'italic'},{'text':'=50'}])
     assert m['glyphs'][0]['face']=='latin_italic'
     assert all(g['face']=='latin' for g in m['glyphs'][1:])
+@pytest.mark.parametrize('content',['数据清洗\n与归一化','染色归一化\nMacenko'])
+def test_default_multiline_labels_use_visible_ink_spacing(reg,content):
+    measured=reg.measure(content,8)
+    first=[g for g in measured['glyphs'] if g['line']==0 and not g['ch'].isspace()]
+    second=[g for g in measured['glyphs'] if g['line']==1 and not g['ch'].isspace()]
+    assert min(g['ink'][1] for g in second)-max(g['ink'][3] for g in first)==pytest.approx(3.)
+
+
+def test_explicit_line_leading_is_preserved(reg):
+    measured=reg.measure('数据清洗\n与归一化',8,leading=12.)
+    first=next(g for g in measured['glyphs'] if g['line']==0)
+    second=next(g for g in measured['glyphs'] if g['line']==1)
+    assert second['y']-first['y']==pytest.approx(12.)

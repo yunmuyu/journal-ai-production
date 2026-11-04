@@ -156,9 +156,10 @@ class FontRegistry:
         self.stats['measure_calls']+=1
         if not isinstance(size,(int,float)) or isinstance(size,bool) or not math.isfinite(size) or size<6-1e-6 or size>8+1e-6:
             raise FigureError('font_size_out_of_policy','当前候选统一字号范围为6—8pt',size=size)
+        ink_spacing=leading is None and role=='label'
         leading=float(size*1.2 if leading is None else leading)
         if not math.isfinite(leading) or leading<=0:raise FigureError('line_height_invalid','行距必须是有限正数')
-        key=digest_json([self.fingerprint,content,size,leading])
+        key=digest_json([self.fingerprint,content,size,leading,'label-ink-gap-3-v1' if ink_spacing else 'explicit-leading'])
         if key in self._measure_memory:
             self.stats['measure_memory_hits']+=1;return self._measure_memory[key]
         row=self.db.execute('SELECT v FROM measurements WHERE k=?',(key,)).fetchone()
@@ -182,6 +183,19 @@ class FontRegistry:
                 glyphs.append({'ch':ch,'face':role,'size':s,'x':x,'y':y+shift,'advance':adv*s,'ink':box,'line':line_no})
                 x+=adv*s
         if not boxes: raise FigureError('empty_text','不绘制空文本')
+        if ink_spacing:
+            # Align actual visible rows, preserving intentional blank rows and explicit leading.
+            previous_bottom=None;previous_line=None;offset=0.
+            for number in range(line_no+1):
+                line=[g for g in glyphs if g['line']==number]
+                visible=[g for g in line if not g['ch'].isspace()]
+                if visible and previous_line==number-1:
+                    top=min(g['ink'][1] for g in visible)+offset
+                    offset+=previous_bottom+3*size/8-top
+                for g in line:
+                    g['y']+=offset;g['ink'][1]+=offset;g['ink'][3]+=offset
+                if visible:
+                    previous_bottom=max(g['ink'][3] for g in visible);previous_line=number
         # Center every explicit line by its ink, not merely the entire multiline block.
         line_bounds={}
         for g in glyphs:
@@ -203,6 +217,25 @@ class FontRegistry:
     def measure_vertical(self,content,size=8.):
         from .vertical_text import measure_vertical
         return measure_vertical(self,content,size)
+
+    def rotated_ink_bounds(self,measured,rotation):
+        """Transform original glyph curves before measuring oblique ink bounds."""
+        from fontTools.pens.transformPen import TransformPen
+        from .text_geometry import rotate_point
+        boxes=[];cache={}
+        for g in measured['glyphs']:
+            if g['ch'].isspace():continue
+            role=g['face'];angle=(rotation+g.get('rotation',0))%360;key=(role,g['ch'],g['size'],angle)
+            if key not in cache:
+                _,cmap,glyphset,upm=self._font_models[role];scale=g['size']/upm
+                c,s=math.cos(math.radians(angle)),math.sin(math.radians(angle))
+                pen=BoundsPen(glyphset)
+                glyphset[cmap[ord(g['ch'])]].draw(TransformPen(pen,(scale*c,-scale*s,-scale*s,-scale*c,0,0)))
+                cache[key]=pen.bounds
+            b=cache[key]
+            if b is not None:
+                x,y=rotate_point(g['x'],g['y'],rotation);boxes.append([b[0]+x,b[1]+y,b[2]+x,b[3]+y])
+        return [min(b[0] for b in boxes),min(b[1] for b in boxes),max(b[2] for b in boxes),max(b[3] for b in boxes)]
 
     def prepare_document_fonts(self,texts):
         groups={}
@@ -240,16 +273,13 @@ class FontRegistry:
                                                         for r,i in self.face_info.items()},'stats':dict(self.stats)}
 
 
-def position_text(measured, x, y, align='center', rotation=0):
-    if isinstance(rotation,bool) or not isinstance(rotation,(int,float)) or not math.isfinite(rotation):
-        raise FigureError('unsupported_text_rotation','文字角度必须为有限数值')
+def position_text(measured, x, y, align='center', rotation=0, *, rotated_ink=None):
+    if isinstance(rotation,bool) or not isinstance(rotation,(int,float)) or not math.isfinite(rotation):raise FigureError('unsupported_text_rotation','文字旋转角须为有限度数')
     rotation=rotation%360
-    def rot(px,py):
-        if rotation in (0,90,180,270):return {0:(px,py),90:(py,-px),180:(-px,-py),270:(-py,px)}[rotation]
-        angle=math.radians(rotation)
-        return px*math.cos(angle)+py*math.sin(angle),-px*math.sin(angle)+py*math.cos(angle)
-    b=measured['ink']; corners=[rot(px,py) for px in (b[0],b[2]) for py in (b[1],b[3])]
+    from .text_geometry import ink_polygons
+    corners=[point for polygon in ink_polygons(measured,rotation) for point in polygon]
     bb=[min(p[0] for p in corners),min(p[1] for p in corners),max(p[0] for p in corners),max(p[1] for p in corners)]
+    if rotated_ink is not None:bb=rotated_ink
     if align=='center':dx=x-(bb[0]+bb[2])/2
     elif align=='left':dx=x-bb[0]
     elif align=='right':dx=x-bb[2]
@@ -272,11 +302,7 @@ def draw_text(page, registry, item):
                           'rotation':turn,'end_x':g['x']+ax,'end_y':g['y']+ay})
     for r in runs:
         name='JFW_'+r['face']; page.insert_font(fontname=name,fontbuffer=registry.document_fonts[r['face']])
-        px,py=r['x'],r['y'];angle=math.radians(rot)
-        rx,ry=px*math.cos(angle)+py*math.sin(angle),-px*math.sin(angle)+py*math.cos(angle)
-        total=(rot+r['rotation'])%360
-        origin=fitz.Point(dx+rx,dy+ry)
-        if total in (0,90,180,270):
-            page.insert_text(origin,r['text'],fontname=name,fontsize=r['size'],rotate=total,color=(0,),overlay=True)
-        else:
-            page.insert_text(origin,r['text'],fontname=name,fontsize=r['size'],morph=(origin,fitz.Matrix(total)),color=(0,),overlay=True)
+        from .text_geometry import rotate_point
+        rx,ry=rotate_point(r['x'],r['y'],rot);point=fitz.Point(dx+rx,dy+ry);angle=(rot+r['rotation'])%360
+        transform={'rotate':int(angle)} if angle in (0,90,180,270) else {'morph':(point,fitz.Matrix(angle))}
+        page.insert_text(point,r['text'],fontname=name,fontsize=r['size'],color=(item.get('gray',0),),overlay=True,**transform)

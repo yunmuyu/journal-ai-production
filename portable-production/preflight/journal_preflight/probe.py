@@ -12,7 +12,9 @@ XML_LIMIT = 8 * 1024 * 1024
 NS={'w':'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
     'a':'http://schemas.openxmlformats.org/drawingml/2006/main',
     'r':'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-    'wp':'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'}
+    'wp':'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing',
+    'v':'urn:schemas-microsoft-com:vml',
+    'o':'urn:schemas-microsoft-com:office:office'}
 
 class ProbeError(ValueError): pass
 
@@ -114,6 +116,32 @@ def safe_zip_member(z,name):
     item=z.getinfo(name)
     if item.file_size>LIMIT: raise ProbeError('Zip entry exceeds limit')
     return z.read(name)
+def document_legacy_evidence(root,paragraphs,relationships):
+    # Inventory caches without decoding them or claiming they identify a figure.
+    # OLE program IDs are evidence, not permission to execute embedded objects.
+    indexes={para:index for index,para in enumerate(paragraphs)}
+    evidence=[]
+    def relationship(rid):
+        rel=relationships.get(rid)
+        return {'relationship_id':rid,
+                'relationship_status':'missing' if rel is None else 'external' if rel.get('TargetMode')=='External' else 'internal',
+                'target':rel.get('Target') if rel is not None else None}
+    for node in root.xpath('.//w:object | .//w:pict',namespaces=NS):
+        if any(a.tag in {f"{{{NS['w']}}}object",f"{{{NS['w']}}}pict"} for a in node.iterancestors()):
+            continue
+        nearest_para=next((a for a in node.iterancestors() if a.tag==f"{{{NS['w']}}}p"),None)
+        ole=[{'prog_id':obj.get('ProgID'),**relationship(obj.get(f"{{{NS['r']}}}id"))}
+             for obj in node.findall('.//o:OLEObject',NS)]
+        images=[relationship(im.get(f"{{{NS['r']}}}id") or im.get(f"{{{NS['o']}}}relid"))
+                for im in node.findall('.//v:imagedata',NS)]
+        equation=bool(ole) and all(re.match(r'^(?:equation|mathtype)(?:\.|$)',obj['prog_id'] or '',re.I) for obj in ole)
+        evidence.append({'kind':'ole_object' if node.tag==f"{{{NS['w']}}}object" else 'vml_picture',
+                         'paragraph_index':indexes.get(nearest_para),
+                         'ole_objects':ole,'vml_images':images,
+                         'classification':'equation_cache' if equation else 'unclassified_legacy_object',
+                         'extracted_as_figure':False,'figure_identity_verified':False})
+    return evidence
+
 def document_images(p: Path,out: Path):
     with ZipFile(p) as z:
         if sum(i.file_size for i in z.infolist())>128*1024*1024:raise ProbeError('Uncompressed package too large')
@@ -121,11 +149,17 @@ def document_images(p: Path,out: Path):
         rels=xml(safe_zip_member(z,'word/_rels/document.xml.rels'))
         rm={r.get('Id'):r for r in rels}
         paragraphs=root.findall('.//w:body/w:p',NS)
-        figures=[];pending=[];warnings=[]
+        figures=[];pending=[];warnings=[];unmapped=[];caption_count=0
+        unsupported=document_legacy_evidence(root,paragraphs,rm)
+        if any(e['kind']=='ole_object' for e in unsupported):warnings.append('ole_object_evidence_not_extracted')
+        if any(e['kind']=='vml_picture' or e['vml_images'] for e in unsupported):warnings.append('vml_image_evidence_not_extracted')
+        legacy_paragraphs={e['paragraph_index'] for e in unsupported if e['paragraph_index'] is not None}
         for index,para in enumerate(paragraphs):
             text=''.join(para.xpath('.//w:t/text()',namespaces=NS)).strip()
-            rids=para.xpath('.//w:drawing//a:blip/@r:embed',namespaces=NS)
-            # Formula/OLE fallback WMFs aren't counted as figure images.
+            rids=para.xpath('.//w:drawing[not(ancestor::w:object)]//a:blip/@r:embed',namespaces=NS)
+            # An unsupported object is a boundary: do not bind an earlier image
+            # to its caption, and never promote formula/OLE fallback caches.
+            if index in legacy_paragraphs:pending=[]
             for rid in dict.fromkeys(rids):
                 rel=rm.get(rid)
                 if rel is None or rel.get('TargetMode')=='External': warnings.append('external_or_missing_image_relationship');continue
@@ -145,18 +179,33 @@ def document_images(p: Path,out: Path):
                 pending.append({'paragraph_index':index,'relationship_id':rid,'member':member,
                      'asset':saved.name,'asset_sha256':sha(raw),'width_px':size[0],'height_px':size[1],
                      'word_extent_mm':[int(ext.get('cx'))/36000,int(ext.get('cy'))/36000] if ext is not None else None})
-            # Captions only bind to a recently preceding actual drawing, not every
-            # sentence beginning with “图4展示…”. Never infer from filenames.
-            m=re.match(r'^图\s*([0-9]+(?:[.．\-－][0-9]+)*)\s*(.*)$',text)
+            # A title separator distinguishes caption candidates from prefixes
+            # such as “图4展示…”. Candidates alone never establish figure identity.
+            m=re.match(r'^图\s*([0-9]+(?:[.．\-－][0-9]+)*)(?:\s+(.*)|$)',text)
             recent=[x for x in pending if 0<=index-x['paragraph_index']<=3]
-            if m and recent and not rids:
-                figures.append({'number':m.group(1),'caption':text,'caption_paragraph_index':index,'caption_title':m.group(2),'images':recent})
-                pending=[x for x in pending if x not in recent]
-            elif text and not rids and not m:
+            if m:
+                caption_count+=1
+                caption={'number':m.group(1),'caption':text,'caption_paragraph_index':index,'caption_title':m.group(2) or ''}
+                if recent and not rids:
+                    figures.append({**caption,'images':recent})
+                    pending=[x for x in pending if x not in recent]
+                else:
+                    nearby=[j for j,e in enumerate(unsupported)
+                            if e['paragraph_index'] is not None and 0<=index-e['paragraph_index']<=3
+                            and e['classification']!='equation_cache']
+                    unmapped.append({**caption,'reason':'no_supported_drawing_bound',
+                                     'nearby_unsupported_object_indexes':nearby,'figure_identity_verified':False})
+            elif text and not rids:
                 pending=[x for x in pending if index-x['paragraph_index']<2]
-        return {'kind':'docx','figures':figures,'figure_caption_count':len(figures),
+        if unmapped:warnings.append('unmapped_figure_caption_candidates')
+        return {'kind':'docx','figures':figures,'figure_caption_count':caption_count,
+                'figure_caption_count_basis':'caption_candidates_not_verified_inventory',
+                'figure_extraction_status':'incomplete' if unmapped else 'requires_review' if unsupported or warnings else 'supported_scope_only',
+                'mapped_figure_caption_count':len(figures),'unmapped_figure_captions':unmapped,
+                'unsupported_object_evidence':unsupported,'figure_inventory_verified':False,
                 'media_member_count':sum(n.startswith('word/media/') and not n.endswith('/') for n in z.namelist()),
-                'warnings':sorted(set(warnings)), 'scope_note':'Body drawing + nearby caption. Floating text-box/multi-paragraph figure assemblies need Agent review.',
+                'warnings':sorted(set(warnings)),
+                'scope_note':'Body DrawingML + nearby caption candidates with a number/title separator. Counts are not a verified figure inventory. VML/OLE caches are evidence only; nearby objects are not source identity matches. Floating text-box/multi-paragraph assemblies and other caption formats need Agent review.',
                 'manuscript_column_not_inferred':True}
 def image_distance(a: Path,b: Path):
     with Image.open(a) as im_a,Image.open(b) as im_b:

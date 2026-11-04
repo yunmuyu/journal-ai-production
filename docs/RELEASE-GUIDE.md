@@ -1,5 +1,7 @@
 # 正式版安装、升级与回滚
 
+当前统一生产安装与启动以[新电脑说明](NEW-COMPUTER.md)为准。下文旧localflow及Adobe命令仅记录内部组件和特殊兼容操作，不作为日常生产入口。
+
 ## 获取与校验
 
 下载 [GitHub Release](https://github.com/yunmuyu/journal-ai-production/releases/latest) 的便携制作包及对应 `.sha256`。它包含当前公共制作程序、示例与使用文档，不包含 Python、商业字体、Adobe、作者资料或本机配置。完整工作台与历史兼容工具使用同一 tag 的 Source code 压缩包或 Git checkout。

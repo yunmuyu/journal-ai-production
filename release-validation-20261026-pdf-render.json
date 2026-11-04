@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "release": "2026.10.26-pdf-render-audit-candidate",
+  "status": "candidate-affected-tests-verified",
+  "sourceCommit": "e6885b1dcc0d1cc7174ec9c22af5f1296324b317",
+  "freshChecks": {
+    "nativeSyntheticPreview": {
+      "visualChecked": true,
+      "pages": 2,
+      "renderPassed": true
+    },
+    "localflow": {
+      "subtestsPassed": 2,
+      "failed": 0,
+      "passed": 18
+    }
+  },
+  "inheritedEvidence": "r32 baseline only; not a fresh full-engine run",
+  "notVerifiedThisRelease": [
+    "full figure engine suite",
+    "fresh-machine installation",
+    "manuscript acceptance",
+    "print RIP"
+  ],
+  "productionRuntimeUpdated": false
+}

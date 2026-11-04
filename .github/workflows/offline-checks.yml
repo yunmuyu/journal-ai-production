@@ -13,6 +13,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m unittest discover -s tests -p test_release_bundle.py -v
+      - run: node --test tests/private-migration.test.mjs tests/migration-review-state.test.mjs
       - run: python -m unittest discover -s portable-production/tests-local -p test_engine_directory.py -v
         env:
           PYTHONPATH: portable-production

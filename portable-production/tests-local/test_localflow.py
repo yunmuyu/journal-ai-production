@@ -42,9 +42,72 @@ class LocalFlowTest(unittest.TestCase):
             "backend": "direct-pdf", "column": "single",
             "expected_outputs": [{"author_rel": "编辑/作者", "figure_number": "1"}]},
             "suggested": {"column": None}})
+        # Synthetic reviewed route is explicit; legacy candidates cannot bypass the
+        # publication gate merely because their PDF mechanical checks pass.
+        from journal_preflight.editorial_route import COMMON_CHECKS, ROUTE_CHECKS
+        digest = hash_file(self.source)
+        route = "structural_redraw"
+        figure = {"id": "figure-1", "sources": [{"id": "source-1", "sha256": digest}],
+            "decision": {"proposed": {"route": route, "column": "single"},
+                         "route": route, "column": "single", "reason": "Synthetic N1 to N2 test source.", "overrides": []},
+            "evidence": [{"id": "test-review", "source_id": "source-1", "source_sha256": digest,
+                          "method": "synthetic test", "location": "whole source", "observation": "N1 to N2 fixture topology recorded."}],
+            "checks": {key: {"status": "recorded_satisfied", "evidence_ids": ["test-review"]}
+                       for key in COMMON_CHECKS + ROUTE_CHECKS[route]}, "author_issues": []}
+        figure['text_review'] = {'requirement': 'replace', 'categories': ['other'],
+            'reason': 'Synthetic N1 and N2 labels are typeset by structural redraw.', 'evidence_ids': ['test-review']}
+        figure['source_review'] = {'source_snapshot': {'source-1': digest}, 'structure': 'node_link',
+            'text_requirement': 'replace', 'data_preservation': 'not_applicable', 'topology': 'reconstructable',
+            'evidence': [{'source_id':'source-1','source_sha256':digest,'location':'whole source','observation':'N1 to N2 topology and labels need redraw.'}]}
+        values = json.loads(self.constraints.read_text(encoding="utf-8"))
+        values["confirmed"].update(editorial_route_contract={"schema_version": "editorial-route/1", "figures": [figure]},
+            editorial_figure_id="figure-1", editorial_targets=[{"id": "figure-1", "author_rel": "编辑/作者", "figure_number": "1"}])
+        write_json(self.constraints, values)
 
     def tearDown(self) -> None:
         self.temp.cleanup()
+
+    def prepare_checked_figure(self) -> None:
+        """Give delivery tests a real source-bound scene and full visibility audit."""
+        import pymupdf as fitz
+        source_dir = self.author / 'source-data'
+        source_dir.mkdir()
+        original = source_dir / 'original.pdf'
+        with fitz.open() as doc:
+            page = doc.new_page(width=100, height=100)
+            page.draw_rect(fitz.Rect(20, 20, 80, 60), width=.5)
+            page.insert_text((40, 44), 'N1', fontsize=8)
+            doc.save(original)
+        original_sha = hash_file(original)
+        contract = source_dir / 'structure.json'
+        write_json(contract, {'version': 1, 'source_sha256': original_sha,
+            'nodes': {'a': {'shape': 'rectangle', 'visible': True}}, 'paths': {}})
+        contract_sha = hash_file(contract)
+        sources = [{'path': 'source-data/original.pdf', 'sha256': original_sha, 'role': 'original-artwork'},
+                   {'path': 'source-data/structure.json', 'sha256': contract_sha, 'role': 'structure-contract'}]
+        spec = json.loads(self.spec.read_text(encoding='utf-8'))
+        spec.update(kind='scene', width_pt=100, height_pt=100,
+            nodes=[{'id':'a', 'rect':[20,20,80,60], 'container':True}], paths=[],
+            texts=[{'id':'label', 'text':'N1', 'x':50, 'y':40, 'owner':'a'}], assets=[],
+            sources=sources, source_structure_contract='source-data/structure.json')
+        spec.pop('edges', None)
+        spec['policy']['require_final_visibility'] = True
+        write_json(self.spec, spec)
+        write_json(self.manifest, {'source_root':str(self.author), 'files':[
+            {'id':'source-1','path':sources[0]['path']}, {'id':'contract-1','path':sources[1]['path']}]})
+        constraints = json.loads(self.constraints.read_text(encoding='utf-8'))
+        figure = constraints['confirmed']['editorial_route_contract']['figures'][0]
+        figure['sources'] = [{'id':'source-1','sha256':original_sha}, {'id':'contract-1','sha256':contract_sha}]
+        figure['evidence'][0]['source_sha256'] = original_sha
+        figure['evidence'].append({'id':'contract-review','source_id':'contract-1','source_sha256':contract_sha,
+            'method':'synthetic test','location':'complete contract','observation':'Original structure inventory.'})
+        figure['checks']['source_identity']['evidence_ids'].append('contract-review')
+        figure['text_review']['evidence_ids'].append('contract-review')
+        figure['source_review']['source_snapshot'] = {'source-1':original_sha,'contract-1':contract_sha}
+        figure['source_review']['evidence'][0]['source_sha256'] = original_sha
+        figure['source_review']['evidence'].append({'source_id':'contract-1','source_sha256':contract_sha,
+            'location':'complete contract','observation':'Original node inventory.'})
+        write_json(self.constraints, constraints)
 
     def test_catalog_when_attachment_has_figure_name(self) -> None:
         attachment = self.author / "图片及说明"
@@ -111,14 +174,56 @@ class LocalFlowTest(unittest.TestCase):
         with self.assertRaisesRegex(FlowError, "原始已确认约束"):
             check_candidate(self.config, candidate["candidate_id"])
 
+    def test_real_pdf_candidate_cannot_be_reassigned_in_multi_output_batch(self) -> None:
+        self.prepare_checked_figure()
+        import copy
+        from localflow.core import hash_json
+        values = json.loads(self.constraints.read_text(encoding="utf-8"))
+        confirmed = values["confirmed"]
+        confirmed["split"] = "multi"
+        confirmed["expected_outputs"].append({"author_rel": "编辑/作者", "figure_number": "2"})
+        second = copy.deepcopy(confirmed["editorial_route_contract"]["figures"][0])
+        second["id"] = "figure-2"
+        confirmed["editorial_route_contract"]["figures"].append(second)
+        confirmed["editorial_targets"].append({"id": "figure-2", "author_rel": "编辑/作者", "figure_number": "2"})
+        write_json(self.constraints, values)
+        pid = probe(self.config, self.manifest)["probe_id"]
+        rendered = render(self.config, self.spec, self.constraints, pid)
+        cid = rendered["candidate_id"]
+        candidate, report, artifact = check_candidate(self.config, cid)
+        record = {"candidate_id": cid, "output_sha256": candidate["output_sha256"],
+            "constraints_sha256": candidate["constraints_sha256"],
+            "source_hashes": {row["path"]: row["sha256"] for row in report["source_bindings"]},
+            "author_rel": "编辑/作者", "figure_number": "2", "reviewer": "synthetic reviewer",
+            "content": {"conclusion": "approved", "evidence": ["Synthetic source identity and full topology checked for this test."]},
+            "visual": {"conclusion": "approved", "evidence": ["Synthetic output bounds and embedded text checked for this test."]}}
+        review_file = Path(self.temp.name) / "misassigned-review.json"
+        write_json(review_file, record)
+        with self.assertRaises(FlowError) as caught:
+            review(self.config, cid, review_file)
+        self.assertEqual(caught.exception.code, "review_target_binding")
+        persisted = self.config.state_root / "reviews" / f"{cid}.json"
+        write_json(persisted, {"record": record, "record_sha256": hash_json(record)})
+        with self.assertRaises(FlowError) as caught:
+            publish(self.config, cid, "编辑/作者", "2")
+        self.assertEqual(caught.exception.code, "review_target_binding")
+        self.assertFalse(list(self.author.glob("*.pdf")))
+        # A valid identity continues to work; no broad ban on multi-output jobs.
+        record["figure_number"] = "1"
+        write_json(persisted, {"record": record, "record_sha256": hash_json(record)})
+        result = publish(self.config, cid, "编辑/作者", "1")
+        self.assertEqual(result["status"], "published-candidate")
+        self.assertEqual(Path(result["target"]).read_bytes(), artifact.read_bytes())
+
     def test_real_chain_when_target_changes(self) -> None:
+        self.prepare_checked_figure()
         probed = probe(self.config, self.manifest)
         candidate = render(self.config, self.spec, self.constraints, probed["probe_id"])
         cid = candidate["candidate_id"]
         review_file = Path(self.temp.name) / "review.json"
         write_json(review_file, {"candidate_id": cid, "output_sha256": candidate["sha256"],
             "constraints_sha256": json.loads((self.config.state_root / "candidates" / cid / "candidate.json").read_text(encoding="utf-8"))["constraints_sha256"],
-            "source_hashes": {self.source.name: hash_file(self.source)},
+            "source_hashes": {row['path']: row['sha256'] for row in json.loads(self.spec.read_text(encoding='utf-8'))['sources']},
             "author_rel": "编辑/作者", "figure_number": "1", "reviewer": "测试审阅者",
             "content": {"conclusion": "approved", "evidence": ["对照原稿文字核对 N1 与 N2 连线顺序"]},
             "visual": {"conclusion": "approved", "evidence": ["按实际尺寸观察单栏图幅、线条和字形"]}})
@@ -143,6 +248,7 @@ class LocalFlowTest(unittest.TestCase):
             publish(self.config, cid, "编辑/作者", "1", hash_file(target))
 
     def test_publish_when_jpg_same_number_exists(self) -> None:
+        self.prepare_checked_figure()
         probed = probe(self.config, self.manifest)
         candidate = render(self.config, self.spec, self.constraints, probed["probe_id"])
         cid = candidate["candidate_id"]
@@ -150,7 +256,7 @@ class LocalFlowTest(unittest.TestCase):
         saved = json.loads((self.config.state_root / "candidates" / cid / "candidate.json").read_text(encoding="utf-8"))
         write_json(record, {"candidate_id": cid, "output_sha256": candidate["sha256"],
             "constraints_sha256": saved["constraints_sha256"],
-            "source_hashes": {self.source.name: hash_file(self.source)},
+            "source_hashes": {row['path']: row['sha256'] for row in json.loads(self.spec.read_text(encoding='utf-8'))['sources']},
             "author_rel": "编辑/作者", "figure_number": "1", "reviewer": "测试审阅者",
             "content": {"conclusion": "approved", "evidence": ["对照原稿文字核对 N1 与 N2 连线顺序"]},
             "visual": {"conclusion": "approved", "evidence": ["按实际尺寸观察单栏图幅、线条和字形"]}})
@@ -189,7 +295,7 @@ class LocalFlowTest(unittest.TestCase):
         result = audit_delivery_pdfs(self.delivery)
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["issue_count"], 1)
-        self.assertEqual(result["issues"][0]["path"], "编辑\\作者\\作者-图1.pdf")
+        self.assertEqual(Path(result["issues"][0]["path"]), Path("编辑") / "作者" / "作者-图1.pdf")
 
     def test_image_only_page_ignores_unused_standard_font_resource(self) -> None:
         import pymupdf as fitz

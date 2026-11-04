@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "release": "2026.10.22-r34-bounded-figure-candidate",
+  "status": "candidate-source-verified",
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "node": "24.19.0"
+  },
+  "codeEvidence": {
+    "localCommit": "a244c5f04892729b77ccf3b1259304be2346e4c5",
+    "remoteCodeCommit": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
+    "sourceTree": "c59627ab88c2b6b25c7de3561bad9451bd5dec92",
+    "note": "The new candidate commit changes release metadata only. Program bytes are identical to the tested code snapshot."
+  },
+  "freshChecks": {
+    "pythonCombined": {
+      "passed": 969,
+      "failed": 0,
+      "skipped": 0,
+      "warnings": 2,
+      "seconds": 313.35,
+      "command": "python -m pytest portable-production/direct-pdf/tests portable-production/preflight/tests portable-production/tests-local -q --durations=15",
+      "fontCoverage": "authorized real production profile; no fonts distributed"
+    },
+    "nodeOffline": {
+      "passed": 51,
+      "failed": 0
+    },
+    "releaseBundleTests": {
+      "passed": 3,
+      "failed": 0
+    },
+    "engineDirectory": {
+      "passed": 2,
+      "failed": 0
+    }
+  },
+  "githubActions": {
+    "status": "pending-for-new-candidate-commit",
+    "priorDraftCommit": "572867161f3fc2baa8cecd2a0672440bcc19c8c0",
+    "priorConclusion": "failure",
+    "priorFailure": "existing r33 portableFiles hashes differ from new source; this candidate seal repair must pass fresh exact-head CI"
+  },
+  "packageAcceptance": {
+    "isolatedBuild": "passed",
+    "extractedManifestVerifiedFiles": 184,
+    "byteIdenticalRepeatBuild": "passed",
+    "extractedCliSmoke": [
+      "journal_pdf --help passed",
+      "localflow --help passed"
+    ],
+    "scope": "Packaging integrity and CLI startup only; no customer acceptance or fresh-machine installation."
+  },
+  "notVerifiedThisRelease": [
+    "unattended ZIP/DOCX embedded-Visio to fully source-bound semantic intake",
+    "customer whole-job visual acceptance",
+    "InDesign placement and issue/page metadata",
+    "printing or PDF/X certification",
+    "fresh-machine dependency installation",
+    "approval identity authentication",
+    "multiple state roots writing one delivery root"
+  ],
+  "deployment": "Not installed, merged, tagged or formally released. Historical releases and assets remain unchanged."
+}

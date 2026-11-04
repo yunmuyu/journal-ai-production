@@ -32,7 +32,15 @@ def envelope(contract: Contract, raw: JSON) -> dict[str, JSON]:
 def precheck(raw: JSON) -> dict[str, JSON]:
     contract = Contract.parse(raw)
     prepare(contract, raw)
-    return dict(status='prechecked', envelope=ref(state(contract) / 'envelope.json'))
+    by_stem: dict[tuple[str, str], list[str]] = {}
+    for output in contract.outputs:
+        target = output.delivery_target
+        if target.suffix.lower() in {'.pdf', '.jpg', '.jpeg'}:
+            by_stem.setdefault((str(target.parent).casefold(), target.stem.casefold()), []).append(str(target))
+    warnings = [dict(code='multiple_figure_formats', targets=targets,
+                     message='Confirm the requested formats; matching names may be intentional.')
+                for targets in by_stem.values() if len(targets) > 1]
+    return dict(status='prechecked', envelope=ref(state(contract) / 'envelope.json'), warnings=warnings)
 
 
 def postcheck(raw: JSON, submission: JSON) -> dict[str, JSON]:

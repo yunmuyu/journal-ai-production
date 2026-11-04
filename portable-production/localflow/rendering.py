@@ -69,7 +69,10 @@ def check_constraints(spec: dict, constraints: dict) -> None:
 
 
 def check_report(report: dict, pdf: Path) -> None:
-    if report.get("status") != "candidate-rendered" or report.get("mechanical_checks_passed") is not True:
+    if (any(a.get("mode") in ("source-vector-body", "source-mixed-body") for a in report.get("assets", []))
+            or report.get("typography_coverage", {}).get("status") == "unverified"):
+        raise FlowError("source_text_coverage", "源图路径或像素中的文字覆盖尚未验证；原生文字检查不能证明全图文字合格")
+    if report.get("status") not in ("candidate-rendered", "candidate-editorial-review") or report.get("mechanical_checks_passed") is not True:
         raise FlowError("render_audit", "引擎没有生成机械检查通过的候选")
     if report.get("pdf_sha256") != hash_file(pdf):
         raise FlowError("render_audit", "候选 PDF 与引擎报告哈希不一致")
@@ -79,9 +82,14 @@ def check_report(report: dict, pdf: Path) -> None:
     for key in ("text_multiset_exact", "all_fonts_embedded", "neutral_rgb_300dpi",
         "numeric_grouping_in_actual_pdf", "editable_text_pure_black", "effective_path_strokes_05pt"):
         if audit.get(key) is not True:
+            if (key == "editable_text_pure_black" and audit.get("editable_text_declared_black_white_exact") is True
+                    and any(a.get("mode") == "registered-native-pdf-text" for a in report.get("assets", []))):
+                continue
             raise FlowError("render_audit", f"实际 PDF 审计未通过：{key}")
     if audit.get("axis_unit_notation", {}).get("ok") is not True:
         raise FlowError("render_audit", "实际 PDF 轴单位审计未通过")
+    if audit.get("editable_text_rotation_exact", True) is not True:
+        raise FlowError("render_audit", "实际 PDF 文字旋转角核对未通过")
     if audit.get("font_descriptors", {}).get("passed") is not True:
         raise FlowError("render_audit", "引擎报告缺少字体描述完整性审计")
     audit_pdf_compatibility(pdf)
@@ -94,6 +102,11 @@ def check_candidate(config: Config, candidate_id: str) -> tuple[dict, dict, Path
         raise FlowError("candidate_id", "候选 ID 无效")
     folder = config.state_root / "candidates" / candidate_id
     candidate = json_file(folder / "candidate.json")
+    if candidate.get("output_format") == "jpg":
+        from .raster_candidates import check_raster_candidate
+        return check_raster_candidate(config, candidate_id)
+    if candidate.get("output_format", "pdf") != "pdf":
+        raise FlowError("artifact_format", "不支持的候选输出格式")
     report_path = safe_child(folder / "render", candidate["output_pdf"])
     engine_report_path = safe_child(folder / "render", str(Path(candidate["output_pdf"]).parent / "report.json"))
     report = json_file(engine_report_path)
@@ -186,7 +199,7 @@ def render(config: Config, spec_path: Path, constraints_path: Path, probe_id: st
         candidate = {"candidate_id": candidate_id, "probe_id": probe_id,
             "output_pdf": report["output_pdf"], "output_sha256": report["pdf_sha256"],
             "report_sha256": hash_file(report_path), "spec_sha256": hash_json(spec),
-            "constraints_sha256": hash_json(constraints), "status": "candidate-rendered",
+            "constraints_sha256": hash_json(constraints), "status": report["status"],
             "constraints_path": str(constraints_path.resolve()),
             "constraints_file_sha256": constraints_initial_sha,
             "font_profile_sha256": hash_file(config.font_profile),
@@ -195,5 +208,5 @@ def render(config: Config, spec_path: Path, constraints_path: Path, probe_id: st
             "render_ms": round((time.perf_counter() - began) * 1000, 3)}
         write_json(folder / "candidate.json", candidate)
     return {"candidate_id": candidate_id, "pdf": str(pdf), "sha256": report["pdf_sha256"],
-        "render_ms": candidate["render_ms"], "audit": "passed", "status": "candidate-rendered",
+        "render_ms": candidate["render_ms"], "audit": "passed" if report["status"] == "candidate-rendered" else "editorial-review-required", "status": report["status"],
         "render_log": str(log_path), "warning_count": candidate["warning_count"]}

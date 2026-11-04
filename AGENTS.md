@@ -1,5 +1,12 @@
 # 项目协作约束
 
+## 唯一生产与搬家入口
+
+- 公共主线为main，生产只运行`node journal.mjs`，共用外置machine.local.json。start启动仓库内工作台，produce委托现有production-runner并分流raster。旧私有server、localflow和冻结副本不是生产入口。
+- 旧文档的组件直调命令仅供内部测试和特殊兼容操作，不绕过统一入口、版本锁或回传检查。
+- 普通框间净距3pt、组间净距6pt，随整图等比缩放；带箭头的距离按真实端口和末段计算，不额外加描边造成偏差。
+- 生产PDF留白至少2pt。更小留白仅允许显式diagnostic_only，报告为diagnostic-rendered，不得回传生产候选。
+
 ## “三分钟测试”固定入口（2026-11-04）
 
 - 用户在当前对话明确说“跑三分钟测试”“重跑三分钟测试”或“3分钟测试”时，视为执行请求，立即按 `docs/production-intake.md` 的“AI触发与准备步骤”操作，不再询问是否开始。引用历史聊天、讨论规则或要求解释不触发生产。

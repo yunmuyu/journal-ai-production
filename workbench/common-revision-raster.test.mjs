@@ -46,4 +46,16 @@ test('shared revision publishes a real replayed no-PS JPG while rejecting relett
  f.feedback.points[0].sha256='0'.repeat(64);f.outputs=[];refresh();
  assert.match(createReviewTriage(options).list()[0].restoreError,/批注/);
  assert.equal(f.outputs.length,0);
+ // A later text-only review must not revert a published candidate on restart.
+ f.feedback={revision:3,text:'still needs editable lettering',points:[]};
+ f.outputs=[{number:'1',file:{path:old.path}}];refresh();
+ const textReview=createReviewTriage(options);
+ assert.equal(textReview.list()[0].restoreError,undefined);
+ assert.equal(testRef(f.outputs[0].file.path).sha256,reviewedOutput.sha256);
+ assert.equal(f.feedback.text,'still needs editable lettering');
+ assert.throws(()=>textReview.prepareCandidate(review.id,{productionRoute:route}),/批注/);
+ const newer=write(path.join(root,'newer.jpg'),'a different later candidate');
+ f.outputs=[{number:'1',file:{path:newer.path}}];refresh();
+ assert.match(createReviewTriage(options).list()[0].restoreError,/当前图稿/);
+ assert.equal(f.outputs[0].file.path,newer.path);
 });

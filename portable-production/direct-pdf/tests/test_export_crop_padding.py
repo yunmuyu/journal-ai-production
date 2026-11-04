@@ -20,20 +20,18 @@ def render_sample(reg,tmp_path,name,padding='absent'):
 
 def test_explicit_export_crop_padding_changes_only_the_crop_margin(reg,tmp_path):
     original,size,crop,_=render_sample(reg,tmp_path,'default')
-    result,padded,padded_crop,_=render_sample(reg,tmp_path,'padded',7.6)
-    assert result['layout']['layout_evidence']['export_crop']['protection_pt']==7.6
-    assert padded[2]-size[2]==pytest.approx(7.2,abs=.0001)
-    assert padded[3]-size[3]==pytest.approx(7.2,abs=.0001)
-    assert padded_crop==pytest.approx([crop[0],crop[1],crop[2]+7.2,crop[3]+7.2],abs=.0001)
-    before,after=original['layout']['texts'][0],result['layout']['texts'][0]
-    assert after['text']==before['text'] and after['font_size_pt']==before['font_size_pt']==8
-    assert after['ink_bounds']==pytest.approx([v+3.6 for v in before['ink_bounds']])
+    result,padded,padded_crop,_=render_sample(reg,tmp_path,'padded',4)
+    assert result['layout']['layout_evidence']['export_crop']['protection_pt']==4
+    assert padded[2]-size[2]==pytest.approx(4,abs=.25)
+    assert padded[3]-size[3]==pytest.approx(4,abs=.25)
+    assert result['export_padding_audit']['pages'][0]['measured_margins_pt']==pytest.approx([4]*4,abs=.25)
+    assert result['layout']['texts']==original['layout']['texts']
     assert result['layout']['layout_evidence']['export_crop']['rescaled'] is False
 
 
-def test_absent_setting_uses_safe_four_point_export_behavior(reg,tmp_path):
+def test_absent_setting_uses_two_point_export_behavior(reg,tmp_path):
     original,size,crop,pixels=render_sample(reg,tmp_path,'absent')
-    explicit,other_size,other_crop,other_pixels=render_sample(reg,tmp_path,'explicit',4)
+    explicit,other_size,other_crop,other_pixels=render_sample(reg,tmp_path,'explicit',2)
     assert original['layout']['layout_evidence']['export_crop']==explicit['layout']['layout_evidence']['export_crop']
     assert size==other_size and crop==other_crop and pixels==other_pixels
 

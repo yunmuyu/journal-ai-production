@@ -13,6 +13,7 @@ import unittest
 from unittest.mock import patch
 from typing import Any
 from journal_pdf.boundary_ports import BoundaryGeometry, rectangular_path_bounds
+from journal_pdf.scene import Scene
 
 
 SOURCE = Path(__file__).resolve().parents[1] / 'journal_pdf'
@@ -31,15 +32,17 @@ class FinalLayoutRegressions(unittest.TestCase):
                         '__package__': 'journal_pdf', 'PT_PER_MM': 72 / 25.4,
                         'BoundaryGeometry': BoundaryGeometry, 'rectangular_path_bounds': rectangular_path_bounds}
         load_functions('common.py', {'FigureError', 'contains', 'intersects', 'segment_hits'}, self.context)
+        load_functions('text_geometry.py', {'oblique','polygons','texts_intersect','segment_intersects_text',
+                                           'arrow_intersects_text','rotate_point','ink_polygons','convex_intersects'}, self.context)
         load_functions('scene.py', {'audit_scene'}, self.context)
         load_functions('server.py', {'apply_changes'}, self.context)
 
     def scene(self, bbox, *, container=False, owner=None):
-        return types.SimpleNamespace(width=100, height=100, size=8, template='', paths=[], assets=[],
-            nodes=[{'id': 'frame', 'rect': [20, 20, 50, 50], 'kind': 'rectangle',
-                    'container': container, 'width': .5}],
-            texts=[{'id': 'label', 'owner': owner, 'position': {'bbox': bbox}}],
-            node_groups=[], layout_evidence={})
+        scene=Scene(None).finish(100,100)
+        scene.nodes=[{'id': 'frame', 'rect': [20, 20, 50, 50], 'kind': 'rectangle',
+                      'container': container, 'width': .5}]
+        scene.texts=[{'id': 'label', 'owner': owner, 'position': {'bbox': bbox}}]
+        return scene
 
     def test_unbound_label_crossing_rectangle_border_is_blocked(self):
         for bbox in ([15, 25, 25, 35], [25, 15, 35, 25],
@@ -78,8 +81,9 @@ class FinalLayoutRegressions(unittest.TestCase):
                 builds = []
                 def build(spec, reg, size):
                     builds.append(size)
-                    return types.SimpleNamespace(width=size * width_per_pt, height=100, size=size,
-                        paths=[{'exact_terminal': exact}], layout_evidence={})
+                    result = Scene(None, size).finish(size * width_per_pt, 100)
+                    result.paths = [{'exact_terminal': exact}]
+                    return result
                 editorial = types.ModuleType('journal_pdf.editorial')
                 editorial.scale_scene = lambda scene, factor: scene
                 self.context.update(DIAGRAMS={'synthetic': build}, audit_scene=lambda scene: [])

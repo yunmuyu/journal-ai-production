@@ -1,0 +1,13 @@
+{
+  "platform": "Windows, Python 3.12.14, Node.js 24",
+  "resolved_preview_failures": 12,
+  "engine_full": {"passed":1529,"failed":0,"skipped":3,"subtests_passed":7,"seconds":263.12,"skip_reason":"Windows symlink privilege unavailable; same guards also run in Linux CI"},
+  "node_full": {"passed":620,"failed":0,"skipped":39,"note":"conditional Office/font/runtime integration; real PDF integration executed separately"},
+  "raster_quality_preflight": {"passed":251,"failed":0},
+  "canonical_cli_real_pdf_e2e": {"passed":2,"failed":0,"skipped":0,"peak_render_processes":6,"minimum_check_processes":2,"note":"synthetic source-bound ordinary and revision PDFs through HTTP workbench, preview visibility, retries and CLI receipt reuse"},
+  "publication_bundle": {"passed":5,"failed":0},
+  "migration": {"passed":2,"current_word_files":48,"current_output_files":258,"restored_figures":285,"accepted_figures":87,"status_feedback_output_hash_differences":0,"browser_verified":true},
+  "review_recovery": {"passed":5,"note":"includes real JPG, text-only feedback restart recovery, stale new requests blocked and later candidate protected"},
+  "new_computer": "not yet tested on separate hardware; follow docs/NEW-COMPUTER.md",
+  "quality": "Candidate delivery is not user acceptance; no curve data or user acceptance modified"
+}

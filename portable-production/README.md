@@ -1,8 +1,8 @@
-新电脑先读 [搬家说明](../docs/NEW-COMPUTER.md)，旧 r32 验收不代表本预览版或新电脑验收。
+新电脑先读 [搬家说明](../docs/NEW-COMPUTER.md)，日常生产统一使用根目录 journal.mjs。
 
 # 本地期刊图件生产入口
 
-本目录汇总 **2026.11.04-r46-clean-move** 迁移预览版的当前制作路线，汇合前置筛选、作者目录状态管理和直接 PDF 引擎。安装与升级见 [正式版指南](../docs/RELEASE-GUIDE.md)。能力按 `direct-pdf/docs/CAPABILITIES.json` 逐项判断；正式发布不扩大原有支持范围。
+本目录汇总 当前 main 的内部制作模块；用户入口是根目录 journal.mjs，汇合前置筛选、作者目录状态管理和直接 PDF 引擎。安装与升级见 [正式版指南](../docs/RELEASE-GUIDE.md)。能力按 `direct-pdf/docs/CAPABILITIES.json` 逐项判断；正式发布不扩大原有支持范围。
 
 导入失败先查[已有能力与失败分流](../docs/production-tool-recovery.md)：direct-pdf 当前入口的格式限制不代表 Office/Visio 兼容工具缺失，先复用已有入口和缓存，不重复实现。
 

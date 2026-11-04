@@ -218,6 +218,17 @@ class Assets:
         a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
         return a
 
+    def registered_pdf_text(self,path:Path,page_no:int,clip,svg_path:Path,registration,*,text_replacements=None,grayscale=False):
+        from .source_pdf_text import prepare_registered_text
+        sha=digest_file(path);key=digest_json(['registered-native-pdf-text-v1',sha,digest_file(svg_path),page_no,clip,registration,text_replacements,grayscale])
+        if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
+        prepared=prepare_registered_text(path,page_no,clip,svg_path,registration,text_replacements=text_replacements,grayscale=grayscale)
+        import json
+        audit=json.loads(prepared.receipt_json);doc=fitz.open(stream=prepared.data,filetype='pdf')
+        a=Asset(key,'pdf',str(path),sha,list(doc[0].rect),prepared.data,audit)
+        a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
+        return a
+
     def source_vector_body(self,path:Path,page_no:int,clip,*,text_replacements=None):
         """Explicit original nontext vector body with source-bound glyph replacements."""
         from .source_icons import prepare_icon
@@ -255,12 +266,12 @@ class Assets:
         a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
         return a
 
-    def source_svg_group(self,path:Path,group_id:str,clip,*,text_replacements=None):
+    def source_svg_group(self,path:Path,group_id:str,clip,*,text_replacements=None,clipped_viewport=False):
         """Explicit original nontext vector body with source-bound glyph replacements."""
         from .source_svg_groups import prepare_svg_group
-        sha=digest_file(path);key=digest_json(['source-svg-group-v1',sha,group_id,clip,text_replacements])
+        sha=digest_file(path);key=digest_json(['source-svg-group-v1',sha,group_id,clip,text_replacements,clipped_viewport])
         if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
-        prepared=prepare_svg_group(path,group_id,clip,text_replacements=text_replacements)
+        prepared=prepare_svg_group(path,group_id,clip,text_replacements=text_replacements,clipped_viewport=clipped_viewport)
         import json
         audit=json.loads(prepared.receipt_json)
         doc=fitz.open(stream=prepared.data,filetype='pdf')
@@ -268,8 +279,26 @@ class Assets:
         a.doc=doc;self._cache[key]=a;self.stats['preparations']+=1
         return a
 
-    def svg_chart(self,path: Path,axes_id: str,plot_rect,series_ids,legend_id,gray=True,dashed_series=()):
-        sha=digest_file(path); key=digest_json(['svg-chart',sha,axes_id,plot_rect,series_ids,legend_id,gray,list(dashed_series)])
+    def registered_outline_chart(self,path:Path,registration,*,swatch_id=None):
+        from .source_outline_chart import prepare_registered_svg
+        from .source_native_gray import native_gray
+        sha=digest_file(path);key=digest_json(['registered-outline-chart',sha,registration,swatch_id])
+        if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
+        root,bound,audit=prepare_registered_svg(path,registration,swatch_id=swatch_id)
+        raw=svg_pdf_bytes(root);data,gray_audit=native_gray(raw)
+        audit['grayscale']=gray_audit
+        with fitz.open(stream=data,filetype='pdf') as stable:
+            stable.set_metadata({})
+            data=stable.tobytes(garbage=4,deflate=True,no_new_id=True)
+        clip=bound['plot_clip'] if swatch_id is None else next(s['swatch_clip'] for s in bound['series'] if s['id']==swatch_id)
+        audit.update(source_page=0,source_clip=list(clip),prepared_sha256=hashlib.sha256(data).hexdigest(),
+                     outline_chart_registration=registration,swatch_id=swatch_id)
+        a=Asset(key,'pdf',str(path),sha,list(clip),data,audit)
+        a.doc=fitz.open(stream=data,filetype='pdf');self._cache[key]=a;self.stats['preparations']+=1
+        return a
+
+    def svg_chart(self,path: Path,axes_id: str,plot_rect,series_ids,legend_id,gray=True,dashed_series=(),replaced_text_groups=()):
+        sha=digest_file(path); key=digest_json(['svg-chart',sha,axes_id,plot_rect,series_ids,legend_id,gray,list(dashed_series),list(replaced_text_groups)])
         if key in self._cache:self.stats['cache_hits']+=1;return self._cache[key]
         root=svg_root(path)
         # Preserve all definitions; remove only identified text/legend/other axes.
@@ -280,6 +309,18 @@ class Assets:
             if ident.startswith('axes_') and ident!=axes_id:
                 par=e.getparent()
                 if par is not None:par.remove(e)
+        # Only axes labels and the identified legend have replacement text in
+        # this route. Other Matplotlib text includes data/annotation content;
+        # deleting it while auditing only curve paths produces false success.
+        unhandled=[]
+        for e in root.findall('.//s:g',NS):
+            if not e.get('id','').startswith('text_'):continue
+            ancestors=[a.get('id','') for a in e.iterancestors()]
+            if e.get('id') not in replaced_text_groups and legend_id not in ancestors and not any(a.startswith('matplotlib.axis_') for a in ancestors):
+                unhandled.append(e.get('id'))
+        if unhandled:
+            raise FigureError('svg_unhandled_source_text',
+                '图内数据标注或说明尚无文字保留方案；拒绝删除后生成候选',object_ids=unhandled)
         removed=[]
         for e in list(root.findall('.//s:g',NS)):
             ident=e.get('id','')

@@ -29,6 +29,19 @@ function walk(root){
 export function exportPrivate(plan,output){
  if(fs.existsSync(output))throw Error('migration_output_exists');
  const queue=[...plan.seeds],excluded=[],missing=[],records=[],seen=new Set(),blobs=new Set();
+ // Output files alone cannot restore the current revision. The review registry
+ // decides which candidate is current and must travel with feedback/acceptance.
+ const acceptanceSeed=plan.seeds.find(p=>path.basename(p)==='acceptance.json');
+ const stateRoot=plan.workbenchRoot??(acceptanceSeed?path.dirname(acceptanceSeed):undefined);
+ if(stateRoot&&fs.existsSync(path.join(stateRoot,'feedback.json'))){
+  for(const name of ['review-triage/reviews.json','archive-intake/batches.json','archive-intake/related-cache.json','workbuddy-jobs/routine-trials.json']){
+   const registry=path.join(stateRoot,name);if(fs.existsSync(registry))queue.push(registry);
+  }
+  for(const name of ['review-triage','revision-jobs','workbuddy-jobs']){
+   const directory=path.join(stateRoot,name);
+   if(fs.existsSync(directory))queue.push(...walk(directory).filter(p=>path.basename(p)==='published.json'));
+  }
+ }
  const skip=p=>(plan.excludePrefixes||[]).some(prefix=>{
   const relative=path.relative(path.resolve(prefix),path.resolve(p));return relative===''||(!relative.startsWith('..')&&!path.isAbsolute(relative));
  });

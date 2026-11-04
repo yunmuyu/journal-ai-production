@@ -17,6 +17,10 @@
 - fanout：top、items、bottom，分发与双向数据连接。
 - network：节点中心/半径、edges[{from,to,arrow,both,via}]；坐标由Agent/外部布局提供。
 - scene：节点、文字、带端口的连接和折线路径；用于模板之外的规则图，但不宣称自动求解任意坐标。
+  `texts`可声明`fit`把标签排版交回工具：`{"width_pt":44,"max_lines":2,"allow_angles":[0]}`，
+  工具按「单行横排→按分隔符拆行仍横排→倾斜兜底」的顺序实测决策，任何一步都不缩字号；
+  决策写入`layout_evidence.label_fit`（含`reason`、实测宽与可用宽）。`anchor`可取center/top/bottom，
+  用于按字块边而不是中心定位。放不下时抛`label_does_not_fit`并交回实测宽度，要求改版面。
 
 scene 重绘时，不要把同组框的间距留给手写坐标。`measured_groups` 的默认墨迹框距为 3 pt（8 pt 字号时）；`measured_node_groups` 指定 `grid_columns` 后，无连接节点默认按文字测量并自动排列，末行可以不满。已有连接的节点不会自动挪动，间距仍由检查器核验；需要改线时须提供明确可联动的布局，不能只移动框。
 

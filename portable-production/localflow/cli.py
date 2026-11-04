@@ -30,23 +30,30 @@ def parser() -> argparse.ArgumentParser:
     build.add_argument("spec", type=Path)
     build.add_argument("--constraints", required=True, type=Path)
     build.add_argument("--probe-id", required=True)
+    raster = commands.add_parser("render-raster", help="保留完整源画布，生成灰度 JPG 候选及无损 PNG 和审计，不自动终检")
+    raster.add_argument("spec", type=Path)
+    raster.add_argument("--constraints", required=True, type=Path)
+    raster.add_argument("--probe-id", required=True)
     inspect = commands.add_parser("review", help="保存 Agent 内部复核记录；不会标为人工终检")
     inspect.add_argument("candidate_id")
     inspect.add_argument("--record", required=True, type=Path,
         help="必须绑定候选/输出/源/约束哈希、作者路径/图号及内容与视觉具体证据")
-    delivery = commands.add_parser("publish", help="向已存在作者目录原子发布平铺 PDF；异哈希默认拒绝")
+    delivery = commands.add_parser("publish", help="向已存在作者目录原子发布 PDF/JPG 候选；异哈希默认拒绝")
     delivery.add_argument("candidate_id")
     delivery.add_argument("--author-rel", required=True)
     delivery.add_argument("--figure-number", required=True)
-    delivery.add_argument("--expected-target-sha", help="仅替换时给出当前目标 PDF 的准确 SHA-256；旧版外置归档")
+    delivery.add_argument("--expected-target-sha", help="仅替换时给出当前目标文件的准确 SHA-256；旧版外置归档")
     delivery.add_argument("--author", help="显式目标文件作者；必须与已确认约束和审阅记录完全一致")
-    delivery.add_argument("--target-basename", help="显式平铺PDF文件名；须绑定约束及审阅，不得含目录")
+    delivery.add_argument("--target-basename", help="显式平铺 PDF/JPG 文件名；须绑定约束及审阅，不得含目录")
     acceptance = commands.add_parser("accept", help="显式登记人工终检文件及哈希，此后普通发布不可替换")
     acceptance.add_argument("--author-rel", required=True)
     acceptance.add_argument("--figure-number", required=True)
     acceptance.add_argument("--expected-sha", required=True)
     acceptance.add_argument("--reviewer", required=True)
     acceptance.add_argument("--evidence", required=True)
+    acceptance.add_argument("--output-format", choices=("pdf", "jpg"), help="显式格式；省略时仅允许发现唯一同图号交付")
+    acceptance.add_argument("--author", help="显式目标文件作者")
+    acceptance.add_argument("--target-basename", help="显式平铺文件名；必须匹配作者、图号和格式")
     status = commands.add_parser("status", help="显示候选与内部复核、交付状态")
     status.add_argument("candidate_id", nargs="?")
     return ap
@@ -67,6 +74,9 @@ def main(argv: list[str] | None = None) -> int:
                 result = route(config, args.probe_id, args.review, args.manifest)
             case "render":
                 result = render(config, args.spec, args.constraints, args.probe_id)
+            case "render-raster":
+                from .raster_candidates import render_raster
+                result = render_raster(config, args.spec, args.constraints, args.probe_id)
             case "review":
                 result = review(config, args.candidate_id, args.record)
             case "publish":
@@ -75,7 +85,8 @@ def main(argv: list[str] | None = None) -> int:
                     author=args.author, target_basename=args.target_basename)
             case "accept":
                 result = accept(config, args.author_rel, args.figure_number,
-                    args.expected_sha, args.reviewer, args.evidence)
+                    args.expected_sha, args.reviewer, args.evidence,
+                    output_format=args.output_format, author=args.author, target_basename=args.target_basename)
             case "status":
                 root = config.state_root
                 if args.candidate_id:

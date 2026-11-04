@@ -19,7 +19,8 @@ export function commonRevisionTools({root,figure,articles,assertAvailable,baseOu
    // New point feedback on a sealed, already published candidate does not erase
    // that candidate on restart. It does not authorize making a new revision.
    const points=f.feedback?.points,outputs=r.result?.outputs;
-   const bound=restorePublished&&Array.isArray(points)&&points.length>0&&Array.isArray(outputs)&&points.every(p=>outputs.some(o=>o.number===p.output&&o.sha256===p.sha256));
+   const laterText=restorePublished&&(f.feedback?.revision??0)>(r.feedbackRevision??0)&&(!points||points.length===0);
+   const bound=laterText||(restorePublished&&Array.isArray(points)&&points.length>0&&Array.isArray(outputs)&&points.every(p=>outputs.some(o=>o.number===p.output&&o.sha256===p.sha256)));
    if(!bound)throw Error('批注已变化，请重新提交修订');
   }
   if(r.articleWord){const word=articles.find(a=>a.id===r.articleId)?.word;if(!word||!sameRef(ref(word.path),r.articleWord))throw Error('提交时Word来源身份已变化');}
@@ -62,7 +63,9 @@ export function commonRevisionTools({root,figure,articles,assertAvailable,baseOu
   const activated=alreadyActivated(r,f),acceptance=getAcceptance(r.figureId);
   if(f.status==='终检通过'&&(!activated||acceptance?.version!==candidateVersion(r.result.outputs,r.feedbackRevision)))throw Error('已验收版本不匹配，不覆盖');
   if(!f.outputs.length&&acceptance?.accepted===true&&acceptance.version!==candidateVersion(r.result.outputs,r.feedbackRevision))throw Error('验收版本不匹配，不能恢复');
-  if(f.outputs.length&&!activated&&(f.reviewVersion!==r.version||!baseOutputsMatch(r,f)))throw Error('当前图稿已变化，不能恢复旧修订');
+  const laterFeedback=(f.feedback?.revision??0)>(r.feedbackRevision??0);
+  const samePublished=f.outputs.length===r.result.outputs.length&&r.result.outputs.every(o=>f.outputs.some(current=>current.number===o.number&&sameRef(ref(current.file.path),o)));
+  if(f.outputs.length&&!activated&&!(laterFeedback&&samePublished)&&((f.reviewVersion!==r.version&&!laterFeedback)||!baseOutputsMatch(r,f)))throw Error('当前图稿已变化，不能恢复旧修订');
   if(!activated){activate({...receipt,pendingKey:r.figureId});f.productionRoute=task.productionRoute;refresh();}
   r.state='ready';r.message='共用修订候选已回工作台待用户终审';delete r.restoreError;save();return view(r);
  }
