@@ -45,3 +45,49 @@ test('executor failure returns to coordinator and is retried only with a reviewe
  service.resolve(r.id,{kind:'mixed',instructions:'fixed plan',toolResolved:true,toolCommit:'123abcd',tests:'regression passed'});
  const next=queue.claim('WorkBuddy');assert.equal(next.id,job.id);assert.equal(next.attempt,2);assert.match(next.revisionNotes,/fixed plan/);assert.equal(next.coordinatorDecision.instructions,'fixed plan');assert.doesNotMatch(next.instructions,/fixed plan/);
 });
+
+test('reviewed replacement route reaches revision without altering current route',t=>{
+ const {f,service,queue}=setup(t),r=service.submit('A-F1','v1');
+ const original=structuredClone(f.productionRoute);
+ const replacement=structuredClone(original);replacement.requirements.widthMm=70;
+ service.resolve(r.id,{kind:'ordinary',instructions:'reviewed reflow',productionRoute:replacement});
+ assert.equal(queue.list()[0].productionRoute.requirements.widthMm,70);
+ assert.deepEqual(f.productionRoute,original);
+ assert.equal(queue.list()[0].feedback.text,'equal widths');
+});
+test('replacement route cannot change authoritative article source',t=>{
+ const {f,service,queue}=setup(t),r=service.submit('A-F1','v1');
+ const replacement=structuredClone(f.productionRoute);
+ replacement.sourceReview.word=testRef(replacement.sourceReview.selected.path);
+ const other=path.join(path.dirname(replacement.sourceReview.word.path),'other-word.docx');fs.writeFileSync(other,'other article');
+ replacement.sourceReview.word=testRef(other);
+ assert.throws(()=>service.resolve(r.id,{kind:'ordinary',instructions:'wrong source',productionRoute:replacement}),/来源身份/);
+ assert.equal(queue.list().length,0);
+});
+test('same revision with edited feedback content cannot dispatch stale instructions',t=>{
+ const {f,service,queue}=setup(t),r=service.submit('A-F1','v1');f.feedback.text='new requirement';
+ assert.throws(()=>service.resolve(r.id,{kind:'ordinary',instructions:'old plan'}),/批注/);
+ assert.equal(queue.list().length,0);
+});
+
+test('raster to editable correction reaches first dispatch and retry',t=>{
+ const {f,service,queue}=setup(t);
+ const raster=structuredClone(f.productionRoute);raster.method='raster-preserve';raster.requirements={format:'jpg',fontCheck:'none',widthMm:80};raster.sourceReview.candidates.forEach(c=>c.kind='raster');f.productionRoute=raster;
+ const replacement=structuredClone(raster);replacement.method='editable-pdf';replacement.requirements={format:'pdf',fontCheck:'editable',widthMm:80};
+ const r=service.submit('A-F1','v1');
+ const decision={kind:'ordinary',instructions:'preserve photograph, replace requested labels using existing tools',productionRoute:replacement};
+ service.resolve(r.id,decision);const first=queue.claim('WorkBuddy');
+ assert.equal(first.productionRoute.method,'editable-pdf');assert.equal(first.feedback.text,'equal widths');assert.match(first.instructions,/普通流程图/);
+ queue.fail(first.id,first.lease,'fixture failure');
+ service.resolve(r.id,{...decision,instructions:'reviewed retry'});const retry=queue.claim('WorkBuddy');
+ assert.equal(retry.id,first.id);assert.equal(retry.productionRoute.method,'editable-pdf');assert.equal(retry.attempt,2);assert.equal(retry.coordinatorDecision.instructions,'reviewed retry');
+ assert.equal(f.productionRoute.method,'raster-preserve');
+});
+test('producer correction can dispatch and publish through queue without user feedback',t=>{
+ const {f,service,queue,activated}=setup(t);f.feedback=null;
+ const record=service.submit('A-F1','v1','制作侧修正');
+ service.resolve(record.id,{kind:'ordinary',instructions:'correct placement'});
+ const job=queue.claim('WorkBuddy');assert.equal(job.feedback,null);
+ service.publish(job,{outputs:[{number:'1',path:'candidate.pdf',sha256:'fixture'}]});
+ assert.equal(activated(),1);
+});

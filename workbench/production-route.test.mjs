@@ -44,6 +44,7 @@ test('editable PDF route keeps editable font requirements',t=>{
 });
 test('raster return rejects PDF wrapping and fabricated raster font measurements',t=>{
  const {task,dir}=fixture(t);const p=path.join(dir,'8.pdf');fs.writeFileSync(p,'%PDF-1.4');
+ task.productionRoute.processing={operation:'preserve',basis:'Synthetic screenshot needs no lettering changes'};
  const result={outputs:[{number:'8',path:p,sha256:hash(p),fontLabel:''}]};
  assert.throws(()=>verifyProductionResult(task,result),/JPG/);
  const jpg=path.join(dir,'8.jpg');fs.writeFileSync(jpg,Buffer.from([255,216,255,217]));result.outputs[0]={number:'8',path:jpg,sha256:hash(jpg),fontLabel:'字号2.76 pt'};
@@ -58,6 +59,7 @@ test('multi-input raster selection binds every source and ordered public plan to
  const plan={inputs:[s.selected,second],layout:{mode:'row'},output,width_mm:80};fs.writeFileSync(planPath,JSON.stringify(plan));
  const planRef={path:planPath,sha256:hash(planPath)},result={outputs:[{path:output}],quality:{rasterPlan:planRef}},contract={source_inputs:[planRef]};
  verifyRasterPlan(task,result,contract);
+ plan.layout.mode='column-fit';fs.writeFileSync(planPath,JSON.stringify(plan));planRef.sha256=hash(planPath);verifyRasterPlan(task,result,contract);
  assert.throws(()=>verifyRasterPlan(task,result,{source_inputs:[]}),/冻结来源/);
  plan.inputs.reverse();fs.writeFileSync(planPath,JSON.stringify(plan));planRef.sha256=hash(planPath);assert.throws(()=>verifyRasterPlan(task,result,contract),/输入及顺序/);
  s.candidates[1].decision='not-applicable';assert.throws(()=>assertProductionRoute(task),/完整一致/);

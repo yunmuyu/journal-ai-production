@@ -3,11 +3,15 @@ import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {assertCompleteOutputSet} from './multi-output.mjs';
+import {productionPolicy} from '../knowledge/production-policy.mjs';
+import {processingRequirement,verifyProcessingEvidence} from './processing-evidence.mjs';
 
 const qualityRoot=fileURLToPath(new URL('../portable-production/',import.meta.url));
 const digest=p=>createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 const nonempty=v=>typeof v==='string'&&v.trim().length>0;
-const samePath=(a,b)=>path.resolve(a)===path.resolve(b);
+const canonicalPath=p=>{try{return fs.realpathSync(p);}catch(error){if(error.code==='ENOENT')return path.resolve(p);throw error;}};
+const samePath=(a,b)=>canonicalPath(a)===canonicalPath(b);
 const sameRef=(a,b)=>a&&b&&samePath(a.path,b.path)&&a.sha256===b.sha256;
 function ref(value,checkFiles){
  if(!value||!nonempty(value.path)||! /^[a-f0-9]{64}$/.test(value.sha256||''))throw Error('来源核对缺少文件路径或SHA256');
@@ -52,6 +56,24 @@ export function assertProductionRoute(task,{checkFiles=true}={}){
  return r;
 }
 
+export function assertOutputRoutes(task,outputRoutes=task.outputRoutes){
+ const {outputNumbers,figureNumber,productionRoute}=task;
+ if(!Array.isArray(outputNumbers)||!outputNumbers.length||new Set(outputNumbers).size!==outputNumbers.length)throw Error('多输出任务缺少唯一完整导出图号');
+ const routes=outputRoutes??(outputNumbers.length===1?[{number:outputNumbers[0],productionRoute}]:null);
+ if(!Array.isArray(routes)||routes.length!==outputNumbers.length||JSON.stringify(routes[0]?.productionRoute)!==JSON.stringify(productionRoute))throw Error('逐输出制作路线必须按完整图号顺序绑定');
+ const shared=routeSourceRefs(productionRoute).slice(0,3),seen=new Set();
+ for(let index=0;index<outputNumbers.length;index++){
+  const entry=routes[index],number=outputNumbers[index];
+  if(entry?.number!==number||seen.has(number))throw Error('逐输出路线顺序或图号不完整');
+  if(outputNumbers.length>1&&figureNumber&&!number.startsWith(figureNumber+'.')&&!number.startsWith(figureNumber+'-'))throw Error('逐输出图号不属于同一Word主图');
+  seen.add(number);
+  assertProductionRoute({...task,outputNumbers:[number],productionRoute:entry.productionRoute});
+  const current=routeSourceRefs(entry.productionRoute).slice(0,3);
+  if(shared.some(anchor=>!current.some(ref=>sameRef(anchor,ref))))throw Error('逐输出路线必须绑定同一原包、Word及来源清单');
+ }
+ return routes;
+}
+
 export function verifyRasterPlan(task,result,contract){
  const route=task.productionRoute,additional=route.sourceReview.additionalSelected||[];
  const evidence=result.quality?.rasterPlan;
@@ -63,11 +85,14 @@ export function verifyRasterPlan(task,result,contract){
  if(!contract.source_inputs.some(p=>sameRef(p,evidence)))throw Error('组合计划必须纳入独立质量合同冻结来源');
  const selected=[route.sourceReview.selected,...additional];
  if(!Array.isArray(plan.inputs)||plan.inputs.length!==selected.length||plan.inputs.some((p,i)=>!sameRef(p,selected[i])))throw Error('组合计划输入及顺序与路线选源不一致');
- if(!samePath(plan.output,result.outputs[0].path)||plan.width_mm!==route.requirements.widthMm||!(additional.length?['row','column','grid']:['single']).includes(plan.layout?.mode))throw Error('组合计划输出、尺寸或布局不符');
+ if(!samePath(plan.output,result.outputs[0].path)||plan.width_mm!==route.requirements.widthMm||!(additional.length?['row','column','column-fit','grid']:['single']).includes(plan.layout?.mode))throw Error('组合计划输出、尺寸或布局不符');
 }
 
-export function productionInstructions(route){
- const width=`按来源核对确定的宽度 ${route.requirements.widthMm} mm 处理；不得由位图像素字高自动改栏、拆图或重绘。`+(route.sourceReview.additionalSelected?.length?'组合输入按 selected 后接 additionalSelected 顺序使用公共 raster 计划；每任务一个组合输出。计划文件须作为 source_inputs 冻结，回传 quality.rasterPlan 路径和哈希；每个参与源均须独立复核内容。':'');
+export function productionInstructions(route,{includeRoutingPolicy=true,includeProcessingRequirement=true}={}){
+ const policy=productionPolicy();
+ const processing=includeProcessingRequirement?`\n本图加工要求：${route.processing?JSON.stringify(route.processing):'尚未记录；回传前须按已核对图源和批注明确 productionRoute.processing.operation 与 basis，不能由文件格式推断。'}。换字必须列出 targetTextIds 并逐项绑定清字区域及可编辑目标；PDF回传 quality.processingEvidence（图号、公共report/spec路径与SHA），JPG保留须明确 preserve。终审修订使用共用 prepare-candidate / import-candidate；PDF证据封装可调用 workbench/pdf-candidate.mjs。\n`:'';
+ const routingRules=(includeRoutingPolicy?`\n已确认制作规则（${policy.version}）：\n${policy.confirmed.routing.join('\n')}\n`:'')+processing;
+ const width=`按来源核对确定的宽度 ${route.requirements.widthMm} mm 处理；不得由位图像素字高自动改栏、拆图或重绘。`+(route.sourceReview.additionalSelected?.length?'组合输入按 selected 后接 additionalSelected 顺序使用公共 raster 计划；每任务一个组合输出。计划文件须作为 source_inputs 冻结，回传 quality.rasterPlan 路径和哈希；每个参与源均须独立复核内容。':'')+routingRules;
  switch(route.method){
   case 'raster-preserve':return '位图保留路线：保留原有内容及像素关系，按已核对的Word可见内容处理灰度、必要裁切与尺寸，交付JPG，不包装为PDF。图片内部文字不测量字号、不填字号标签，不套用可编辑正文6pt门槛。'+width+'必须独立检查内容完整、关键文字可辨与灰度后信息保留；真正缺失或语义损失不能以免字号检查掩盖。';
   case 'editable-pdf':return '可编辑图路线：复用公共绘图/换字工具，交付PDF。核对实际可编辑正文，8 pt优先，6 pt为正文下限，上下角标须按明确语义识别。保持原图文字、数据与连接含义；实际渲染后独立检查内容、字体、灰度、裁切与尺寸。'+width;
@@ -80,11 +105,48 @@ export function verifyProductionResult(task,result,options={}){
 }
 export function verifyAutomaticCandidate(task,result,options={}){
  if(task.kind==='revision'||task.productionRoute?.method!=='raster-preserve')throw Error('自动候选仅支持常规JPG，PDF及修订仍走原独立复核');
- if(!result.quality?.rasterPlan||!result.selfCheck)throw Error('自动候选缺少冻结raster计划或执行者看图自检记录');
- return verifyResult(task,result,options,true);
+ return verifyAutomaticRasterResult(task,result,options);
+}
+export function verifyAutomaticRevisionCandidate(task,result,options={}){
+ if(task.kind!=='revision'||task.productionRoute?.method!=='raster-preserve')throw Error('自动修订核验须绑定共用修订任务及JPG保留路线');
+ return verifyAutomaticRasterResult(task,result,options);
+}
+function verifyAutomaticRasterResult(task,result,options){
+ if(task.outputNumbers.length===1){
+  if(!result.quality?.rasterPlan||!result.selfCheck)throw Error('自动候选缺少冻结raster计划或执行者检查回执');
+  return verifyResult(task,result,options,true);
+ }
+ assertCompleteOutputSet(task,undefined,{python:options.python});
+ const routes=assertOutputRoutes(task),checks=result.quality?.outputChecks;
+ if(!Array.isArray(checks)||checks.length!==task.outputNumbers.length)throw Error('自动候选缺少逐输出公共raster/task_quality核验');
+ const digestFile=file=>createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+ const checked=[];
+ for(let index=0;index<task.outputNumbers.length;index++){
+  const number=task.outputNumbers[index],entry=checks[index],route=routes[index].productionRoute;
+  if(entry?.number!==number||!entry.task||!entry.result)throw Error('逐输出核验图号或证据缺失');
+  ref(entry.task,true);ref(entry.result,true);
+  const taskPath=child(task.attemptDir,entry.task.path),resultPath=child(task.attemptDir,entry.result.path);
+  const outputTask=JSON.parse(fs.readFileSync(taskPath,'utf8'));
+  const attempt=child(task.attemptDir,outputTask.attemptDir);
+  if(outputTask.parentTaskId!==task.id||outputTask.id!==entry.taskId||outputTask.outputNumbers?.length!==1||outputTask.outputNumbers[0]!==number||
+    outputTask.articleId!==task.articleId||outputTask.figureNumber!==task.figureNumber||JSON.stringify(outputTask.productionRoute)!==JSON.stringify(route))throw Error('逐输出任务身份或来源路线不匹配');
+  assertProductionRoute(outputTask);
+  const outputResult=JSON.parse(fs.readFileSync(resultPath,'utf8'));
+  if(!Array.isArray(outputResult.outputs)||outputResult.outputs.length!==1||outputResult.outputs[0].number!==number)throw Error('逐输出核验结果含缺失或多余产物');
+  const aggregate=result.outputs?.find(output=>output.number===number),single=outputResult.outputs[0];
+  if(!aggregate||aggregate.path!==single.path||aggregate.sha256!==single.sha256||aggregate.preview!==single.preview)throw Error('聚合候选与逐输出质量结果不一致');
+  const receipt=verifyResult({...outputTask,attemptDir:attempt},outputResult,options,true);
+  if(digestFile(taskPath)!==entry.task.sha256||digestFile(resultPath)!==entry.result.sha256)throw Error('逐输出任务或核验结果在自动检查期间变化');
+  checked.push({number,status:receipt.status,manualStatus:receipt.manualStatus??receipt.manual_status,measurements:receipt.measurements});
+ }
+ if(result.outputs.length!==task.outputNumbers.length||result.outputs.some((output,index)=>output.number!==task.outputNumbers[index]))throw Error('多输出候选未按完整Word顺序聚合');
+ return {kind:'automatic-candidate',status:'candidate',manualStatus:'pending',outputs:checked,
+  limitation:'每个输出均已按冻结公共raster计划复现并通过task_quality；未做人内部视觉/语义复核，等待用户终审。'};
 }
 function verifyResult(task,result,{python}={},automatic){
  const route=assertProductionRoute(task),raster=route.method==='raster-preserve';
+ if(raster)processingRequirement(route);
+ if(!raster)verifyProcessingEvidence(task,result.outputs??[],result.quality?.processingEvidence,{python});
  if(!Array.isArray(result.outputs)||result.outputs.length!==task.outputNumbers.length)throw Error('回传导出集合与路线任务不一致');
  const seen=new Set();
  for(const output of result.outputs){

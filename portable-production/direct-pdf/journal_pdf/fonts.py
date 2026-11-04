@@ -241,9 +241,13 @@ class FontRegistry:
 
 
 def position_text(measured, x, y, align='center', rotation=0):
-    if rotation not in (0,90,180,270): raise FigureError('unsupported_text_rotation','只支持0/90/180/270度文字')
+    if isinstance(rotation,bool) or not isinstance(rotation,(int,float)) or not math.isfinite(rotation):
+        raise FigureError('unsupported_text_rotation','文字角度必须为有限数值')
+    rotation=rotation%360
     def rot(px,py):
-        return {0:(px,py),90:(py,-px),180:(-px,-py),270:(-py,px)}[rotation]
+        if rotation in (0,90,180,270):return {0:(px,py),90:(py,-px),180:(-px,-py),270:(-py,px)}[rotation]
+        angle=math.radians(rotation)
+        return px*math.cos(angle)+py*math.sin(angle),-px*math.sin(angle)+py*math.cos(angle)
     b=measured['ink']; corners=[rot(px,py) for px in (b[0],b[2]) for py in (b[1],b[3])]
     bb=[min(p[0] for p in corners),min(p[1] for p in corners),max(p[0] for p in corners),max(p[1] for p in corners)]
     if align=='center':dx=x-(bb[0]+bb[2])/2
@@ -268,5 +272,11 @@ def draw_text(page, registry, item):
                           'rotation':turn,'end_x':g['x']+ax,'end_y':g['y']+ay})
     for r in runs:
         name='JFW_'+r['face']; page.insert_font(fontname=name,fontbuffer=registry.document_fonts[r['face']])
-        px,py=r['x'],r['y'];rx,ry={0:(px,py),90:(py,-px),180:(-px,-py),270:(-py,px)}[rot]
-        page.insert_text((dx+rx,dy+ry),r['text'],fontname=name,fontsize=r['size'],rotate=(rot+r['rotation'])%360,color=(0,),overlay=True)
+        px,py=r['x'],r['y'];angle=math.radians(rot)
+        rx,ry=px*math.cos(angle)+py*math.sin(angle),-px*math.sin(angle)+py*math.cos(angle)
+        total=(rot+r['rotation'])%360
+        origin=fitz.Point(dx+rx,dy+ry)
+        if total in (0,90,180,270):
+            page.insert_text(origin,r['text'],fontname=name,fontsize=r['size'],rotate=total,color=(0,),overlay=True)
+        else:
+            page.insert_text(origin,r['text'],fontname=name,fontsize=r['size'],morph=(origin,fitz.Matrix(total)),color=(0,),overlay=True)

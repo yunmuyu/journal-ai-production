@@ -17,10 +17,18 @@ def native_gray(data: bytes, *, allow_image_xobjects: bool=False) -> tuple[bytes
             raise FigureError('source_glyph_color','仅验证三分量DeviceRGB值')
         luminance=sum(float(v)*w for v,w in zip(values,(.299,.587,.114),strict=True))
         return ArrayObject([FloatObject(luminance)]*3)
-    for page in writer.pages:
-        resources=page['/Resources']
-        if resources.get('/XObject') and (not allow_image_xobjects or any(reference.get_object().get('/Subtype')!='/Image' for reference in resources['/XObject'].values())):
-            raise FigureError('source_glyph_color','纯矢量选择后仍有XObject资源')
+    visited=set()
+    def process(page, inherited=None, depth=0):
+        if depth>32:raise FigureError('source_glyph_color','Form嵌套超过安全上限')
+        resources=page.get('/Resources',inherited)
+        key=id(page)
+        if key in visited:return
+        visited.add(key)
+        for reference in resources.get('/XObject',{}).values():
+            child=reference.get_object()
+            if not allow_image_xobjects:raise FigureError('source_glyph_color','纯矢量选择后仍有XObject资源')
+            if child.get('/Subtype')=='/Form':process(child,resources,depth+1)
+            elif child.get('/Subtype')!='/Image':raise FigureError('source_glyph_color','未知XObject类型')
         for name,reference in resources.get('/Pattern',{}).items():
             pattern=reference.get_object();shading=pattern.get('/Shading',{})
             if pattern.get('/PatternType')!=2 or shading.get('/ColorSpace')!='/DeviceRGB' or shading.get('/ShadingType') not in (2,3):
@@ -41,7 +49,7 @@ def native_gray(data: bytes, *, allow_image_xobjects: bool=False) -> tuple[bytes
                     proof.append({'pattern':str(name),'function_type':2,'only_endpoint_colors_changed':True})
                 case _:
                     raise FigureError('source_glyph_pattern','未验证的原梯度函数')
-        stream=ContentStream(page.get_contents(),writer)
+        stream=ContentStream(page if page.get('/Subtype')=='/Form' else page.get_contents(),writer)
         operations=[]
         for args,op in stream.operations:
             if op in (b'k',b'K',b'sc',b'SC'):
@@ -52,6 +60,9 @@ def native_gray(data: bytes, *, allow_image_xobjects: bool=False) -> tuple[bytes
                 raise FigureError('source_glyph_color','仅验证命名原Pattern选择')
             if op in (b'rg',b'RG'):args=list(gray(args))
             operations.append((args,op))
-        stream.operations=operations;page.replace_contents(stream)
+        stream.operations=operations
+        if page.get('/Subtype')=='/Form':page.set_data(stream.get_data())
+        else:page.replace_contents(stream)
+    for page in writer.pages:process(page)
     output=BytesIO();writer.write(output)
     return output.getvalue(),proof

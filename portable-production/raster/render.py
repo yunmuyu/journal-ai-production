@@ -53,13 +53,27 @@ def load_input(item: dict, grayscale_weights=None) -> tuple[Image.Image, dict]:
 def compose(images: list[Image.Image], layout: dict) -> tuple[Image.Image, list[list[int]]]:
     require(type(layout) is dict, 'invalid_schema: layout')
     mode = layout.get('mode')
-    require(mode in ('single', 'row', 'column', 'grid'), 'invalid_layout')
+    require(mode in ('single', 'row', 'column', 'column-fit', 'grid'), 'invalid_layout')
     require(set(layout) == ({'mode', 'gap_px', 'columns'} if mode == 'grid' else {'mode', 'gap_px'}), 'invalid_schema: layout')
     gap = layout['gap_px']
     require(type(gap) is int and 0 <= gap <= 10000, 'invalid_gap')
     if mode == 'single':
         require(len(images) == 1 and gap == 0, 'single_requires_one_input_and_zero_gap')
         return images[0], [[0, 0, images[0].width, images[0].height]]
+    if mode == 'column-fit':
+        width = min(image.width for image in images)
+        heights = [max(1, round(image.height * width / image.width)) for image in images]
+        height = sum(heights) + (len(images) - 1) * gap
+        require(width * height <= Image.MAX_IMAGE_PIXELS, 'composition_too_large')
+        result = Image.new('L', (width, height), 255)
+        placements = []
+        y = 0
+        for image, fitted_height in zip(images, heights):
+            fitted = image if image.width == width else image.resize((width, fitted_height), Image.Resampling.LANCZOS)
+            result.paste(fitted, (0, y))
+            placements.append([0, y, width, y + fitted_height])
+            y += fitted_height + gap
+        return result, placements
     columns = len(images) if mode == 'row' else 1 if mode == 'column' else layout['columns']
     require(type(columns) is int and 1 <= columns <= len(images), 'invalid_columns')
     rows = math.ceil(len(images) / columns)

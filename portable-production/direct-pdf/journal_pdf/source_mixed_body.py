@@ -14,15 +14,23 @@ from .source_icons import PreparedIcon,consume_paths,path_record
 
 def image_records(doc,page) -> list[dict]:
     records=[]
+    painted=[box for kind,box in page.get_bboxlog() if kind=='fill-image']
+    shading=any(kind=='fill-shade' for kind,_ in page.get_bboxlog())
     for info in page.get_image_info(xrefs=True):
+        index=next((i for i,box in enumerate(painted) if all(abs(a-b)<.001 for a,b in zip(box,info['bbox'],strict=True))),None)
+        if index is None:
+            if not info['xref'] and shading:continue
+            raise FigureError('source_mixed_image_paint','图像实例未绑定真实绘制操作')
+        painted.pop(index)
         xref=info['xref']
         if not xref:raise FigureError('source_mixed_inline_image','未验证内联图像')
         values={key:doc.xref_get_key(xref,key) for key in ('Width','Height','BitsPerComponent','ColorSpace','Decode','Interpolate','SMask')}
         width=int(values['Width'][1]);height=int(values['Height'][1])
-        if values['BitsPerComponent']!=('int','8') or values['ColorSpace']!=('name','/DeviceRGB') or values['Decode'][0]!='null':
-            raise FigureError('source_mixed_image_format','仅验证原8bit默认Decode DeviceRGB图像')
+        colorspace=values['ColorSpace'][1]
+        if values['BitsPerComponent']!=('int','8') or values['ColorSpace'][0]!='name' or colorspace not in ('/DeviceRGB','/DeviceGray') or values['Decode'][0]!='null':
+            raise FigureError('source_mixed_image_format','仅验证原8bit默认Decode DeviceRGB或DeviceGray图像')
         rgb=doc.xref_stream(xref)
-        if len(rgb)!=width*height*3:raise FigureError('source_mixed_image_decode','RGB解码像素尺寸不匹配')
+        if len(rgb)!=width*height*(3 if colorspace=='/DeviceRGB' else 1):raise FigureError('source_mixed_image_decode','解码像素尺寸不匹配')
         mask_ref=values['SMask'];mask=int(mask_ref[1].split()[0]) if mask_ref[0]=='xref' else 0
         alpha=doc.xref_stream(mask) if mask else b''
         matte=doc.xref_get_key(mask,'Matte') if mask else ('null','null')
@@ -32,7 +40,8 @@ def image_records(doc,page) -> list[dict]:
             raise FigureError('source_mixed_alpha','仅验证同像素尺寸8bit原SMask')
         records.append({'xref':xref,'width':width,'height':height,'bbox':list(info['bbox']),'transform':list(info['transform']),
                         'decoded_rgb_sha256':hashlib.sha256(rgb).hexdigest(),'smask_sha256':hashlib.sha256(alpha).hexdigest() if mask else None,
-                        'smask_properties':mask_properties,'interpolate':values['Interpolate'],'bits_per_component':8,'colorspace':'DeviceRGB'})
+                        'smask_properties':mask_properties,'interpolate':values['Interpolate'],'bits_per_component':8,'colorspace':colorspace[1:]})
+    if painted:raise FigureError('source_mixed_image_paint','存在未登记图像绘制操作')
     return records
 
 
@@ -48,22 +57,46 @@ def consume_images(expected:list[dict],actual:list[dict]) -> set[int]:
 
 
 def prepare_mixed_body(source:Path,page_no:int,clip:list[float],*,text_replacements=None,outline_text_replacements=None,source_shape_replacements=None) -> PreparedIcon:
-    with fitz.open(source) as original,fitz.open() as native:
+    with fitz.open(source) as original,fitz.open(source) as native:
         if isinstance(page_no,bool) or not isinstance(page_no,int) or not 0<=page_no<len(original):
             raise FigureError('source_mixed_page','混合图体须指定真实页')
         source_page=original[page_no]
-        if list(source_page.rect)!=clip or source_page.rotation or source_page.cropbox_position!=fitz.Point(0,0):
-            raise FigureError('source_mixed_full_page','当前混合能力仅验证未旋转零原点完整源页，不裁断原图像')
+        full_page_rect=fitz.Rect(source_page.rect)
+        viewport=fitz.Rect(clip)
+        if not source_page.rect.contains(viewport) or viewport.is_empty or source_page.rotation or source_page.cropbox_position!=fitz.Point(0,0):
+            raise FigureError('source_mixed_full_page','混合图须绑定完整源页内有效裁区，且不旋转源页')
+        if viewport!=source_page.rect:
+            for drawing_index,drawing in enumerate(source_page.get_drawings()):
+                # Office emits an opaque white page rectangle before the artwork.
+                # Keep it in all path/pixel proofs; only viewport crossing is harmless.
+                if (drawing_index==0 and drawing.get('type')=='f' and drawing.get('color') is None
+                    and drawing.get('fill')==(1.0,1.0,1.0) and drawing.get('fill_opacity',1)==1
+                    and len(drawing['items'])==1 and drawing['items'][0][0]=='re'
+                    and all(abs(a-b)<.01 for a,b in zip(drawing['rect'],source_page.rect))):
+                    continue
+                pad=max(float(drawing.get('width') or 0)/2,.001)
+                for item in drawing['items']:
+                    if item[0]=='re':
+                        box=item[1];points=[box.tl,box.tr,box.br,box.bl,box.tl];pieces=[(a,b) for a,b in zip(points,points[1:])]
+                    elif item[0]=='l':pieces=[item[1:]]
+                    else:pieces=[tuple(p for p in item[1:] if isinstance(p,fitz.Point))]
+                    for points in pieces:
+                        if not points:continue
+                        bounds=fitz.Rect(min(p.x for p in points)-pad,min(p.y for p in points)-pad,max(p.x for p in points)+pad,max(p.y for p in points)+pad)
+                        if bounds.intersects(viewport) and not viewport.contains(bounds):raise FigureError('source_mixed_full_page','裁区切断完整源页内路径或线宽，禁止继续')
         replacements=validate_replacements(source_page,source_page.rect,text_replacements,allow_target_text=True)
+        if any(not viewport.contains(fitz.Rect(r['source_bbox'])) for r in replacements):raise FigureError('source_mixed_full_page','裁区遗漏完整源页登记文字')
         whitespace=[{'source_text':s['text'],'source_bbox':list(s['bbox'])} for b in source_page.get_text('dict')['blocks'] if b['type']==0 for l in b['lines'] for s in l['spans'] if s['text'] and not s['text'].strip()]
         source_images=image_records(original,source_page)
         if not source_images:raise FigureError('source_mixed_no_images','混合模式须包含真实原图像实例')
+        if any(not viewport.contains(fitz.Rect(image['bbox'])) for image in source_images):raise FigureError('source_mixed_full_page','裁区不能裁断完整源页的原图像')
+        native.select([page_no])
         outline_bound=[];shape_bound=[];removed=set()
         if outline_text_replacements or source_shape_replacements:
             from .source_registered_paints import remove_registered_paints
             selected,outline_bound,shape_bound,removed=remove_registered_paints(source,page_no,outline_text_replacements,source_shape_replacements)
+            native.delete_pages(0, len(native)-1)
             with fitz.open(stream=selected,filetype='pdf') as prepared:native.insert_pdf(prepared)
-        else:native.insert_pdf(original,from_page=page_no,to_page=page_no)
         if set(row['target_text_id'] for row in replacements)&set(row['target_text_id'] for row in outline_bound):raise FigureError('source_outline_duplicate','原生字和转曲字目标不可重复')
         for shape in shape_bound:
             word=next((row for row in replacements if row['target_text_id']==shape['target_text_id']),None)
@@ -78,7 +111,10 @@ def prepare_mixed_body(source:Path,page_no:int,clip:list[float],*,text_replaceme
         for row in replacements+whitespace:page.add_redact_annot(fitz.Rect(row['source_bbox']),fill=False,cross_out=False)
         if replacements or whitespace:page.apply_redactions(images=0,graphics=0,text=0)
         page.clean_contents(sanitize=1)
-        raw=native.tobytes(garbage=4,deflate=True,no_new_id=True)
+        if not page.get_texttrace():
+            for owner in {font[-1] or page.xref for font in page.get_fonts(full=True)}:
+                native.xref_set_key(owner,'Resources/Font','null')
+        raw=native.tobytes(garbage=3,deflate=True,no_new_id=True)
         with fitz.open(stream=raw,filetype='pdf') as clean:
             page=clean[0]
             if page.get_fonts(full=True) or page.get_texttrace():raise FigureError('source_mixed_text_resources','清字后仍含原文字或字体')
@@ -90,15 +126,18 @@ def prepare_mixed_body(source:Path,page_no:int,clip:list[float],*,text_replaceme
             image_proof=[]
             for xref in dict.fromkeys(row['xref'] for row in clean_images):
                 pixels=clean.xref_stream(xref)
+                if clean.xref_get_key(xref,'ColorSpace')==('name','/DeviceGray'):
+                    image_proof.append({'native_resource_xref':xref,'original_gray_sha256':hashlib.sha256(pixels).hexdigest(),'gray_pixels_unchanged':True,'dimensions_unchanged':True,'smask_unchanged':True})
+                    continue
                 gray=bytes(component for i in range(0,len(pixels),3) for component in [round(.299*pixels[i]+.587*pixels[i+1]+.114*pixels[i+2])]*3)
                 clean.update_stream(xref,gray,compress=True)
                 image_proof.append({'native_resource_xref':xref,'original_rgb_sha256':hashlib.sha256(pixels).hexdigest(),'gray_rgb_sha256':hashlib.sha256(gray).hexdigest(),'formula':'round(.299 R+.587 G+.114 B), replicated RGB','dimensions_unchanged':True,'smask_unchanged':True})
-            data=clean.tobytes(garbage=4,deflate=True,no_new_id=True)
+            data=clean.tobytes(garbage=3,deflate=True,no_new_id=True)
             with fitz.open(stream=data,filetype='pdf') as gray_saved:
                 gray_images=image_records(gray_saved,gray_saved[0])
             for before,after in zip(clean_images,gray_images,strict=True):
                 if before['smask_sha256']!=after['smask_sha256']:raise FigureError('source_mixed_alpha','灰度不得改变原SMask')
-            data=clean.tobytes(garbage=4,deflate=True,no_new_id=True)
+            data=clean.tobytes(garbage=3,deflate=True,no_new_id=True)
     from .source_native_gray import native_gray
     data,color_proof=native_gray(data,allow_image_xobjects=True)
     with fitz.open(stream=data,filetype='pdf') as final:
@@ -117,4 +156,9 @@ def prepare_mixed_body(source:Path,page_no:int,clip:list[float],*,text_replaceme
                  'source_image_instances':source_images,'prepared_image_instances':actual_images,'image_grayscale':image_proof,'vector_color_conversion':color_proof,
                  'path_geometry_replayed':False,'noncolor_geometry_and_style_exact':True,'nontext_pixels_exact_before_gray_dpi':[288,576],
                  'source_text':'','source_text_character_count':0,'font_count':0,'source_text_scope':'native_pdf_text_only','embedded_image_text_not_removed':True,'embedded_image_semantic_review_required':True}
+    if viewport!=full_page_rect:
+        with fitz.open(stream=data,filetype='pdf') as cropped:
+            cropped[0].set_cropbox(viewport)
+            data=cropped.tobytes(garbage=3,deflate=True,no_new_id=True)
+        receipt.update(prepared_sha256=hashlib.sha256(data).hexdigest(),source_viewport_all_text_images_preserved=True,source_path_boundary_not_crossed=True,viewport_translation_pt=[-viewport.x0,-viewport.y0],outside_viewport_context_requires_semantic_review=True)
     return PreparedIcon(data,json.dumps(receipt,ensure_ascii=False))

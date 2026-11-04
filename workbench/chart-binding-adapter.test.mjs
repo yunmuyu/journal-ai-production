@@ -1,0 +1,70 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+import http from 'node:http';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {createWorkBuddyHandler} from './workbuddy-http.mjs';
+import {routeFixture,testRef} from './route-test-fixture.mjs';
+import {materializeConfirmedSeries} from './chart-binding-adapter.mjs';
+
+test('confirmed same-source proposals become a new bound spec; changed or ambiguous evidence is rejected',t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'chart-binding-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const digest=p=>createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+ const source=path.join(root,'source.pdf');fs.writeFileSync(source,'source');const sha=digest(source);
+ const spec={kind:'scene',chart_vector_layout:{source_sha256:sha,body_id:'body'},assets:[{id:'body',path:'source.pdf'}],legend_review:{present:true,source_sha256:sha,entries:[{text_id:'l1',swatch_path_index:3,swatch_marker_index:4}]}};
+ const sp=path.join(root,'spec.json');fs.writeFileSync(sp,JSON.stringify(spec));
+ const candidate={status:'needs_review',source,sourceSha256:sha,candidates:[{series_path_index:0,series_marker_index:1,swatch_path_index:3,swatch_marker_index:4,verified:false}]};
+ const cp=path.join(root,'candidate.json');fs.writeFileSync(cp,JSON.stringify(candidate));
+ const plan={outputRoutes:[{number:'1',productionRoute:{sourceReview:{selected:{path:source,sha256:sha}}}}],render:[{number:'1',spec:{path:sp,sha256:digest(sp)},sourceRoot:root,seriesBinding:{candidate:{path:cp,sha256:digest(cp)},confirmed:true,reason:'same-source symbols confirmed',choices:[{textId:'l1',candidateIndex:0}]}}]};
+ const write=(name,value)=>{const p=path.join(root,name);fs.writeFileSync(p,JSON.stringify(value));return {path:p,sha256:digest(p)};};
+ const bound=materializeConfirmedSeries(plan,write),result=JSON.parse(fs.readFileSync(bound.render[0].spec.path));
+ assert.equal(result.legend_review.entries[0].series_path_index,0);
+ assert.equal(result.legend_review.entries[0].series_marker_index,1);
+ assert.equal(plan.render[0].seriesBinding.confirmed,true);
+ assert.throws(()=>materializeConfirmedSeries({...plan,rendered:{outputs:[]}},write),/pre_rendered_conflict/);
+ assert.throws(()=>materializeConfirmedSeries({...plan,render:[{...plan.render[0],seriesBinding:{...plan.render[0].seriesBinding,confirmed:false}}]},write),/confirmation/);
+ assert.throws(()=>materializeConfirmedSeries({...plan,outputRoutes:[{number:'1',productionRoute:{sourceReview:{selected:{path:source,sha256:'0'.repeat(64)}}}}]},write),/source_changed/);
+ assert.throws(()=>materializeConfirmedSeries({...plan,render:[{...plan.render[0],seriesBinding:{...plan.render[0].seriesBinding,choices:[{textId:'other',candidateIndex:0}]}}]},write),/conflict/);
+ fs.writeFileSync(cp,JSON.stringify({...candidate,sourceSha256:'0'.repeat(64)}));
+ assert.throws(()=>materializeConfirmedSeries(plan,write),/changed/);
+});
+
+test('production entry blocks an unconfirmed series before any render or workbench write',async t=>{
+ const {runProduction}=await import('./production-runner.mjs');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'series-entry-'));let writes=0;
+ const server=http.createServer((req,res)=>{if(req.method!=='GET')writes++;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({rows:[{id:'F1',articleId:'A1',author:'fixture',number:'1',reviewVersion:'v1',outputs:[]}],articles:[]}));});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(async()=>{await new Promise(resolve=>server.close(resolve));fs.rmSync(root,{recursive:true,force:true});});
+ const credentials=path.join(root,'credentials.json');fs.writeFileSync(credentials,'{}');
+ const plan={figureId:'F1',baseVersion:'v1',outputRoutes:[],render:[{number:'1',seriesBinding:{confirmed:false}}]};
+ const result=await runProduction({origin:'http://127.0.0.1:'+server.address().port,workbenchRoot:root,credentialsFile:credentials},plan);
+ assert.match(result.error,/series_binding_confirmation_required/);assert.equal(writes,0);assert.equal(result.toolTimings,undefined);
+});
+
+test('confirmed synthetic chart binding flows through renderer and workbench receipt',{skip:!process.env.WORKSPACE_TEST_PYTHON||!process.env.JFW_TEST_FONT_PROFILE},async t=>{
+ const {runProduction}=await import('./production-runner.mjs');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'series-production-')),sourceRoot=path.join(root,'source');fs.mkdirSync(sourceRoot);
+ const engine=fileURLToPath(new URL('../portable-production/direct-pdf/',import.meta.url));
+ const env={...process.env,PYTHONPATH:engine,PYTHONUTF8:'1'};
+ execFileSync(process.env.WORKSPACE_TEST_PYTHON,[fileURLToPath(new URL('./chart-binding-fixture.py',import.meta.url)),sourceRoot],{env,windowsHide:true});
+ const source=testRef(path.join(sourceRoot,'source.pdf')),spec=testRef(path.join(sourceRoot,'template.json')),candidate=testRef(path.join(sourceRoot,'candidates.json'));
+ const route=routeFixture(sourceRoot);route.sourceReview.selected=source;route.sourceReview.candidates=[{...source,kind:'vector',decision:'selected',reason:'synthetic source'}];route.processing={operation:'chart-redraw',basis:'synthetic chart binding',targetTextIds:['x1','x2','x3','y1','y2','y3','xt','yt','legend1']};
+ const figure={id:'A-F1',articleId:'A',author:'fixture',editor:'fixture',number:'1',type:'统计曲线图',status:'待制作',outputs:[],reviewVersion:'v1'};
+ const article={id:'A',word:route.sourceReview.word,archiveHash:route.sourceReview.archive.sha256};let handler,origin,publishes=0;const files=new Map();
+ const server=http.createServer((req,res)=>{const url=new URL(req.url,origin);if(url.pathname==='/data'){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({rows:[figure],articles:[article]}));}if(url.pathname.startsWith('/file/')||url.pathname.startsWith('/preview/')){const file=files.get(url.pathname);return file?res.end(fs.readFileSync(file)):res.writeHead(404).end();}if(!handler.handle(req,res,url))res.writeHead(404).end();});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));origin='http://127.0.0.1:'+server.address().port;
+ t.after(async()=>{await new Promise(resolve=>server.close(resolve));fs.rmSync(root,{recursive:true,force:true});});
+ const wb={origin,workerToken:'fixture',reviewerToken:'fixture-review',qualityPython:process.env.WORKSPACE_TEST_PYTHON,directProduction:{enabled:true,batchHashes:[route.sourceReview.archive.sha256],groups:['统计曲线图']},catalog:{batchHash:route.sourceReview.archive.sha256,archive:route.sourceReview.archive,articles:[article]}};
+ handler=createWorkBuddyHandler({root:path.join(root,'jobs'),origin,config:wb,figures:()=>[figure],assertRoutineEligible:()=>({archive:route.sourceReview.archive,word:route.sourceReview.word}),publish:(_job,result)=>{publishes++;figure.outputs=result.outputs.map(o=>{const token='synthetic-'+o.number;files.set('/file/'+token,o.path);files.set('/preview/'+token,o.preview);return {number:o.number,file:{path:o.path,token,meta:{sha256:o.sha256}}};});figure.status='待终检';figure.reviewVersion='returned';},getDirectPublicationState:()=>figure});
+ const credentialsFile=path.join(root,'credentials.json');fs.writeFileSync(credentialsFile,JSON.stringify(wb));
+ const signature=execFileSync(process.env.WORKSPACE_TEST_PYTHON,['-c','from journal_pdf.editorial import engine_signature; print(engine_signature())'],{env,encoding:'utf8',windowsHide:true}).trim();
+ const config={origin,workbenchRoot:root,credentialsFile,python:process.env.WORKSPACE_TEST_PYTHON,fontProfile:process.env.JFW_TEST_FONT_PROFILE,runtimeLock:{python:testRef(process.env.WORKSPACE_TEST_PYTHON),fontProfile:testRef(process.env.JFW_TEST_FONT_PROFILE),engineSignature:signature}};
+ const history=path.join(root,'history.json');fs.writeFileSync(history,JSON.stringify({checked:true,conclusion:'new',reusable:false,observation:'synthetic source checked'}));
+ const plan={figureId:figure.id,baseVersion:'v1',outputRoutes:[{number:'1',productionRoute:route}],history:{evidence:testRef(history),conclusion:'new',reusable:false},qualityRoute:'source-preserving-chart',allowedChanges:['text'],immutableContent:['curve'],articleEvidence:'synthetic chart',render:[{number:'1',spec,sourceRoot,seriesBinding:{candidate,confirmed:true,reason:'synthetic series reviewed',choices:[{textId:'legend1',candidateIndex:0}]}}]};
+ const result=await runProduction(config,plan);
+ assert.equal(result.status,'returned',result.error);assert.equal(figure.status,'待终检');assert.equal(result.receipt.outputs.length,1);assert.ok(result.chartPlanRecord);
+ const repeated=await runProduction(config,plan);assert.equal(repeated.reused,true);assert.equal(publishes,1);
+});

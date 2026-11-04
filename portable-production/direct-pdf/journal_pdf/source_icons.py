@@ -59,19 +59,40 @@ def prepare_icon(source: Path,page_no: int,clip: list[float],*,text_replacements
         page=original[page_no]
         offset=page.cropbox_position;absolute_rect=fitz.Rect(rect.x0+offset.x,rect.y0+offset.y,rect.x1+offset.x,rect.y1+offset.y)
         from .source_icon_text import validate_replacements, compare_pixels
-        replacements=validate_replacements(page,rect,text_replacements,allow_target_text=source_vector_body)
+        replacements=validate_replacements(page,rect,text_replacements,allow_target_text=source_vector_body,allow_grouped=source_vector_body)
         whitespace=[{'source_text':span['text'],'source_bbox':list(span['bbox'])} for block in page.get_text('dict',clip=rect)['blocks'] if block['type']==0 for line in block['lines'] for span in line['spans'] if span['text'] and not span['text'].strip()] if source_vector_body else []
         reference.insert_pdf(original,from_page=page_no,to_page=page_no);refpage=reference[0];refpage.set_cropbox(absolute_rect)
         isolated.insert_pdf(original,from_page=page_no,to_page=page_no);page=isolated[0];bounds=page.rect
-        for replacement in replacements+whitespace:page.add_redact_annot(fitz.Rect(replacement['source_bbox']),fill=False,cross_out=False)
+        for replacement in replacements+whitespace:
+            for text_bounds in replacement.get('source_instances',[replacement['source_bbox']]):page.add_redact_annot(fitz.Rect(text_bounds),fill=False,cross_out=False)
         if replacements or whitespace:
             page.apply_redactions(images=0,graphics=0,text=0)
             from .source_icon_text import assert_clear_text_region
             if not source_vector_body:assert_clear_text_region(page,replacements)
+        hidden_text=[]
+        if source_vector_body:
+            hidden_text=[list(trace['bbox']) for trace in page.get_texttrace()
+                         if not fitz.Rect(trace['bbox']).is_empty and not rect.intersects(fitz.Rect(trace['bbox']))]
+            if hidden_text:
+                media=page.mediabox;crop=page.cropbox;inverse=~page.transformation_matrix
+                pdf_boxes=[fitz.Rect(box)*inverse for box in hidden_text]
+                expanded=fitz.Rect(media)
+                for box in pdf_boxes:expanded |= box + (-1,-1,1,1)
+                page.set_mediabox(expanded)
+                for box in pdf_boxes:
+                    page.add_redact_annot(box*page.transformation_matrix,fill=False,cross_out=False)
+                page.apply_redactions(images=0,graphics=0,text=0)
+                page.set_mediabox(media);page.set_cropbox(crop)
         outside=[fitz.Rect(0,0,bounds.width,rect.y0),fitz.Rect(0,rect.y1,bounds.width,bounds.height),fitz.Rect(0,rect.y0,rect.x0,rect.y1),fitz.Rect(rect.x1,rect.y0,bounds.width,rect.y1)]
         for box in outside:
             if not box.is_empty:page.add_redact_annot(box,fill=False,cross_out=False)
         page.apply_redactions(images=1,graphics=1,text=0);page.clean_contents(sanitize=1);page.set_cropbox(absolute_rect)
+        # Native redaction may leave unused font dictionaries on imported Forms.
+        # Never prune them while any text operation remains visible to the parser.
+        removed_font_owners=[]
+        if source_vector_body and not page.get_texttrace():
+            removed_font_owners=sorted({font[-1] or page.xref for font in page.get_fonts(full=True)})
+            for owner in removed_font_owners:isolated.xref_set_key(owner,'Resources/Font','null')
         data=isolated.tobytes(garbage=4,deflate=True,no_new_id=True)
         with fitz.open(stream=data,filetype='pdf') as saved:
             page=saved[0]
@@ -85,9 +106,15 @@ def prepare_icon(source: Path,page_no: int,clip: list[float],*,text_replacements
             comparisons=[]
             for zoom in (4,8):
                 a=refpage.get_pixmap(matrix=fitz.Matrix(zoom,zoom),alpha=False);b=page.get_pixmap(matrix=fitz.Matrix(zoom,zoom),alpha=False)
-                compare_pixels(a,b,rect,replacements,zoom)
+                try:
+                    compare_pixels(a,b,rect,replacements,zoom)
+                except FigureError as error:
+                    if not source_vector_body or error.code!='source_icon_pixels_changed':raise
+                    from .source_stream_text import prepare_stream_body
+                    try:return prepare_stream_body(source,page_no,clip,text_replacements)
+                    except FigureError:raise error
                 comparisons.append({'dpi':zoom*72,'width':a.width,'height':a.height,'pixel_sha256':hashlib.sha256(a.samples).hexdigest(),'exact':not replacements,'nontext_exact':True})
-            receipt={'mode':'source-vector-body' if source_vector_body else 'source-bound-vector-icon','preparation_mode':'source-vector-reletter' if replacements else 'native-font-free-viewport','text_replacements':replacements,'whitespace_spans_removed':whitespace,'source_path':str(source.resolve()),'source_sha256':digest_file(source),'source_page':page_no,'source_clip':list(rect),'source_cropbox_position':list(offset),'absolute_mediabox_clip':list(absolute_rect),'prepared_sha256':hashlib.sha256(data).hexdigest(),'font_count':0,'image_count':0,'path_count':len(prepared_drawings),'source_visible_path_count':len(expected_visible),'source_path_multiset_preserved':True,'pixels':comparisons,'native_operations':{'graphics':1,'text':0,'images':1,'sanitize':1,'garbage':4},'source_text':'','source_text_character_count':0,'complete_icon_extent_proven':False,'extent_review_required':'cross-boundary compound paths may survive native clip; verify complete icon extent independently'}
+            receipt={'mode':'source-vector-body' if source_vector_body else 'source-bound-vector-icon','preparation_mode':'source-vector-reletter' if replacements else 'native-font-free-viewport','text_replacements':replacements,'whitespace_spans_removed':whitespace,'outside_clip_text_removed':hidden_text,'unused_font_resource_owners_removed':removed_font_owners,'source_path':str(source.resolve()),'source_sha256':digest_file(source),'source_page':page_no,'source_clip':list(rect),'source_cropbox_position':list(offset),'absolute_mediabox_clip':list(absolute_rect),'prepared_sha256':hashlib.sha256(data).hexdigest(),'font_count':0,'image_count':0,'path_count':len(prepared_drawings),'source_visible_path_count':len(expected_visible),'source_path_multiset_preserved':True,'pixels':comparisons,'native_operations':{'graphics':1,'text':0,'images':1,'sanitize':1,'garbage':4},'source_text':'','source_text_character_count':0,'complete_icon_extent_proven':False,'extent_review_required':'cross-boundary compound paths may survive native clip; verify complete icon extent independently'}
             return PreparedIcon(data,json.dumps(receipt,ensure_ascii=False))
 
 
@@ -130,7 +157,7 @@ def audit_icon_paths(page, placements):
             refpage.set_cropbox(page.cropbox)
             refpage.set_rotation(page.rotation)
             # Save/reopen the reference using the same final serialization as production.
-            with fitz.open(stream=reference.tobytes(garbage=4,deflate=True),filetype='pdf') as saved:
+            with fitz.open(stream=reference.tobytes(garbage=3,deflate=True),filetype='pdf') as saved:
                 expected=[path_record(row) for row in saved[0].get_drawings()]
                 if any(row['asset'].audit.get('mode')=='source-mixed-body' for row in icons):
                     from .source_mixed_body import image_records

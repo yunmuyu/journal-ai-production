@@ -28,7 +28,7 @@ def _topological(nodes,edges):
     return rank
 
 
-def _route(start,end,obstacles,xs,ys):
+def _route(start,end,obstacles,xs,ys,*,forbidden_end_direction=None):
     """Rectilinear visibility grid: limits enforce predictable running time."""
     xs=sorted(set([round(float(x),5) for x in [*xs,start[0],end[0]]]));ys=sorted(set([round(float(y),5) for y in [*ys,start[1],end[1]]]))
     if len(xs)*len(ys)>22000:raise FigureError('route_budget','路由网格超过候选上限；需分组或专用布局')
@@ -41,6 +41,7 @@ def _route(start,end,obstacles,xs,ys):
         for di,dj,nd in [(1,0,0),(-1,0,0),(0,1,1),(0,-1,1)]:
             ii,jj=i+di,j+dj
             if not (0<=ii<len(xs) and 0<=jj<len(ys)):continue
+            if (ii,jj)==t and forbidden_end_direction is not None and (di,dj)==tuple(forbidden_end_direction):continue
             a,b=[xs[i],ys[j]],[xs[ii],ys[jj]]
             if any(segment_hits(a,b,r,.3) for r in obstacles):continue
             c=cost+math.dist(a,b)+(5 if d>=0 and d!=nd else 0)
@@ -233,7 +234,7 @@ def graph(spec,reg,size):
             clearance=ROUTE_OBSTACLE_CLEARANCE
             obstacles=[[n['rect'][0]-clearance,n['rect'][1]-clearance,n['rect'][2]+clearance,n['rect'][3]+clearance] for n in placed.values()]
             ident=e.get('id','edge-'+str(idx+1))
-            try:route=_route(u,v,obstacles,xs,ys)
+            try:route=_route(u,v,obstacles,xs,ys,forbidden_end_direction=vec[ts])
             except FigureError as error:
                 if error.code!='graph_route_blocked':raise
                 details={'edge':ident,'from':e['from'],'to':e['to'],'from_port':ss,'to_port':ts,
@@ -277,4 +278,19 @@ def graph(spec,reg,size):
         'global_optimum_proven':False,'source_semantics_review_required':True,
         'arrow5_shaft_length_pt':ARROW_LENGTH,'arrow5_depth_pt':ARROW_DEPTH,
         'unlabeled_boundary_gap_pt':ARROW_BOUNDARY_GAP,'rank_gaps_pt':rank_gaps}
+    title=spec.get('title')
+    if title is not None:
+        if not isinstance(title,str) or not title.strip():raise FigureError('graph_title_invalid','图内标题必须为非空文字')
+        measured=reg.measure(display_content(title,'title'),size)
+        new_width=max(width,measured['width']+2*margin)
+        dx=(new_width-width)/2;dy=measured['height']+6*scale
+        for node in s.nodes:node['rect']=[node['rect'][0]+dx,node['rect'][1]+dy,node['rect'][2]+dx,node['rect'][3]+dy]
+        for path in s.paths:path['points']=[[x+dx,y+dy] for x,y in path['points']]
+        for text in s.texts:
+            text['x']+=dx;text['y']+=dy
+            x0,y0,x1,y1=text['position']['bbox'];text['position']['bbox']=[x0+dx,y0+dy,x1+dx,y1+dy]
+            text['position']['offset']=[text['position']['offset'][0]+dx,text['position']['offset'][1]+dy]
+        s.text('graph-title',title,new_width/2,margin/2+measured['height']/2,role='title')
+        s.layout_evidence['source_title']='graph-title'
+        width=new_width;height+=dy
     return s.finish(width,height)

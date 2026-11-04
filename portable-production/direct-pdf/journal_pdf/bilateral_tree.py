@@ -21,6 +21,7 @@ class TreeSpec(TypedDict):
     root: str
     branches: list[Branch]
     root_vertical: NotRequired[bool]
+    tree_spacing_pt: NotRequired[list[float]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,7 +48,15 @@ def _label(text: str, wrap: int | None) -> str:
 
 def bilateral_tree(spec: TreeSpec, reg: FontRegistry, size: float) -> Scene:
     scale = size / 8
+    spacing_values=spec.get('tree_spacing_pt',[3,6])
+    if spacing_values != [3,6]:raise FigureError('tree_spacing','树形间距固定为组内3 pt、组间6 pt')
     padding, gap, link_gap = PAD_X, COMPACT_GAP*scale, 2*COMPACT_GAP*scale
+    def spacing(a: MeasuredNode, b: MeasuredNode, *, root: bool = False) -> float:
+        return spacing_values[1 if root or a.children or b.children else 0] * scale + .5
+
+    def total_span(nodes: list[MeasuredNode] | tuple[MeasuredNode, ...], *, root: bool = False) -> float:
+        return sum(n.span for n in nodes) + sum(spacing(a,b,root=root) for a,b in zip(nodes,nodes[1:]))
+
     widths: dict[tuple[str, int], float] = {}
     members: dict[tuple[str, int], list[str]] = {}
     parents: dict[str, str] = {}
@@ -80,7 +89,7 @@ def bilateral_tree(spec: TreeSpec, reg: FontRegistry, size: float) -> Scene:
         key = side, depth
         widths[key] = max(widths.get(key, 0.), width)
         members.setdefault(key, []).append(id)
-        span = max(height, sum(c.span for c in descendants)+gap*max(0, len(descendants)-1))
+        span = max(height, total_span(descendants))
         return MeasuredNode(id, text, width, height, span, descendants, vertical)
 
     root_text = display_content(_label(spec.get('root', ''), None), 'label')
@@ -104,7 +113,7 @@ def bilateral_tree(spec: TreeSpec, reg: FontRegistry, size: float) -> Scene:
         raise FigureError('tree_budget', '双侧树最多80节点')
     m = reg.measure_vertical(root_text, size) if vertical else reg.measure(root_text, size, role='literal')
     root_w, root_h = m['width']+2*PAD_X*scale, m['height']+2*PAD_Y*scale
-    side_heights = {side: sum(n.span for n in nodes)+gap*max(0, len(nodes)-1)
+    side_heights = {side: total_span(nodes,root=True)
                     for side, nodes in sides.items()}
     height = max(root_h, *side_heights.values())
     extents = {side: sum(w+link_gap for (s, _), w in widths.items() if s == side)
@@ -119,7 +128,7 @@ def bilateral_tree(spec: TreeSpec, reg: FontRegistry, size: float) -> Scene:
               near: float, top: float) -> None:
         width = widths[side, depth]
         x = near+link_gap if side == 'right' else near-link_gap-width
-        for n in nodes:
+        for index,n in enumerate(nodes):
             y = top+n.span/2-n.height/2
             box = scene.box(n.id, n.text, x, y, width, n.height, text_role='literal', vertical_text=n.vertical)
             boxes[n.id] = box
@@ -127,10 +136,11 @@ def bilateral_tree(spec: TreeSpec, reg: FontRegistry, size: float) -> Scene:
             box['measurement_contract'] = {'mode': 'measured-group', 'group': key,
                                           'axis': 'column', 'expected_wh': [width, n.height]}
             if n.children:
-                child_height = sum(c.span for c in n.children)+gap*(len(n.children)-1)
+                child_height = total_span(n.children)
                 place(n.children, side, depth+1, x+width if side == 'right' else x,
                       top+(n.span-child_height)/2)
-            top += n.span+gap
+            top += n.span
+            if index+1<len(nodes):top += spacing(n,nodes[index+1],root=depth==1)
 
     for side, nodes in sides.items():
         if nodes:
@@ -162,5 +172,5 @@ def bilateral_tree(spec: TreeSpec, reg: FontRegistry, size: float) -> Scene:
                             {n.id: side for side, nodes in sides.items() for n in nodes},
                             'column_widths_pt': {f'{s}-{d}': w for (s, d), w in widths.items()},
                             'node_count': count+1, 'font_size_kept': size,
-                            'whole_artwork_scale': 1, 'link_gap_pt': link_gap}
+                            'whole_artwork_scale': 1, 'link_gap_pt': link_gap, 'tree_spacing_pt': spacing_values}
     return scene.finish(root_x+root_w+extents['right']+padding, height+2*padding)

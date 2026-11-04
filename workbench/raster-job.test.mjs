@@ -13,6 +13,7 @@ function fixture(t,checked=true){
  const write=(name,data)=>{const p=path.join(root,name);fs.writeFileSync(p,data);return {path:p,sha256:createHash('sha256').update(data).digest('hex')};};
  const source=write('source.png',Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=','base64'));
  const route={version:1,method:'raster-preserve',sourceReview:{archive:write('archive','fixture'),word:write('word','fixture'),inventory:write('inventory','fixture'),selected:source,candidates:[{...source,kind:'raster',decision:'selected',reason:'synthetic photo'}],basis:'synthetic matched input',rasterReason:'photo'},requirements:{format:'jpg',fontCheck:'none',widthMm:80}};
+ route.processing={operation:'preserve',basis:'Synthetic photograph with no lettering changes'};
  const task=write('task.json',JSON.stringify({id:'test-job',attemptDir:root,outputNumbers:['2'],productionRoute:route}));
  const output=path.join(root,'candidate','figure.jpg');
  const plan=write('plan.json',JSON.stringify({version:1,inputs:[{...source,crop:null}],layout:{mode:'single',gap_px:0},output,width_mm:80,target_dpi:null,quality:95}));

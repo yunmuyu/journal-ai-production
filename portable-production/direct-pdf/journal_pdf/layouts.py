@@ -6,7 +6,8 @@ from .flow_shapes import is_flow_terminal
 import math, json, subprocess, shutil, re
 from pathlib import Path
 from .common import FigureError, PT_PER_MM, finite
-from .scene import Scene, port, ray_ellipse
+from .scene import Scene, port, ray_ellipse, audit_scene
+from .label_layout import layout_label
 from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, STROKE, COMPACT_GAP, display_content, wrap_text
 
 
@@ -151,6 +152,37 @@ def fanout(spec,reg,size):
     return s.finish(w+2*p,by+dh+p)
 
 
+def compact_tree_to_width(spec,reg,size,limit,max_height):
+    """Try semantic line breaks before reducing the font of a right-facing tree."""
+    if spec.get('tree_layout','right')!='right':return None,0
+    def wrap(value,capacity):
+        if '\n' in value:return value
+        tokens=re.findall(r'[A-Za-z0-9._+/-]+|.',value)
+        lines=[];line=''
+        for token in tokens:
+            if line and len(line)+len(token)>capacity:
+                lines.append(line);line=''
+            line+=token
+        if line:lines.append(line)
+        return '\n'.join(lines)
+    options=[];attempts=0
+    for root_cap in (12,10,8,6,5,4):
+        for branch_cap in (12,10,8,6,5,4):
+            candidate={**spec,'root':wrap(spec['root'],root_cap),
+                       'branches':[{**b,'text':wrap(b['text'],branch_cap)} for b in spec['branches']]}
+            attempts+=1
+            scene=tree(candidate,reg,size)
+            if scene.width<=limit+1e-7 and scene.height<=max_height and not audit_scene(scene):
+                breaks=candidate['root'].count('\n')+sum(b['text'].count('\n') for b in candidate['branches'])
+                rows=[candidate['root'],*(b['text'] for b in candidate['branches'])]
+                orphans=sum(len(line.strip())==1 for value in rows for line in value.splitlines())
+                options.append((orphans,breaks,-scene.width,candidate,scene))
+    if not options:return None,attempts
+    _,_,_,candidate,scene=min(options,key=lambda row:row[:3])
+    scene.layout_evidence['automatic_text_reflow']={'root':candidate['root'],'branches':[b['text'] for b in candidate['branches']]}
+    return scene,attempts
+
+
 def tree(spec,reg,size):
     """Measured hierarchy. A bundled/external solver bridge can provide the
     block positions; this fallback is explicitly a deterministic tree template."""
@@ -159,7 +191,11 @@ def tree(spec,reg,size):
         from .bilateral_tree import bilateral_tree
         return bilateral_tree(spec,reg,size)
     if layout!='right':raise FigureError('tree_layout','树布局仅支持right或bilateral')
-    s=Scene(reg,size);s.template='hierarchy-tree';p=2.;padx=4.5*size/8;padv=2.7*size/8;gapx=2*float(spec.get('bus_leg_mm',2))*PT_PER_MM;gapy=3*size/8;groupgap=16.
+    spacing=spec.get('tree_spacing_pt',[3,6])
+    if spacing != [3,6]:raise FigureError('tree_spacing','树形间距固定为组内3 pt、组间6 pt')
+    arrows=spec.get('arrows',False)
+    if not isinstance(arrows,bool):raise FigureError('tree_arrows','树形箭头设置须为布尔值')
+    s=Scene(reg,size);s.template='hierarchy-tree';p=2.;padx=4.5*size/8;padv=2.7*size/8;gapx=max(2*float(spec.get('bus_leg_mm',2))*PT_PER_MM,2*ARROW_LENGTH if arrows else 0);gapy=spacing[0]*size/8+.5;groupgap=spacing[1]*size/8+.5
     branches=spec['branches'];roottext=spec['root']
     if spec.get('root_vertical'):roottext='\n'.join(roottext.replace('\n',''))
     rootm=reg.measure(roottext,size);mainms=metrics(reg,size,[b['text'] for b in branches]);leafms=metrics(reg,size,[t for b in branches for t in b['children']])
@@ -184,15 +220,15 @@ def tree(spec,reg,size):
         bus=mx+mw+gapx/2
         s.line('branch-stem'+str(i),[port(main,'right'),[bus,cy]])
         if len(lcenters)>1:s.line('branch-bus'+str(i),[[bus,min(lcenters)],[bus,max(lcenters)]])
-        for j,lcy in enumerate(lcenters):s.line('branch-leaf'+str(i)+'-'+str(j),[[bus,lcy],[lx,lcy]])
+        for j,lcy in enumerate(lcenters):s.line('branch-leaf'+str(i)+'-'+str(j),([[bus,lcy],[lx-ARROW_LENGTH,lcy],[lx,lcy]] if arrows else [[bus,lcy],[lx,lcy]]),arrow=arrows,exact_terminal=arrows,endpoint_nodes=[None,'leaf'+str(i)+'-'+str(j)] if arrows else None)
         my+=gh[i]+groupgap
     s.measurement_groups['tree-branches']={'axis':'both','nodes':['branch'+str(i) for i in range(len(branches))]}
     s.measurement_groups['tree-leaves']={'axis':'both','nodes':['leaf'+str(i)+'-'+str(j) for i,b in enumerate(branches) for j in range(len(b['children']))]}
     bus=p+rootw+gapx/2;rootcy=(root['rect'][1]+root['rect'][3])/2
     s.line('root-stem',[port(root,'right'),[bus,rootcy]])
     if len(centers)>1:s.line('root-bus',[[bus,min(centers)],[bus,max(centers)]])
-    for i,cy in enumerate(centers):s.line('root-branch'+str(i),[[bus,cy],[mx,cy]])
-    s.layout_evidence={'algorithm':'deterministic measured hierarchy','font_size_kept':size,'whole_artwork_scale':1}
+    for i,cy in enumerate(centers):s.line('root-branch'+str(i),([[bus,cy],[mx-ARROW_LENGTH,cy],[mx,cy]] if arrows else [[bus,cy],[mx,cy]]),arrow=arrows,exact_terminal=arrows,endpoint_nodes=[None,'branch'+str(i)] if arrows else None)
+    s.layout_evidence={'algorithm':'deterministic measured hierarchy','font_size_kept':size,'whole_artwork_scale':1,'tree_spacing_pt':spacing}
     return s.finish(lx+lw+p,height+2*p)
 
 
@@ -224,6 +260,10 @@ def network(spec,reg,size):
 
 
 def primitive(spec,reg,size):
+    from .bound_branch_paths import prepare_bound_paths
+    spec=prepare_bound_paths(spec,size)
+    from .layout_relations import prepare_layout_relations
+    spec=prepare_layout_relations(spec,reg,size)
     s=Scene(reg,size);s.template='primitive-scene';nodes={}
     s.source_bindings={v.get('path'):v.get('sha256') for v in spec.get('sources',[]) if isinstance(v,dict)}
     node_specs={n['id']:n for n in spec.get('nodes',[])};placed=set()
@@ -241,14 +281,14 @@ def primitive(spec,reg,size):
             n=node_specs[node_id]
             if 'rect' in n or 'text' not in n or n.get('container') or n.get('shape','rectangle') not in ('rectangle','roundrect','terminator'):
                 raise FigureError('measured_group_invalid','测量分组只接受未指定矩形的普通文字框',group=group.get('id'),node=node_id)
-            display=display_content(n['text'],'label')
-            if n.get('wrap_chars') is not None:display=wrap_text(display,n['wrap_chars'])
-            members.append((n,reg.measure(display,size)))
+            display=layout_label(reg,n['text'],size,wrap_chars=n.get('wrap_chars'),wrap_width_pt=n.get('wrap_width_pt'))
+            measurement=reg.measure_vertical(display,size) if n.get('vertical_text') is True else reg.measure(display,size)
+            members.append((n,measurement))
         gaps=group.get('gap_pts')
         if 'gap_pts' in group and (axis!='column' or 'gap_pt' in group or not isinstance(gaps,list) or
                 len(gaps)!=len(ids)-1 or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or v<0 for v in gaps)):
             raise FigureError('measured_group_gaps','gap_pts仅适用于column，须有n-1个有限非负数且不能与gap_pt并用',group=group.get('id'))
-        padx=4.5*size/8;pady=2.7*size/8;gap=float(group.get('gap_pt',9));x,y=map(float,origin)
+        padx=4.5*size/8;pady=2.7*size/8;gap=float(group.get('gap_pt',3*size/8+.5));x,y=map(float,origin)
         equal_width=group.get('equal_width',False)
         if not isinstance(equal_width,bool):
             raise FigureError('measured_group_equal_width','equal_width须为布尔值',group=group.get('id'))
@@ -261,11 +301,18 @@ def primitive(spec,reg,size):
         else:widths=[max(widths)]*len(widths)
         for index,((n,_),w,h) in enumerate(zip(members,widths,heights)):
             kind=n['shape'] if n.get('shape') in ('roundrect','terminator') and n.get('semantic_shape') else 'rectangle'
-            node=s.box(n['id'],n['text'],x,y,w,h,kind,wrap_chars=n.get('wrap_chars'),flow_role=n.get('role'))
+            node=s.box(n['id'],n['text'],x,y,w,h,kind,wrap_chars=n.get('wrap_chars'),flow_role=n.get('role'),
+                       vertical_text=n.get('vertical_text') is True,wrap_width_pt=n.get('wrap_width_pt'))
             node['measurement_contract']={'mode':'measured-group','group':group.get('id'),'axis':measured_axis,'expected_wh':[w,h]}
             nodes[n['id']]=node;placed.add(n['id'])
-            if axis=='row':x+=w+gap
-            else:y+=h+(gaps[index] if gaps is not None and index<len(gaps) else gap)
+            next_gap=gaps[index] if gaps is not None and index<len(gaps) else gap
+            if index+1<len(members):
+                pair={n['id'],members[index+1][0]['id']}
+                bound=[c for c in spec.get('connections',[]) if c.get('auto_route') and {c.get('from'),c.get('to')}==pair]
+                required=max((ARROW_LENGTH*(size/8 if c.get('arrow_style')=='block-outline' else 1)*(2 if c.get('both') else 1)+STROKE for c in bound if c.get('arrow') or c.get('both')),default=0)
+                next_gap=max(next_gap,required)
+            if axis=='row':x+=w+next_gap
+            else:y+=h+next_gap
     for n in spec.get('nodes',[]):
         if n['id'] in placed:continue
         if 'rect' not in n:raise FigureError('primitive_node_rect_missing','普通节点缺少矩形或测量分组',id=n['id'])
@@ -274,6 +321,11 @@ def primitive(spec,reg,size):
         if kind=='roundrect' and not n.get('semantic_shape') and not terminal:
             kind='rectangle'
         nodes[n['id']]=s.shape(n['id'],r,kind,n.get('container',False),dash=n.get('dash'))
+        if 'fill' in n:
+            fill=n['fill']
+            if isinstance(fill,bool) or not isinstance(fill,(int,float)) or not math.isfinite(fill) or not 0<=fill<=1:raise FigureError('node_fill','节点填充必须为0到1的灰度')
+            nodes[n['id']]['fill']=fill
+        if 'role' in n:nodes[n['id']]['role']=n['role']
         if terminal:nodes[n['id']]['flow_terminal']=True
         if kind in ('rectangle','roundrect','terminator') and not n.get('container',False):
             nodes[n['id']]['padding_pt']=[4.5*size/8,2.7*size/8]
@@ -289,13 +341,52 @@ def primitive(spec,reg,size):
             if valid:
                 nodes[n['id']]['measurement_contract']={'mode':'fixed','fixed_size':fixed}
             elif 'text' in n:
-                display=display_content(n['text'],'label')
-                if n.get('wrap_chars') is not None:display=wrap_text(display,n['wrap_chars'])
-                measurement=reg.measure(display,size)
+                display=layout_label(reg,n['text'],size,wrap_chars=n.get('wrap_chars'),wrap_width_pt=n.get('wrap_width_pt'))
+                measurement=reg.measure_vertical(display,size) if n.get('vertical_text') is True else reg.measure(display,size)
                 nodes[n['id']]['measurement_contract']={'mode':'tight','expected_wh':[
                     measurement['width']+9*size/8,measurement['height']+5.4*size/8]}
-        if 'text' in n:s.text(n['id']+':text',n['text'],(r[0]+r[2])/2,(r[1]+r[3])/2,owner=n['id'],wrap_chars=n.get('wrap_chars'))
-    for t in spec.get('texts',[]):s.text(t['id'],t['text'],t['x'],t['y'],t.get('align','center'),t.get('rotation',0),t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'))
+        if 'text' in n:s.text(n['id']+':text',n['text'],(r[0]+r[2])/2,(r[1]+r[3])/2,owner=n['id'],wrap_chars=n.get('wrap_chars'),vertical=n.get('vertical_text') is True,wrap_width_pt=n.get('wrap_width_pt'))
+    for group in spec.get('measured_node_groups',[]):
+        ids=group.get('nodes',[]);ident=group.get('id')
+        if not isinstance(ident,str) or not ident or ident in s.measurement_groups or not isinstance(ids,list) or not ids or len(set(ids))!=len(ids) or any(i not in nodes for i in ids):raise FigureError('measured_group_invalid','等宽分组须绑定不重复的现有节点')
+        columns=group.get('grid_columns')
+        if columns is not None and (type(columns) is not int or columns<1 or columns>len(ids)):raise FigureError('measured_group_invalid','框间距网格列数不正确')
+        reason=group.get('spacing_exemption_reason')
+        if columns is None and (not isinstance(reason,str) or not reason.strip()):raise FigureError('measured_group_spacing_required','等宽分组须指定间距网格，或说明为何不相邻')
+        if columns is not None and reason is not None:raise FigureError('measured_group_spacing_required','网格间距和不相邻说明不能同时指定')
+        s.measurement_groups[ident]={'axis':'both','nodes':list(ids),**({'grid_columns':columns} if columns is not None else {})}
+        for node_id in ids:nodes[node_id]['measurement_contract']={'mode':'measured-group','group':ident,'axis':'both'}
+        linked=lambda e: e.get('node') if isinstance(e,dict) else e
+        connected=any(linked(e) in ids for p in spec.get('paths',[]) for e in (p.get('endpoint_nodes') or [])) or any(c.get('from') in ids or c.get('to') in ids for c in spec.get('connections',[]))
+        if group.get('auto_layout',columns is not None and not connected):
+            if columns is None:raise FigureError('measured_group_invalid','自动排布须指定网格列数')
+            if connected:
+                raise FigureError('measured_group_connected','自动网格含连接节点，须先提供可联动的连接布局')
+            from .fonts import position_text
+            owners={t['owner']:t for t in s.texts if t['owner'] in ids}
+            if len(owners)!=len(ids):raise FigureError('measured_group_invalid','自动网格的每个节点须有文字')
+            w=max(owners[i]['measurement']['width'] for i in ids)+9*size/8
+            h=max(owners[i]['measurement']['height'] for i in ids)+5.4*size/8
+            x,y=nodes[ids[0]]['rect'][:2];gap=3*size/8+.5
+            for index,node_id in enumerate(ids):
+                xx=x+(index%columns)*(w+gap);yy=y+(index//columns)*(h+gap)
+                nodes[node_id]['rect']=[xx,yy,xx+w,yy+h]
+                t=owners[node_id];t['x']=xx+w/2;t['y']=yy+h/2
+                t['position']=position_text(t['measurement'],t['x'],t['y'],t['align'],t['position'].get('rotation',0))
+            s.layout_evidence.setdefault('automatic_grids',[]).append({'id':ident,'columns':columns,'nodes':list(ids),'gap_pt':3*size/8})
+    for t in spec.get('texts',[]):s.text(t['id'],t['text'],t['x'],t['y'],t.get('align','center'),t.get('rotation',0),t.get('owner'),t.get('role','label'),wrap_chars=t.get('wrap_chars'),wrap_width_pt=t.get('wrap_width_pt'),vertical=t.get('vertical_text') is True)
+    for group in spec.get('compact_containers',[]):
+        ident=group.get('id');node_ids=group.get('nodes',[]);text_ids=group.get('texts',[]);padding=group.get('padding_pt')
+        texts_by_id={t['id']:t for t in s.texts}
+        if ident not in nodes or not nodes[ident]['container'] or not isinstance(node_ids,list) or not isinstance(text_ids,list) or not (node_ids or text_ids) or ident in node_ids or any(i not in nodes for i in node_ids) or any(i not in texts_by_id for i in text_ids) or not isinstance(padding,list) or len(padding)!=4 or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) or v<0 for v in padding):raise FigureError('compact_container_invalid','紧凑容器须绑定真实内容及四边留白')
+        rects=[[n['rect'][0]-n['width']/2,n['rect'][1]-n['width']/2,n['rect'][2]+n['width']/2,n['rect'][3]+n['width']/2] for n in (nodes[i] for i in node_ids)]+[texts_by_id[i]['position']['bbox'] for i in text_ids]
+        nodes[ident]['rect']=[min(r[0] for r in rects)-padding[0]*size/8,min(r[1] for r in rects)-padding[1]*size/8,max(r[2] for r in rects)+padding[2]*size/8,max(r[3] for r in rects)+padding[3]*size/8]
+        s.layout_evidence.setdefault('compact_containers',[]).append({'id':ident,'nodes':list(node_ids),'texts':list(text_ids),'padding_pt':list(padding)})
+    from .compact_links import compact_container_rows,equal_width_container_bands,infer_container_bands
+    compact_container_rows(s,nodes,spec.get('compact_container_rows',[]),spec.get('compact_containers',[]),spec.get('paths',[]),spec.get('connections',[]))
+    bands=spec.get('equal_width_container_bands')
+    if bands is None:bands=infer_container_bands(s,nodes,spec.get('compact_containers',[]),spec.get('compact_container_rows',[]))
+    equal_width_container_bands(s,nodes,bands,spec.get('compact_containers',[]),spec.get('paths',[]),spec.get('connections',[]),spec.get('compact_links',[]))
     node_groups=spec.get('node_groups',[])
     if not isinstance(node_groups,list):
         raise FigureError('node_group_invalid','node_groups须为明确成员清单')
@@ -303,16 +394,35 @@ def primitive(spec,reg,size):
         if not isinstance(group,dict) or set(group)!={'id','nodes'}:
             raise FigureError('node_group_invalid','节点组仅接受id与真实成员nodes')
         s.group(group['id'],group['nodes'])
+    from .multiport_layout import apply_multiport_groups
+    apply_multiport_groups(s,nodes,spec.get('multiport_groups',[]))
+    from .connection_layout import generate_connections
+    generate_connections(s,nodes,[{'id':e.get('id','edge'+str(i)),**e} for i,e in enumerate(spec.get('connections',[])) if e.get('auto_route')])
     for i,e in enumerate(spec.get('connections',[])):
+        if e.get('auto_route'):continue
         if e.get('from') not in nodes or e.get('to') not in nodes:raise FigureError('edge_endpoint','连接引用了未知节点')
         points=[port(nodes[e['from']],e['from_port']),*e.get('via',[]),port(nodes[e['to']],e['to_port'])]
         s.line(e.get('id','edge'+str(i)),points,e.get('arrow',False),e.get('both',False),e.get('dash'),
                exact_terminal=bool(e.get('arrow',False) or e.get('both',False)),endpoint_nodes=[e['from'],e['to']],
-               shared_net=e.get('shared_net'),semantic_role=e.get('semantic_role','connection'))
-    for p in spec.get('paths',[]):s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
+               shared_net=e.get('shared_net'),semantic_role=e.get('semantic_role','connection'),arrow_style=e.get('arrow_style','standard'))
+    from .compact_links import compact_links
+    paths=compact_links(s,nodes,spec.get('compact_links',[]),spec.get('paths',[]),spec.get('connections',[]))
+    for p in paths:s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
                                          exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'),
-                                         shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'))
-    return s.finish(spec['width_pt'],spec['height_pt'])
+                                         shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'),arrow_style=p.get('arrow_style','standard'))
+    from .scene import require_arrow_styles
+    require_arrow_styles(s.paths,spec.get('required_arrow_styles',{}))
+    s.finish(spec['width_pt'],spec['height_pt'])
+    from .scene_spacing import apply_scene_spacing
+    if not spec.get('assets'):apply_scene_spacing(s)
+    if not spec.get('assets') and (spec.get('align_connections') or spec.get('straighten_connections')):
+        from .scene_straighten import align_connected_nodes, straighten_connections
+        align_connected_nodes(s,spec.get('align_connections',[]))
+        if spec.get('straighten_connections'):straighten_connections(s)
+    if spec.get('compact_container_bottoms') and not spec.get('assets'):
+        from .scene_container_fit import compact_container_bottoms
+        compact_container_bottoms(s)
+    return s
 
 
 DIAGRAMS={'cycle':cycle,'layered':layered,'radial':radial,'fanout':fanout,'tree':tree,'network':network,'scene':primitive}

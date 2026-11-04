@@ -15,6 +15,7 @@ test('actual Python candidate replay returns pending while strict review still r
  const prepared=JSON.parse(execFileSync(python,['-c',script,root],{encoding:'utf8'}));
  const source=prepared.raw.source,output=path.join(prepared.raw.workspace,'fig1.jpg');
  const route={version:1,method:'raster-preserve',sourceReview:{archive:source,word:source,inventory:source,selected:source,candidates:[{...source,kind:'raster',decision:'selected',reason:'Synthetic test screenshot'}],basis:'Synthetic fixture binding',rasterReason:'Retain synthetic raster'},requirements:{format:'jpg',fontCheck:'none',widthMm:25.4}};
+ route.processing={operation:'preserve',basis:'Synthetic source preserved without lettering'};
  const job={id:'task-1',attemptDir:root,productionRoute:route,outputNumbers:['1']};
  const result={quality:{contract:prepared.contract,rasterPlan:prepared.rasterPlan},selfCheck:prepared.selfCheck,outputs:[{number:'1',path:output,sha256:createHash('sha256').update(fs.readFileSync(output)).digest('hex'),fontLabel:''}]};
  const checked=verifyAutomaticCandidate(job,result,{python});

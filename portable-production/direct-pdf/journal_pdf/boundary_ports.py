@@ -12,6 +12,30 @@ type Side = Literal['left', 'right', 'top', 'bottom']
 type TargetKind = Literal['node', 'asset', 'path', 'text', 'group', 'page']
 
 
+def node_boundary_point(rect: tuple[float,float,float,float], kind: str,
+                        side: Side, fraction: float=.5) -> tuple[float,float]:
+    """Map an explicit side/fraction onto the real ellipse or diamond boundary."""
+    if isinstance(fraction,bool) or not isinstance(fraction,(int,float)) or not math.isfinite(fraction) or not 0<=fraction<=1:
+        raise FigureError('arrow_endpoint_fraction_invalid','fraction必须为0到1之间的有限数值')
+    x,y,right,bottom=rect;cx,cy=(x+right)/2,(y+bottom)/2
+    rx,ry=(right-x)/2,(bottom-y)/2
+    if rx<=0 or ry<=0:raise FigureError('arrow_endpoint_target_rect','端口目标边界无效')
+    point=BoundaryPort('node','',side,fraction).point(rect)
+    if kind in ('roundrect','terminator','inputOutput'):
+        if fraction!=.5:raise FigureError('arrow_endpoint_shape_fraction','该框型仅支持已验证的边中点端口',shape=kind)
+        if kind=='inputOutput' and side in ('left','right'):
+            inset=min((bottom-y)*.25,4)/2
+            return (x+inset,cy) if side=='left' else (right-inset,cy)
+    if kind not in ('ellipse','diamond'):return point
+    if side in ('left','right'):
+        v=(point[1]-cy)/ry
+        reach=math.sqrt(max(0.,1-v*v)) if kind=='ellipse' else 1-abs(v)
+        return cx+(-1 if side=='left' else 1)*rx*reach,point[1]
+    u=(point[0]-cx)/rx
+    reach=math.sqrt(max(0.,1-u*u)) if kind=='ellipse' else 1-abs(u)
+    return point[0],cy+(-1 if side=='top' else 1)*ry*reach
+
+
 @dataclass(frozen=True, slots=True)
 class BoundaryPort:
     target_kind: TargetKind
@@ -107,6 +131,26 @@ class BoundaryGeometry:
 
     page: tuple[float,float,float,float] | None = None
     page_inset_scale: float = 1.
+    node_shapes: Mapping[str,str] = field(default_factory=dict)
+
+    def expected_point(self, value: JsonValue) -> tuple[float,float]:
+        """Resolve one declared port for generation and diagnostic suggestions."""
+        declared=parse_boundary_port(value)
+        match declared.target_kind:
+            case 'node': rect=self.nodes.get(declared.target_id)
+            case 'asset': rect=self.assets.get(declared.target_id)
+            case 'path': rect=self.paths.get(declared.target_id)
+            case 'text': rect=self.texts.get(declared.target_id)
+            case 'page': rect=self.page
+            case 'group':
+                ids=self.groups.get(declared.target_id,())
+                rows=[self.nodes[i] for i in ids if i in self.nodes]
+                rect=(min(r[0] for r in rows),min(r[1] for r in rows),max(r[2] for r in rows),max(r[3] for r in rows)) if rows and len(rows)==len(ids) else None
+            case unreachable: assert_never(unreachable)
+        if rect is None:raise FigureError('arrow_endpoint_target_missing','端口目标不存在',target=declared.target_id)
+        if declared.target_kind=='node':
+            return node_boundary_point(rect,self.node_shapes.get(declared.target_id,'rectangle'),declared.side,declared.fraction)
+        return declared.point(rect,self.page_inset_scale if declared.target_kind=='page' else 1.)
 
     def matches(self, value: JsonValue, point: tuple[float, float], adjacent: tuple[float,float] | None=None) -> bool:
         declared = parse_boundary_port(value)
@@ -132,4 +176,4 @@ class BoundaryGeometry:
                         max(r[2] for r in rects), max(r[3] for r in rects)) if rects and len(rects) == len(members) else None
             case unreachable:
                 assert_never(unreachable)
-        return rect is not None and math.dist(point, declared.point(rect,self.page_inset_scale if declared.target_kind=='page' else 1.)) <= .15
+        return rect is not None and math.dist(point,self.expected_point(value)) <= .15
