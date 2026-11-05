@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "ced82c85cb1a8490c52750e772a9415e6ac705f6",
+  "validatedAt": "2026-10-14T08:11:00.768158+00:00",
+  "environment": {
+    "node": "v22.16.0",
+    "python": "Python 3.13.5"
+  },
+  "node": {
+    "command": "npm run test:batch",
+    "passed": 107,
+    "failed": 0
+  },
+  "python": {
+    "command": "python -m unittest discover -s collaboration/tests -p test_svg_headless.py -v",
+    "passed": 13,
+    "failed": 0,
+    "realProcessPool": true
+  },
+  "nativeAdobeExecuted": false,
+  "nativeAdapterUsesSimulation": true,
+  "fullRepositoryRegressionExecuted": false,
+  "installed": false,
+  "productionRecordsChanged": false,
+  "solverFilesChanged": false,
+  "productionSpeedupMeasured": false
+}

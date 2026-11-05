@@ -1,0 +1,47 @@
+name: Batch integration candidate
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+jobs:
+  candidate:
+    if: github.head_ref == 'task/batch-pipeline-20261014'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Reproducible tracked-source snapshot (no production data)
+        run: |
+          mkdir -p /tmp/batch-verification
+          git rev-parse HEAD > /tmp/batch-verification/commit.txt
+          git archive --format=zip HEAD -o /tmp/batch-verification/source-checkout.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: batch-source-${{ github.event.pull_request.head.sha }}
+          path: /tmp/batch-verification/
+          retention-days: 1
+      - name: Candidate Node regression
+        run: npm run test:batch
+      - name: Candidate Python regression
+        run: python -m unittest discover -s collaboration/tests -p test_svg_headless.py -v
+      - name: Broad Node regression attempt (environment failures remain visible)
+        if: always()
+        run: |
+          set -o pipefail
+          node --test --test-timeout=20000 tests/*.test.mjs knowledge/*.test.mjs workbench/*.test.mjs collaboration/*.test.mjs collaboration/state-transfer/*.test.mjs collaboration/tests/*.test.mjs 2>&1 | tee /tmp/broad-node.tap
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: batch-regression-${{ github.event.pull_request.head.sha }}
+          path: /tmp/broad-node.tap
+          retention-days: 7
