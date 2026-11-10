@@ -57,7 +57,7 @@ test('JPG preservation cannot omit a processing decision or bypass a lettering r
 test('real ordinary text box cannot evade measured padding by declaring itself a container',{skip:!process.env.WORKSPACE_TEST_PYTHON||!process.env.JFW_TEST_FONT_PROFILE},t=>{
  const {task}=fixture(t),root=task.attemptDir,python=process.env.WORKSPACE_TEST_PYTHON;
  task.productionRoute.processing={operation:'rebuild',basis:'Compact ordinary block diagram required'};
- const spec={version:1,id:'bad-container',author:'fixture',kind:'scene',width_pt:110,height_pt:60,nodes:[{id:'box',text:'Input',rect:[5,5,105,55],container:true}],sources:[task.productionRoute.sourceReview.selected],policy:{column:'single',design_font_size_pt:8}};
+ const spec={version:1,id:'bad-container',author:'fixture',kind:'scene',width_pt:110,height_pt:60,nodes:[{id:'box',text:'Input',rect:[5,5,105,55],container:true}],sources:[task.productionRoute.sourceReview.selected],policy:{column:'single',design_font_size_pt:8,export_crop_padding_pt:4}};
  const input=path.join(root,'spec.json');fs.writeFileSync(input,JSON.stringify(spec));
  const engineRoot=fileURLToPath(new URL('../portable-production/direct-pdf/',import.meta.url));
  execFileSync(python,['-m','journal_pdf','render',input,'--source-root',path.join(root,'source'),'--profile',process.env.JFW_TEST_FONT_PROFILE,'--output',path.join(root,'output')],{cwd:engineRoot,env:{...process.env,PYTHONPATH:engineRoot,PYTHONUTF8:'1'},encoding:'utf8',windowsHide:true});

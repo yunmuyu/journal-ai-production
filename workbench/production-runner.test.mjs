@@ -136,4 +136,15 @@ test('one entry renders concurrent ordinary and revision jobs, publishes real PD
  assert.equal(handler.queue.list().find(j=>j.figureId==='A4-F1').attempt,2,'incomplete wrapping must create a new attempt, preserving the first');
  assert.equal(handler.queue.list().find(j=>j.figureId==='A5-F1').attempt,2,'failed imported job must resume through a new attempt rather than a duplicate import');
  assert.equal(review.list().find(j=>j.figureId==='A2-F1').commonCandidate.attempt,2,'revision wrapping failure must preserve the first attempt and retry through the common revision entry');
+ rows[0].status='终检通过';
+ const accepted=await runProduction(config,plans[0]);assert.equal(accepted.deliveryState.userAccepted,true);
+ rows[0].status='待终检';
+ const withdrawn=await runProduction(config,plans[0]);assert.equal(withdrawn.deliveryState.userAccepted,false);
+ const priorHash=rows[0].outputs[0].file.meta.sha256;rows[0].outputs[0].file.meta.sha256='0'.repeat(64);
+ const changed=await runProduction(config,plans[0]);
+ assert.equal(changed.status,'awaiting-verification');assert.equal(changed.deliveryState.userAccepted,null);assert.equal(changed.deliveryState.workbenchReturned,null);
+ assert.equal(changed.deliveryState.lastVerifiedReceiptId,accepted.receipt.id);
+ rows[0].outputs[0].file.meta.sha256=priorHash;
+ const current=await runProduction(config,plans[0]);assert.equal(current.deliveryState.stage,'workbench-candidate');assert.equal(current.deliveryState.userAccepted,false);
+ assert.equal(published,6,'failed re-verification must not republish an existing candidate');
 });

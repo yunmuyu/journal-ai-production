@@ -43,6 +43,7 @@ test('receipt requires readable workbench output and repeat verification preserv
  x.fail(true);await assert.rejects(verifyProductionDelivery(x.config,request),/preview unavailable/);assert.equal(fs.readdirSync(x.root).length,0);
  x.fail(false);const first=await verifyProductionDelivery(x.config,request),again=await verifyProductionDelivery(x.config,request);
  assert.equal(first.receipt.outputs.length,2);assert.equal(first.receipt.author,'fixture');
+ assert.equal(first.deliveryState.stage,'workbench-candidate');assert.equal(first.deliveryState.userAccepted,false);
  assert.equal(first.receipt.id,again.receipt.id);assert.equal(first.receipt.returnedAt,again.receipt.returnedAt);
  assert.equal(first.newReceipt,true);assert.equal(again.newReceipt,false);assert.equal(fs.readdirSync(x.root).length,1);
  const report=productionReport({receiptRoots:[x.root,x.root],from:'2000-01-01T00:00:00Z',to:'2100-01-01T00:00:00Z'});

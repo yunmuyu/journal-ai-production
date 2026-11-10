@@ -54,7 +54,8 @@ def prepare_icon(source: Path,page_no: int,clip: list[float],*,text_replacements
     if isinstance(page_no,bool) or not isinstance(page_no,int) or not isinstance(clip,list) or len(clip)!=4 or any(isinstance(v,bool) or not isinstance(v,(int,float)) or not math.isfinite(v) for v in clip):
         raise FigureError('source_icon_input','图标须指定真实PDF页及四个有限裁切坐标')
     rect=fitz.Rect(clip)
-    with fitz.open(source) as original,fitz.open() as isolated,fitz.open() as reference:
+    from .source_origin import preparation_source
+    with preparation_source(source,page_no) as (original,origin_proof),fitz.open() as isolated,fitz.open() as reference:
         if not 0<=page_no<len(original) or rect.is_empty or not original[page_no].rect.contains(rect):raise FigureError('source_icon_clip','图标裁切越界或为空')
         page=original[page_no]
         offset=page.cropbox_position;absolute_rect=fitz.Rect(rect.x0+offset.x,rect.y0+offset.y,rect.x1+offset.x,rect.y1+offset.y)
@@ -115,6 +116,7 @@ def prepare_icon(source: Path,page_no: int,clip: list[float],*,text_replacements
                     except FigureError:raise error
                 comparisons.append({'dpi':zoom*72,'width':a.width,'height':a.height,'pixel_sha256':hashlib.sha256(a.samples).hexdigest(),'exact':not replacements,'nontext_exact':True})
             receipt={'mode':'source-vector-body' if source_vector_body else 'source-bound-vector-icon','preparation_mode':'source-vector-reletter' if replacements else 'native-font-free-viewport','text_replacements':replacements,'whitespace_spans_removed':whitespace,'outside_clip_text_removed':hidden_text,'unused_font_resource_owners_removed':removed_font_owners,'source_path':str(source.resolve()),'source_sha256':digest_file(source),'source_page':page_no,'source_clip':list(rect),'source_cropbox_position':list(offset),'absolute_mediabox_clip':list(absolute_rect),'prepared_sha256':hashlib.sha256(data).hexdigest(),'font_count':0,'image_count':0,'path_count':len(prepared_drawings),'source_visible_path_count':len(expected_visible),'source_path_multiset_preserved':True,'pixels':comparisons,'native_operations':{'graphics':1,'text':0,'images':1,'sanitize':1,'garbage':4},'source_text':'','source_text_character_count':0,'complete_icon_extent_proven':False,'extent_review_required':'cross-boundary compound paths may survive native clip; verify complete icon extent independently'}
+            if origin_proof:receipt['origin_normalization']=origin_proof
             return PreparedIcon(data,json.dumps(receipt,ensure_ascii=False))
 
 
@@ -130,7 +132,8 @@ def audit_icon_paths(page, placements, scene=None):
     from .assets import Assets
     icons=[row for row in placements if row['asset'].audit.get('mode') in ('source-bound-vector-icon','source-vector-body','source-svg-group','source-vector-glyph','source-mixed-body','registered-outlined-svg-chart','registered-native-pdf-text')]
     actual=page.get_drawings()
-    expected=[];bindings=[];image_expected=[]
+    expected=[];bindings=[];image_expected=[];paint_expected=[]
+    mixed=any(row['asset'].audit.get('mode')=='source-mixed-body' for row in icons)
     with fitz.open() as reference:
         refpage=reference.new_page(width=page.mediabox.width,height=page.mediabox.height)
         placer=Assets()
@@ -181,6 +184,10 @@ def audit_icon_paths(page, placements, scene=None):
                 elif any(row['asset'].audit.get('mode')=='source-mixed-body' for row in icons):
                     from .source_mixed_body import image_records
                     image_expected=image_records(saved,saved[0])
+                if mixed:
+                    from .source_image_paints import paint_records
+                    from .source_mixed_body import image_records as mixed_image_records
+                    paint_expected=paint_records(saved[0],mixed_image_records(saved,saved[0]))
         finally:
             placer.close()
     used=consume_paths(expected,[path_record(row) for row in actual])
@@ -193,10 +200,14 @@ def audit_icon_paths(page, placements, scene=None):
         image_actual=image_records(page.parent,page)
         image_used=consume_images(image_expected,image_actual)
         consume_images(image_actual,image_expected)
+    if mixed:
+        from .source_image_paints import paint_records,consume_paints
+        from .source_mixed_body import image_records as mixed_image_records
+        consume_paints(paint_expected,paint_records(page,mixed_image_records(page.parent,page)))
     bad=[{'width_pt':row['width'],'rect':list(row['rect'])} for index,row in enumerate(actual)
          if index not in used and row['type'] in ('s','fs') and row['rect'].x1>=0 and row['rect'].y1>=0
          and row['rect'].x0<=page.rect.width and row['rect'].y0<=page.rect.height and abs(row['width']-.5)>.005]
     return {'image_ownership':{'matched_instance_count':len(image_used),'expected_instance_count':len(image_expected),'bidirectional_instance_multiset_exact':True,'derived_grayscale_pixels_exact':True,'original_smask_exact':True,'source_rgb_mapping_verified_by_preparation':True,'original_dimensions_and_ctm_exact':True},'bindings':bindings,'placement_count':len(icons),'matched_path_count':len(used),
-            'source_geometry_and_style_exact':True,'stroke_violations':bad,
+            'source_geometry_and_style_exact':True,'mixed_paint_order_and_clipping_verified':mixed,'stroke_violations':bad,
             'audited_stroke_count':sum(row['type'] in ('s','fs') and row['rect'].x1>=0 and row['rect'].y1>=0 and row['rect'].x0<=page.rect.width and row['rect'].y0<=page.rect.height for row in actual),
             'method':'source-bound asset-only reference via identical Assets.place; instance multiset consumption; no rectangle exemption'}

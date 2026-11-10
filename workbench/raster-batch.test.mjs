@@ -64,6 +64,7 @@ test('real batch CLI returns two gray candidates without dispatch, keeps feedbac
  assert.deepEqual(routedBatch.admission.ready,['F3']);
  const created=routedBatch.results[0];assert.equal(routedBatch.returnedFigures,1);assert.equal(routedBatch.returnedOutputs,1);assert.ok(routedBatch.peakToolProcesses.render>=1);
  assert.equal(created.status,'returned',JSON.stringify(created));assert.equal(created.figureId,'F3');assert.equal(returned,3);
+ assert.equal(created.deliveryState.stage,'workbench-candidate');assert.equal(created.deliveryState.workbenchReturned,true);assert.equal(created.deliveryState.userAccepted,false);
  assert.equal(handler.queue.list().filter(j=>j.figureId==='F3').length,1);
  const control=await fetch(origin+'/workbuddy/control',{method:'POST',headers:{Origin:origin},body:JSON.stringify({action:'resume',id:items[0].id})});assert.equal(control.status,409);
  const unauthorized=await fetch(origin+'/workbuddy/worker',{method:'POST',body:JSON.stringify({action:'prepare-direct',id:items[0].id,productionRoute:route})});assert.equal(unauthorized.status,403);

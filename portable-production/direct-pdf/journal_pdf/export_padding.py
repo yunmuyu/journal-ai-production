@@ -1,6 +1,8 @@
 """Uniform visible-ink padding without scaling PDF content."""
 from pathlib import Path
 import math
+import os
+import tempfile
 import pymupdf as fitz
 from PIL import Image, ImageChops, ImageStat
 from .common import FigureError
@@ -17,10 +19,18 @@ def ink_rect(page):
 
 def normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADDING_PT):
     """Stage and check page boxes, retaining original content and clipping."""
+    return _normalize_pdf_padding(source, destination, padding, 72 / MEASURE_DPI)
+
+
+def _normalize_pdf_padding(source, destination, padding, measurement_guard):
     if isinstance(padding, bool) or not isinstance(padding, (int, float)) or not math.isfinite(padding) or not 0 <= padding <= 12:
         raise FigureError('export_crop_padding_invalid', '导出留白须为0到12pt的有限数值')
     if source.resolve() == destination.resolve():
         raise FigureError('output_isolation', '先验证裁边副本，不能原位写入')
+    # One measured pixel protects the minimum from subpixel/raster rounding.
+    # Without it, a requested 2 pt margin can reopen as 1.92 pt and fail the
+    # existing publication gate, although the old +/-0.25 comparison passed.
+    measured_padding = padding + (measurement_guard if padding >= DEFAULT_PADDING_PT else 0)
     pages = []
     with fitz.open(source) as document:
         for page in document:
@@ -28,7 +38,7 @@ def normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADDI
                 raise FigureError('export_rotation_unsupported', '旋转页面须先显式归一化')
             media, crop = fitz.Rect(page.mediabox), fitz.Rect(page.cropbox)
             bounds = ink_rect(page)
-            wanted = bounds + (-padding, -padding, padding, padding)
+            wanted = bounds + (-measured_padding, -measured_padding, measured_padding, measured_padding)
             wanted = wanted + (crop.x0, crop.y0, crop.x0, crop.y0)
             expanded = fitz.Rect(min(media.x0, wanted.x0), min(media.y0, media.y1-wanted.y1), max(media.x1, wanted.x1), max(media.y1, media.y1-wanted.y0))
             shift_y = expanded.y1-media.y1
@@ -52,15 +62,23 @@ def normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADDI
                         min(box.x1, wanted.x1), min(box.y1, media.y1-wanted.y0))
             document.xref_set_key(page.xref, 'CropBox', '['+' '.join(format(n, '.17g') for n in physical)+']')
             page = document.reload_page(page)
-            pages.append({'source_media':list(media),'source_crop':list(crop),'source_ink':list(bounds),'crop_box':list(page.cropbox),'media_box':list(page.mediabox),'origin_shift_y_pt':shift_y,'protection_pt':padding,'rescaled':False})
+            pages.append({'source_media':list(media),'source_crop':list(crop),'source_ink':list(bounds),'crop_box':list(page.cropbox),'media_box':list(page.mediabox),'origin_shift_y_pt':shift_y,'protection_pt':padding,'measurement_guard_pt':measured_padding-padding,'rescaled':False})
         document.save(destination, garbage=0, deflate=True)
+    retry_guard = None
     with fitz.open(source) as before, fitz.open(destination) as after:
         for index, receipt in enumerate(pages):
             page = after[index]
             actual = ink_rect(page)
             margins = [actual.x0,actual.y0,page.rect.width-actual.x1,page.rect.height-actual.y1]
             receipt['measured_margins_pt'] = margins
-            if any(abs(value-padding) > .25 for value in margins):
+            if padding >= DEFAULT_PADDING_PT and min(margins) < padding-.01 and measurement_guard < 4*72/MEASURE_DPI:
+                # Raster interpolation can extend ink by another pixel after a
+                # CropBox shift. Retry from the unchanged source, never shrink
+                # content or relax the production minimum to make it pass.
+                retry_guard=measurement_guard+72/MEASURE_DPI
+                break
+            upper_tolerance=.25+max(0,measurement_guard-72/MEASURE_DPI)
+            if any(value-padding > upper_tolerance or (padding >= DEFAULT_PADDING_PT and value < padding-.01) or (padding < DEFAULT_PADDING_PT and abs(value-padding) > .25) for value in margins):
                 raise FigureError('export_padding_mismatch', '保存后四边留白不符合目标', actual=margins, expected=padding)
             after.xref_set_key(page.xref,'MediaBox',before.xref_get_key(before[index].xref,'MediaBox')[1])
             after.xref_set_key(page.xref,'CropBox',before.xref_get_key(before[index].xref,'CropBox')[1])
@@ -78,4 +96,11 @@ def normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADDI
             receipt['source_view_pixels_identical'] = a.samples==b.samples
             receipt['viewport_edge_antialias_only'] = a.samples!=b.samples
             receipt['source_view_mean_pixel_difference'] = sum(ImageStat.Stat(difference).mean) / 3
+    if retry_guard is not None:
+        # Close all readers first so replacement also works on Windows.
+        with tempfile.TemporaryDirectory(prefix='.padding-',dir=destination.parent) as retry_dir:
+            retry=Path(retry_dir)/'checked.pdf'
+            result=_normalize_pdf_padding(source,retry,padding,retry_guard)
+            os.replace(retry,destination)
+            return result
     return {'method':'saved-PDF-600dpi-visible-ink','pages':pages,'rescaled':False}

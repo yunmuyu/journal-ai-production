@@ -17,6 +17,7 @@ import {recordFailureCase,recordDeliveryCases,searchFailureAlternatives} from '.
 import {materializeConfirmedSeries} from './chart-binding-adapter.mjs';
 import {extractToolDiagnostic} from './tool-diagnostics.mjs';
 import {verifyImportedPdfCandidate} from './imported-pdf.mjs';
+import {verifiedDeliveryState} from './delivery-checklist.mjs';
 
 const exec=promisify(execFile),read=p=>JSON.parse(fs.readFileSync(p,'utf8').replace(/^\uFEFF/,''));
 const hash=p=>createHash('sha256').update(fs.readFileSync(p)).digest('hex');
@@ -74,7 +75,7 @@ export async function runProduction(config,plan,{onToolEvent=()=>{}}={}){
  const verifyVisible=async(expected)=>{
   const result=await verifyProductionDelivery({origin,receiptRoot:config.receiptRoot??path.join(config.workbenchRoot,'production-receipts')},
    {figureId:plan.figureId,outputs:expected,batchHash:plan.outputRoutes[0].productionRoute.sourceReview.archive.sha256,kind:state.prepared?.kind??'ordinary',historical:state.status==='returned'&&!state.receipt});
-  save({receipt:result.receipt,receiptCreated:result.newReceipt});return result.figure;
+  save({receipt:result.receipt,receiptCreated:result.newReceipt,deliveryState:verifiedDeliveryState(result.figure,result.receipt)});return result.figure;
  };
  try{
   credentials=read(config.credentialsFile);
@@ -278,7 +279,8 @@ export async function runProduction(config,plan,{onToolEvent=()=>{}}={}){
   if(Date.now()>=deadline&&(error.killed||error.name==='TimeoutError'||error.name==='AbortError')){const timeout=Error('three_minute_deadline: '+state.stage);timeout.code='three_minute_deadline';error=timeout;}
   if(error.stdout||error.stderr)fs.writeFileSync(path.join(dir,'failure.log'),String(error.stdout??'')+'\n'+String(error.stderr??''));
   save({status:state.status==='awaiting-verification'||state.status==='returned'?'awaiting-verification':error.code==='known_fault'?'blocked':'failed',error:error.message,
-        diagnostic:extractToolDiagnostic(error),failure:classifyProductionFailure(error,state.stage),failedAt:new Date().toISOString()});
+        diagnostic:extractToolDiagnostic(error),failure:classifyProductionFailure(error,state.stage),failedAt:new Date().toISOString(),
+        ...(state.deliveryState?{deliveryState:{stage:'awaiting-verification',workbenchReturned:null,userAccepted:null,lastVerifiedReceiptId:state.receipt?.id??null}}:{})});
   try{const event=recordFailureCase(path.join(config.workbenchRoot,'case-events'),{figureId:plan.figureId,plan,error,stage:state.stage,engineSignature:config.runtimeLock?.engineSignature});if(event)save({caseFailureEvent:event});}catch(caseError){save({caseIndexError:caseError.message});}
   if(['render','check'].includes(state.stage))try{
    const alternatives=searchFailureAlternatives({registryPath:config.caseIndexPath??fileURLToPath(new URL('../knowledge/figure-cases.json',import.meta.url)),eventDirectory:path.join(config.workbenchRoot,'case-events'),error,plan,features:state.routeDiscovery?.featureCandidates??{}});

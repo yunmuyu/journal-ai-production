@@ -125,6 +125,8 @@ def draw_node(page,n):
 
 
 def compile_figure(spec,reg,assets,root,verified_sources=None,export_padding_pt=0):
+    from .common import digest_json
+    capacity_spec=spec;capacity_spec_hash=digest_json(spec)
     from .rebuild_fidelity import prepare_rebuild_fidelity, audit_rebuild_fidelity
     spec=prepare_rebuild_fidelity(spec)
     from .editorial import scale_scene
@@ -238,9 +240,15 @@ def compile_figure(spec,reg,assets,root,verified_sources=None,export_padding_pt=
                 else:high=mid
             scene=best
             factor=1.
+    from .capacity import layout_capacity
+    capacity=layout_capacity(capacity_spec,spec_hash=capacity_spec_hash,effective_column=mode,
+        width_pt=scene.width,height_pt=scene.height,font_size_pt=scene.size,
+        scale=factor,column_mm=col,available_width_pt=limit,export_padding_pt=export_padding_pt,
+        verified_sources=verified_sources)
     if scene.size*factor<6-1e-7:
         raise FigureError('layout_reflow_required','完整图件缩后低于6pt；先重新布局，不自动改双栏或只缩字',
-                          design_size=size,width_pt=scene.width,column_mm=col,proposed_size=scene.size*factor)
+                          design_size=size,width_pt=scene.width,column_mm=col,proposed_size=scene.size*factor,
+                          capacity=capacity)
     legend_bindings=spec.get('source_legend_bindings',[])
     if isinstance(legend_bindings,list):
         for binding in legend_bindings:
@@ -263,6 +271,10 @@ def compile_figure(spec,reg,assets,root,verified_sources=None,export_padding_pt=
         validate_source_legends(scene,spec['source_legend_bindings'])
     issues=audit_scene(scene)
     if scene.height>policy.get('max_height_mm',240)*PT_PER_MM:issues.append({'code':'page_height_overflow'})
+    capacity.update(status='blocked-geometry' if issues else 'layout-checked',geometry_issues=issues)
+    if issues:capacity['summary']+='实际几何检查未通过：'+ '、'.join(dict.fromkeys(i['code'] for i in issues))+'。'
+    else:capacity['summary']+='当前布局几何检查通过；仍需实际PDF、来源与视觉核对。'
+    scene.layout_evidence['capacity']=capacity
     attempts=[{'column_mm':col,'design_font_size_pt':size,'font_size_pt':scene.size,'whole_artwork_scale':factor,
                'width_pt':scene.width,'height_pt':scene.height,'issues':issues}]
     scene.layout_evidence.update({'fit_attempts':attempts,'column_mm':col,
@@ -271,7 +283,7 @@ def compile_figure(spec,reg,assets,root,verified_sources=None,export_padding_pt=
         'priority':('default-8pt-first' if size==8 else 'explicit-design-size-input')+'; no exhaustive 8/7/6 PDF rendering',
         'production_font_policy':spec.get('ingest_provenance',{}).get('production_font_policy'),
         'optimization_claim':'feasible measured template layout; not a proven global optimum'})
-    if issues:raise FigureError('no_feasible_layout','布局未通过实际几何检查，不输出定稿',attempts=attempts)
+    if issues:raise FigureError('no_feasible_layout','布局未通过实际几何检查，不输出定稿',attempts=attempts,capacity=capacity)
     audit_rebuild_fidelity(scene,spec)
     return scene
 
@@ -358,16 +370,19 @@ def pdf_audit(path:Path,scene,reg):
     d.close();return result,img
 
 
-def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=False):
-    start=time.perf_counter()
+def validate_render_policy(spec):
+    """Reject invalid export policy before source, identity or output checks."""
     diagnostic_only=spec.get('policy',{}).get('diagnostic_only',False)
     if not isinstance(diagnostic_only,bool):raise FigureError('diagnostic_policy','diagnostic_only must be boolean')
     crop_padding=spec.get('policy',{}).get('export_crop_padding_pt',2.0)
     if isinstance(crop_padding,bool) or not isinstance(crop_padding,(int,float)) or not math.isfinite(crop_padding) or not 0<=crop_padding<=12:
         raise FigureError('export_crop_padding_invalid','导出裁切留白必须为0到12pt的有限数值')
-    from .common import validate_output_isolation
-    validate_output_isolation(source_root, output_root)
-    id=safe_name(spec['id']);author=safe_name(spec.get('author','未归属'))
+    return crop_padding,diagnostic_only
+
+
+def compile_bound_figure(spec,reg,assets,source_root:Path):
+    """Shared source-bound layout preparation for render and early capacity checks."""
+    crop_padding,diagnostic_only=validate_render_policy(spec)
     # Bind source bytes before constructing any derivative. References are never edited.
     bindings=[]
     for v in spec.get('sources',[]):
@@ -379,13 +394,6 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         raise FigureError('text_export_margin','生产候选导出留白不得低于2pt；较小留白仅供显式诊断，不能回传候选')
     scene=compile_figure(spec,reg,assets,source_root,
                          verified_sources={b['path']:b['sha256'] for b in bindings},export_padding_pt=crop_padding)
-    if spec.get('kind')=='scene':
-        frames=[x['id'] for x in scene.paths+scene.nodes if x['id']=='legend-frame']
-        bound={bg['frame_id'] for bg in scene.legend_backgrounds}
-        if any(frame not in bound for frame in frames):
-            scene.notes.append({'code':'legend_background_unverified','message':'图例框未声明遮底和前景分组；白底、边距与覆盖范围须核对。'})
-        if scene.legend_backgrounds:
-            scene.notes.append({'code':'legend_data_overlap_unverified','message':'白底可能遮住源数据；未完成完整数据覆盖证明，须对照原图复核。'})
     allowed={str(resolve_source(source_root,b['path'])):b['sha256'] for b in bindings}
     for a in scene.assets:
         asset=a['asset']
@@ -393,10 +401,29 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
             raise FigureError('unbound_asset','版位引用的素材没有在来源清单中绑定',asset=a['id'])
         if asset.audit.get('mode')=='registered-native-pdf-text' and allowed.get(asset.audit['svg_path'])!=asset.audit['text_registration']['svg_sha256']:
             raise FigureError('unbound_asset','完整文字登记的伴随SVG须在来源清单中绑定',asset=a['id'])
+    return scene,bindings,crop_padding,diagnostic_only
+
+
+def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=False):
+    start=time.perf_counter()
+    validate_render_policy(spec)
+    from .common import validate_output_isolation
+    validate_output_isolation(source_root, output_root)
+    id=safe_name(spec['id']);author=safe_name(spec.get('author','未归属'))
+    scene,bindings,crop_padding,diagnostic_only=compile_bound_figure(spec,reg,assets,source_root)
+    if spec.get('kind')=='scene':
+        frames=[x['id'] for x in scene.paths+scene.nodes if x['id']=='legend-frame']
+        bound={bg['frame_id'] for bg in scene.legend_backgrounds}
+        if any(frame not in bound for frame in frames):
+            scene.notes.append({'code':'legend_background_unverified','message':'图例框未声明遮底和前景分组；白底、边距与覆盖范围须核对。'})
+        if scene.legend_backgrounds:
+            scene.notes.append({'code':'legend_data_overlap_unverified','message':'白底可能遮住源数据；未完成完整数据覆盖证明，须对照原图复核。'})
     from .original_asset_reference import audit_original_references
     original_asset_references=audit_original_references(spec,scene.assets,assets,source_root,bindings)
     from .source_structure_contract import audit_source_structure
     source_structure_audit=audit_source_structure(spec,scene,source_root,bindings)
+    from .source_route_contract import audit_source_routes
+    source_route_audit=audit_source_routes(spec,scene,source_root,bindings)
     layout_finished=time.perf_counter()
     folder=output_root/author/id;folder.mkdir(parents=True,exist_ok=True)
     pdf=folder/(id+'.pdf');preview=folder/(id+'.png');report=folder/'report.json'
@@ -431,8 +458,11 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
             from .chart_vector_layout import audit_vector_chart_pdf
             audit['chart_vector_layout']=audit_vector_chart_pdf(tmp,scene)
         from .final_visibility import audit_final_visibility
+        require_final_visibility=spec.get('policy',{}).get('require_final_visibility',False)
+        if not isinstance(require_final_visibility,bool):
+            raise FigureError('final_visibility_policy','最终可见性开关必须为布尔值')
         final_visibility_audit=audit_final_visibility(tmp,scene,reg,assets,original_asset_references,source_structure_audit,
-            required=spec.get('policy',{}).get('require_final_visibility',False),
+            required=require_final_visibility or source_route_audit['status']=='checked',
             asset_contacts=spec.get('asset_boundary_contacts'))
         from .export_padding import normalize_pdf_padding
         padded_tmp=tempdir/'padded.pdf'
@@ -447,6 +477,9 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
             audit['pre_export_page_mm']=[audit['width_mm'],audit['height_mm']]
             audit['width_mm']=padded_doc[0].rect.width/PT_PER_MM
             audit['height_mm']=padded_doc[0].rect.height/PT_PER_MM
+            if audit['width_mm']>scene.layout_evidence['column_mm']+.01:
+                raise FigureError('export_column_width','最终留白归一化后的实际PDF超过栏宽，须重新紧凑排版',
+                                  width_mm=audit['width_mm'],column_mm=scene.layout_evidence['column_mm'])
             padded_pix=padded_doc[0].get_pixmap(dpi=300,colorspace=fitz.csRGB,alpha=False)
             img=Image.frombytes('RGB',(padded_pix.width,padded_pix.height),padded_pix.samples)
         preview_tmp=tempdir/'figure.png';img.save(preview_tmp,optimize=True)
@@ -500,6 +533,7 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
                 'layout':scene.export(),'assets':asset_reports,'pdf_audit':audit,'warnings':warnings,
                 'original_asset_references':original_asset_references,
                 'source_structure_audit':source_structure_audit,
+                'source_route_audit':source_route_audit,
                 'final_visibility_audit':final_visibility_audit,
                 'export_padding_audit':export_padding_audit,
                 'original_asset_reference_coverage':{
