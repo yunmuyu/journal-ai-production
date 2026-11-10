@@ -80,7 +80,8 @@ test('public capacity bridge accepts caller-relative inputs and does not produce
  const blocked=invoke(),diagnostic=extractToolDiagnostic(blocked);
  assert.equal(blocked.status,2,blocked.stderr);
  assert.equal(diagnostic.capacity.column_mm,80);
- assert.match(diagnostic.summary,/5\.75 pt/);
+ assert.match(diagnostic.summary,/5\.85 pt/);
+ assert.equal(diagnostic.capacity.export_padding_pt,.25);
  spec.policy.column='double';fs.writeFileSync(path.join(root,'spec.json'),JSON.stringify(spec));
  const fitted=invoke();assert.equal(fitted.status,0,fitted.stderr);
  const report=JSON.parse(fitted.stdout);

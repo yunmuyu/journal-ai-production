@@ -13,7 +13,7 @@ def scene(width=309, column='single'):
     return {'version': 1, 'id': 'capacity-plan', 'author': 'Synthetic', 'synthetic': True,
             'kind': 'scene', 'width_pt': width, 'height_pt': 50,
             'texts': [{'id': 'a', 'text': 'A', 'x': 20, 'y': 25}],
-            'policy': {'column': column, 'design_font_size_pt': 8}}
+            'policy': {'column': column, 'design_font_size_pt': 8, 'export_crop_padding_pt': 2}}
 
 
 def inspect(spec, reg, root):
@@ -161,3 +161,19 @@ def test_capacity_cannot_claim_fitting_after_violating_registered_original_route
         inspect(spec, reg, source)
     assert error.value.code == 'source_route_bends_changed'
     assert not list(tmp_path.rglob('out/*.pdf'))
+
+@pytest.mark.parametrize('padding',['absent',0,.1,.25,2,4,12])
+def test_capacity_and_render_share_default_and_explicit_padding(reg,tmp_path,padding):
+    spec=scene(width=100)
+    if padding=='absent':spec['policy'].pop('export_crop_padding_pt')
+    else:spec['policy']['export_crop_padding_pt']=padding
+    expected=.25 if padding=='absent' else padding
+    source=tmp_path/'source';source.mkdir()
+    capacity=inspect(spec,reg,source)['capacity']
+    assets=Assets()
+    try: rendered=render_one(spec,reg,assets,source,tmp_path/'out')
+    finally:assets.close()
+    assert capacity==rendered['layout']['layout_evidence']['capacity']
+    assert capacity['export_padding_pt']==expected
+    assert capacity['available_width_pt']==pytest.approx(80*PT_PER_MM-2*expected-.5)
+    assert rendered['export_padding_audit']['target_padding_pt']==expected

@@ -374,7 +374,8 @@ def validate_render_policy(spec):
     """Reject invalid export policy before source, identity or output checks."""
     diagnostic_only=spec.get('policy',{}).get('diagnostic_only',False)
     if not isinstance(diagnostic_only,bool):raise FigureError('diagnostic_policy','diagnostic_only must be boolean')
-    crop_padding=spec.get('policy',{}).get('export_crop_padding_pt',2.0)
+    from .export_padding import DEFAULT_PADDING_PT
+    crop_padding=spec.get('policy',{}).get('export_crop_padding_pt',DEFAULT_PADDING_PT)
     if isinstance(crop_padding,bool) or not isinstance(crop_padding,(int,float)) or not math.isfinite(crop_padding) or not 0<=crop_padding<=12:
         raise FigureError('export_crop_padding_invalid','导出裁切留白必须为0到12pt的有限数值')
     return crop_padding,diagnostic_only
@@ -390,8 +391,6 @@ def compile_bound_figure(spec,reg,assets,source_root:Path):
         if sha!=v['sha256']:raise FigureError('source_hash_mismatch','原始素材与制作说明绑定的版本不同',source=v['path'])
         bindings.append({'path':v['path'],'sha256':sha,'role':v.get('role','source')})
     if not bindings and not spec.get('synthetic',False):raise FigureError('source_identity_missing','真实图件必须绑定原始素材哈希')
-    if crop_padding<2 and not diagnostic_only:
-        raise FigureError('text_export_margin','生产候选导出留白不得低于2pt；较小留白仅供显式诊断，不能回传候选')
     scene=compile_figure(spec,reg,assets,source_root,
                          verified_sources={b['path']:b['sha256'] for b in bindings},export_padding_pt=crop_padding)
     allowed={str(resolve_source(source_root,b['path'])):b['sha256'] for b in bindings}
@@ -435,18 +434,15 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
         asset_reports=draw_scene_elements(page,scene,assets,reg)
         doc.set_metadata({'title':id,'author':'Journal Direct PDF candidate','subject':'实验样张；须真实字体和本机终检，不自动发布',
                           'creator':f'journal-direct-pdf {__version__}','producer':'PyMuPDF direct vector/mixed renderer; no Adobe runtime'})
-        crop_pix=page.get_pixmap(dpi=300,colorspace=fitz.csRGB,alpha=False)
-        crop_img=Image.frombytes('RGB',(crop_pix.width,crop_pix.height),crop_pix.samples)
-        ink=ImageChops.difference(crop_img,Image.new('RGB',crop_img.size,'white')).getbbox()
-        if not ink:raise FigureError('empty_pdf','裁切前没有可见墨迹')
-        unit=72/300
-        crop=fitz.Rect(max(0,ink[0]*unit-crop_padding),max(0,ink[1]*unit-crop_padding),
-                       min(page.rect.width,ink[2]*unit+crop_padding),min(page.rect.height,ink[3]*unit+crop_padding))
-        scene.layout_evidence['export_crop']={'method':'actual-PDF-300dpi-ink','source_page_rect':list(page.rect),
-              'crop_box':list(crop),'protection_pt':crop_padding,'rescaled':False,'scene_coordinates':'before CropBox offset'}
+        from .export_padding import ink_rect
+        # Use the same precision as final normalization; never preclip at 300 dpi.
+        ink=ink_rect(page)
+        # Keep a temporary audit guard even for an explicit zero-margin final.
+        audit_padding=max(crop_padding,0.5)
+        crop=(ink + (-audit_padding,-audit_padding,audit_padding,audit_padding)) & page.rect
+        scene.layout_evidence['export_crop']={'method':'actual-PDF-1200dpi-ink','source_page_rect':list(page.rect),
+              'crop_box':list(crop),'protection_pt':crop_padding,'audit_guard_pt':audit_padding,'rescaled':False,'scene_coordinates':'before CropBox offset'}
         page.set_cropbox(crop)
-        if page.rect.width>scene.layout_evidence['column_mm']*PT_PER_MM+.01:
-            raise FigureError('export_column_width','加保护留白后的实际PDF超过栏宽，须重新紧凑排版',width_mm=page.rect.width/PT_PER_MM)
         try:
             finalize_font_descriptors(doc)
         except FontSafetyError as error:

@@ -5,7 +5,7 @@
 - 公共主线为main，生产只运行`node journal.mjs`，共用外置machine.local.json。start启动仓库内工作台，produce委托现有production-runner并分流raster。旧私有server、localflow和冻结副本不是生产入口。
 - 旧文档的组件直调命令仅供内部测试和特殊兼容操作，不绕过统一入口、版本锁或回传检查。
 - 普通框间净距3pt、组间净距6pt，随整图等比缩放；带箭头的距离按真实端口和末段计算，不额外加描边造成偏差。
-- 生产PDF留白至少2pt。更小留白仅允许显式diagnostic_only，报告为diagnostic-rendered，不得回传生产候选。
+- 正式PDF可见内容四周默认各留0.25pt；显式export_crop_padding_pt可覆盖为0～12pt，不缩放原图。保存后1200dpi复测，容差0.065pt，不承诺绝不裁切；文字、细线、原裁切边缘仍须实际复核。diagnostic_only仍不得回传生产候选。
 
 ## “三分钟测试”固定入口（2026-11-04）
 

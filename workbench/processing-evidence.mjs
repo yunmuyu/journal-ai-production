@@ -3,6 +3,8 @@ import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {verifyExportPadding} from './export-padding-policy.mjs';
+export {verifyExportPadding} from './export-padding-policy.mjs';
 import {assertDeliveryChecklist} from './delivery-checklist.mjs';
 
 const engineRoot=fileURLToPath(new URL('../portable-production/direct-pdf/',import.meta.url));
@@ -132,8 +134,8 @@ export function verifyProcessingEvidence(task,outputs,evidence,{python}={}){
   if(report.backend!=='direct-pdf'||report.status!=='candidate-rendered'||report.mechanical_checks_passed!==true||report.pdf_sha256!==output.sha256||report.id!==spec.id||report.kind!==spec.kind||report.font?.purpose!=='production')throw Error('候选未绑定公共工具的正式字体加工报告');
   const bindings=report.source_bindings;
   if(!Array.isArray(bindings)||bindingKeys(bindings)!==bindingKeys(spec.sources)||hash(route.sourceReview.selected.path)!==route.sourceReview.selected.sha256||!bindings.some(b=>b.sha256===route.sourceReview.selected.sha256)||bindings.some(b=>hash(path.resolve(entry.sourceRoot??path.dirname(entry.spec.path),b.path))!==b.sha256))throw Error('加工报告没有绑定本图已核对的原始来源');
-  if(!report.pdf_audit?.text_multiset_exact||!report.pdf_audit?.neutral_rgb_300dpi||!report.pdf_audit?.all_fonts_embedded||!report.pdf_audit?.editable_text_pure_black||report.pdf_audit?.editable_text_margin_passed!==true||!(report.pdf_audit.minimum_text_margin_pt>=1.99))throw Error('加工报告缺少实际PDF文字、字体、灰度及页边检查');
-  const checklist=assertDeliveryChecklist(report,{outputSha256:output.sha256,widthMm:route.requirements.widthMm});
+  if(!report.pdf_audit?.text_multiset_exact||!report.pdf_audit?.neutral_rgb_300dpi||!report.pdf_audit?.all_fonts_embedded||!report.pdf_audit?.editable_text_pure_black||report.pdf_audit?.editable_text_margin_passed!==true||!verifyExportPadding(spec,report))throw Error('加工报告缺少实际PDF文字、字体、灰度及页边检查');
+  const checklist=assertDeliveryChecklist(report,{outputSha256:output.sha256,widthMm:route.requirements.widthMm,spec});
   verifyOperation(requirement,spec,report,route.sourceReview.selected.sha256);
   const proof=JSON.parse(execFileSync(python,['-c','import json,sys; from journal_pdf.common import read_json,digest_json; from journal_pdf.editorial import engine_signature; print(json.dumps({"engine":engine_signature(),"spec":digest_json(read_json(sys.argv[1]))}))',entry.spec.path],{cwd:engineRoot,env:{...process.env,PYTHONPATH:engineRoot,PYTHONUTF8:'1'},encoding:'utf8',windowsHide:true,timeout:30000}));
   if(report.engine_signature!==proof.engine||report.spec_hash!==proof.spec)throw Error('加工报告的公共工具版本或制作说明已变化');

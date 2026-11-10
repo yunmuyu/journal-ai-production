@@ -58,6 +58,9 @@ spec['sources'] = [{'path': str(source), 'sha256': digest_file(source)}]
 assets = Assets()
 reg = FontRegistry(profile, root / 'font-cache')
 try:
+    if len(sys.argv)>4:
+        if sys.argv[4]=='default':spec['policy'].pop('export_crop_padding_pt',None)
+        else:spec['policy']['export_crop_padding_pt']=float(sys.argv[4])
     report = render_one(spec, reg, assets, source_root, root / 'output')
     print(json.dumps({'source': spec['sources'][0], 'report': report}, ensure_ascii=False))
 finally:

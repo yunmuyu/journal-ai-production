@@ -1,9 +1,10 @@
+import {verifyExportPadding} from './export-padding-policy.mjs';
 // Summarize the existing public renderer evidence; never create user acceptance.
 const sha=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const check=(passed,measurement,scope)=>({status:passed===true?'checked':passed===false?'failed':'pending',measurement,scope});
 
-export function deliveryChecklist(report,{outputSha256,widthMm}={}){
+export function deliveryChecklist(report,{outputSha256,widthMm,spec}={}){
  if(!sha(outputSha256)||report?.pdf_sha256!==outputSha256)throw Error('delivery_checklist_output_mismatch');
  const audit=report.pdf_audit??{},layout=report.layout?.layout_evidence??{},font=report.font??{};
  const production=report.status==='candidate-rendered'&&report.mechanical_checks_passed===true&&report.backend==='direct-pdf';
@@ -20,8 +21,8 @@ export function deliveryChecklist(report,{outputSha256,widthMm}={}){
   strokes:check(audit.effective_path_strokes_05pt,{targetPt:.5,auditedCount:audit.audited_stroke_count,violations:audit.stroke_violations??[]},audit.stroke_scope??'可见PDF描边；位图、填充轮廓不在0.5pt检查范围'),
   editableText:check(audit.text_multiset_exact===true&&audit.editable_text_pure_black===true,
    {expectedCharacters:audit.expected_text_characters,actualCharacters:audit.actual_text_characters},'已登记可编辑文字，不等于证明所有位图或轮廓中没有遗漏文字'),
-  margins:check(audit.editable_text_margin_passed===true&&finite(audit.minimum_text_margin_pt)&&audit.minimum_text_margin_pt>=1.99,
-   {minimumPt:audit.minimum_text_margin_pt},'保存后实际PDF至少2pt留白')
+  margins:check(audit.editable_text_margin_passed===true&&spec!==undefined&&verifyExportPadding(spec,report),
+   {minimumPt:audit.minimum_text_margin_pt,targetPt:report.export_padding_audit?.target_padding_pt,marginsPt:report.export_padding_audit?.pages?.[0]?.measured_margins_pt},'保存后四边留白匹配明确制作说明；默认0.25pt，可显式覆盖')
  };
  return {version:1,type:'production-checklist',outputSha256,engineSignature:report.engine_signature,ruleset:report.editorial_ruleset,
   sourceBindings:(report.source_bindings??[]).map(({path,sha256,role})=>({path,sha256,role:role??'source'})),checks,

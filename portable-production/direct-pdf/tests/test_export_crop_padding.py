@@ -22,24 +22,25 @@ def test_explicit_export_crop_padding_changes_only_the_crop_margin(reg,tmp_path)
     original,size,crop,_=render_sample(reg,tmp_path,'default')
     result,padded,padded_crop,_=render_sample(reg,tmp_path,'padded',4)
     assert result['layout']['layout_evidence']['export_crop']['protection_pt']==4
-    assert padded[2]-size[2]==pytest.approx(4,abs=.25)
-    assert padded[3]-size[3]==pytest.approx(4,abs=.25)
-    assert result['export_padding_audit']['pages'][0]['measured_margins_pt']==pytest.approx([4]*4,abs=.25)
+    assert padded[2]-size[2]==pytest.approx(7.5,abs=.065)
+    assert padded[3]-size[3]==pytest.approx(7.5,abs=.065)
+    assert result['export_padding_audit']['pages'][0]['measured_margins_pt']==pytest.approx([4]*4,abs=.065)
     assert result['layout']['texts']==original['layout']['texts']
     assert result['layout']['layout_evidence']['export_crop']['rescaled'] is False
 
 
-def test_absent_setting_uses_two_point_export_behavior(reg,tmp_path):
+def test_absent_setting_uses_quarter_point_export_behavior(reg,tmp_path):
     original,size,crop,pixels=render_sample(reg,tmp_path,'absent')
-    explicit,other_size,other_crop,other_pixels=render_sample(reg,tmp_path,'explicit',2)
+    explicit,other_size,other_crop,other_pixels=render_sample(reg,tmp_path,'explicit',.25)
     assert original['layout']['layout_evidence']['export_crop']==explicit['layout']['layout_evidence']['export_crop']
     assert size==other_size and crop==other_crop and pixels==other_pixels
 
 
-def test_quarter_point_crop_cannot_publish_text_without_actual_safe_margins(reg,tmp_path):
-    with pytest.raises(FigureError) as error:
-        render_sample(reg,tmp_path,'unsafe',.25)
-    assert error.value.code=='text_export_margin'
+@pytest.mark.parametrize('padding',[0,.1,.25,2,4,12])
+def test_explicit_padding_remains_controllable(reg,tmp_path,padding):
+    result,*_=render_sample(reg,tmp_path,'controlled',padding)
+    assert result['export_padding_audit']['target_padding_pt']==padding
+    assert result['pdf_audit']['editable_text_margin_passed'] is True
 
 
 @pytest.mark.parametrize('value',[-.01,12.01,float('inf'),float('-inf'),float('nan'),True,False,'4',None,[],{}])

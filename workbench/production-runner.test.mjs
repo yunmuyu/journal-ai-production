@@ -28,7 +28,8 @@ test('one entry renders concurrent ordinary and revision jobs, publishes real PD
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'production-entry-'));let handler,review,origin,published=0,previewFailure=true,submitFailure=true;
  const rows=[],articles=[],files=new Map(),rendered=[];
  for(let i=0;i<6;i++){
-  const r=renderedFixture(path.join(root,'fixture-'+i),'raster-reletter');rendered.push(r);
+  const r=renderedFixture(path.join(root,'fixture-'+i),'raster-reletter',{padding:['default',.25,0,4,2,4][i]});rendered.push(r);
+  const paddingReport=JSON.parse(fs.readFileSync(r.evidence[0].report.path));assert.equal(paddingReport.export_padding_audit.target_padding_pt,[.25,.25,0,4,2,4][i]);
   articles.push({id:'A'+i,word:r.task.productionRoute.sourceReview.word});
   rows.push({id:'A'+i+'-F1',articleId:'A'+i,author:'fixture'+i,number:'1',editor:'fixture',type:'graph',status:'待制作',outputs:[],reviewVersion:'baseline',productionRoute:r.task.productionRoute});
  }

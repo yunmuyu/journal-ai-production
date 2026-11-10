@@ -68,13 +68,14 @@ test('real ordinary text box cannot evade measured padding by declaring itself a
 test('real shared generator evidence passes, but another PDF and changed requirements do not',{skip:!process.env.WORKSPACE_TEST_PYTHON||!process.env.JFW_TEST_FONT_PROFILE},t=>{
  const {task,outputs:oldOutputs}=fixture(t),root=task.attemptDir;
  task.productionRoute.processing={operation:'rebuild',basis:'Synthetic regression requires shared diagram layout'};
- const spec={version:1,id:'proof',author:'fixture',kind:'tree',root:'输入',branches:[{text:'输出',children:['检查']}],sources:[task.productionRoute.sourceReview.selected],policy:{column:'single',design_font_size_pt:8,export_crop_padding_pt:4}};
+ const spec={version:1,id:'proof',author:'fixture',kind:'tree',root:'输入',branches:[{text:'输出',children:['检查']}],sources:[task.productionRoute.sourceReview.selected],policy:{column:'single',design_font_size_pt:8}};
  const input=path.join(root,'spec.json');fs.writeFileSync(input,JSON.stringify(spec));
  const engineRoot=fileURLToPath(new URL('../portable-production/direct-pdf/',import.meta.url)),python=process.env.WORKSPACE_TEST_PYTHON;
  execFileSync(python,['-m','journal_pdf','render',input,'--source-root',path.join(root,'source'),'--profile',process.env.JFW_TEST_FONT_PROFILE,'--output',path.join(root,'output')],{cwd:engineRoot,env:{...process.env,PYTHONPATH:engineRoot,PYTHONUTF8:'1'},encoding:'utf8',windowsHide:true});
  const folder=path.join(root,'output','fixture','proof'),outputs=[{number:'7',...testRef(path.join(folder,'proof.pdf'))}];
  const evidence=[{number:'7',report:testRef(path.join(folder,'report.json')),spec:testRef(path.join(folder,'figure.spec.json'))}];
- assert.equal(verifyProcessingEvidence(task,outputs,evidence,{python})[0].operation,'rebuild');
+ const receipt=verifyProcessingEvidence(task,outputs,evidence,{python})[0];
+ assert.equal(receipt.operation,'rebuild');assert.equal(receipt.checklist.checks.margins.status,'checked');assert.equal(receipt.checklist.checks.margins.measurement.targetPt,.25);
  assert.throws(()=>verifyProcessingEvidence(task,oldOutputs,evidence,{python}),/加工报告/);
  task.productionRoute.processing.operation='vector-reletter';
  assert.throws(()=>verifyProcessingEvidence(task,outputs,evidence,{python}),/换字/);
