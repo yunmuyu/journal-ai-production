@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const repo=fileURLToPath(new URL('../',import.meta.url));
+const ref=p=>({path:fs.realpathSync(p),sha256:createHash('sha256').update(fs.readFileSync(p)).digest('hex')});
+test('canonical capacity checks pinned runtime and leaves source/spec unchanged without PDF output', {skip:!process.env.WORKSPACE_TEST_PYTHON||!process.env.JFW_TEST_FONT_PROFILE},t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'canonical-capacity-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const python=process.env.WORKSPACE_TEST_PYTHON,fontProfile=process.env.JFW_TEST_FONT_PROFILE,engine=path.join(repo,'portable-production','direct-pdf');
+ const signature=execFileSync(python,['-c','from journal_pdf.editorial import engine_signature; print(engine_signature())'],{cwd:engine,env:{...process.env,PYTHONPATH:engine},encoding:'utf8'}).trim();
+ const config=path.join(root,'config.json'),spec=path.join(root,'spec.json');
+ const machine={python,fontProfile,cacheRoot:path.join(root,'cache'),runtimeLock:{python:ref(python),fontProfile:ref(fontProfile),engineSignature:signature}};
+ fs.writeFileSync(config,JSON.stringify(machine));
+ fs.writeFileSync(spec,JSON.stringify({version:1,id:'capacity',author:'synthetic',synthetic:true,kind:'scene',width_pt:100,height_pt:50,texts:[{id:'a',text:'A',x:20,y:25}],policy:{column:'single',design_font_size_pt:8}}));
+ const before=fs.readFileSync(spec),args=[path.join(repo,'journal.mjs'),'capacity','--config',config,'--spec',spec,'--source-root',root];
+ const result=JSON.parse(execFileSync(process.execPath,args,{encoding:'utf8',cwd:root}));
+ assert.equal(result.pdf_produced,false);assert.equal(result.capacity.figure_id,'capacity');assert.deepEqual(fs.readFileSync(spec),before);
+ assert.equal(fs.readdirSync(root,{recursive:true}).some(p=>p.endsWith('.pdf')),false);
+ machine.runtimeLock.engineSignature='wrong';fs.writeFileSync(config,JSON.stringify(machine));
+ assert.throws(()=>execFileSync(process.execPath,args,{encoding:'utf8',stdio:'pipe'}),/engine_version_mismatch/);
+});

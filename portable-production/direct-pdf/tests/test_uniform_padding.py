@@ -37,3 +37,17 @@ def test_fractional_media_origin_does_not_overflow_cropbox(tmp_path):
     receipt = normalize_pdf_padding(source, result)
     assert receipt['pages'][0]['measured_margins_pt'] == pytest.approx([2]*4, abs=.25)
     assert receipt['pages'][0]['source_view_pixels_identical']
+
+@pytest.mark.parametrize('offset', [0, .03, .07, .11, .19, .43])
+def test_production_minimum_is_not_weakened_by_pixel_tolerance(tmp_path, offset):
+    import pymupdf as fitz
+    source, target = tmp_path / 'source.pdf', tmp_path / 'result.pdf'
+    with fitz.open() as doc:
+        page = doc.new_page(width=90, height=70)
+        page.draw_line((10+offset, 10+offset), (75+offset, 55+offset), width=.5)
+        page.insert_text((20+offset, 30+offset), 'A', fontsize=8)
+        doc.save(source)
+    receipt = normalize_pdf_padding(source, target, 2)
+    assert min(receipt['pages'][0]['measured_margins_pt']) >= 1.99
+    assert receipt['pages'][0]['measurement_guard_pt'] == pytest.approx(.12)
+    assert receipt['rescaled'] is False

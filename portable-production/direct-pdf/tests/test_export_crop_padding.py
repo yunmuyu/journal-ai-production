@@ -48,3 +48,21 @@ def test_invalid_export_padding_is_rejected_before_outputs_or_scene_construction
     with pytest.raises(FigureError) as error:render_one(spec,None,None,tmp_path/'source',tmp_path/'output')
     assert error.value.code=='export_crop_padding_invalid'
     assert not (tmp_path/'output').exists()
+
+
+def test_final_saved_width_is_rechecked_after_padding(reg, tmp_path, monkeypatch):
+    import journal_pdf.export_padding as padding_module
+    original = padding_module.normalize_pdf_padding
+    def expanded(source, destination, padding):
+        receipt = original(source, destination, padding)
+        with fitz.open(destination) as doc:
+            page = doc[0]; height = page.rect.height
+            page.set_mediabox(fitz.Rect(0, 0, 500, height))
+            page.set_cropbox(fitz.Rect(0, 0, 500, height))
+            doc.saveIncr()
+        return receipt
+    monkeypatch.setattr(padding_module, 'normalize_pdf_padding', expanded)
+    with pytest.raises(FigureError) as error:
+        render_sample(reg, tmp_path, 'final-width')
+    assert error.value.code == 'export_column_width'
+    assert not list((tmp_path/'out').rglob('final-width.pdf'))

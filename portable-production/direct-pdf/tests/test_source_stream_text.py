@@ -49,3 +49,27 @@ def test_stream_body_preserves_color_state_inside_text_block(tmp_path):
     with fitz.open(stream=result.data,filetype='pdf') as doc:
         assert not doc[0].get_texttrace()
         assert len(doc[0].get_drawings())==1
+
+
+def test_stream_fallback_supports_normalized_negative_origin_and_retains_original_hash(tmp_path):
+    from io import BytesIO
+    import hashlib,json
+    from pypdf import PdfReader,PdfWriter
+    from pypdf.generic import RectangleObject
+    source=tmp_path/'negative.pdf';fixture(source)
+    writer=PdfWriter(clone_from=PdfReader(source))
+    writer.pages[0].mediabox=RectangleObject([-3,-2,117,78])
+    writer.pages[0].cropbox=RectangleObject([-3,-2,117,78])
+    output=BytesIO();writer.write(output);source.write_bytes(output.getvalue())
+    digest=hashlib.sha256(source.read_bytes()).hexdigest()
+    with fitz.open(source) as doc:
+        span=doc[0].get_text('dict')['blocks'][0]['lines'][0]['spans'][0]
+    rows=[{'source_text':'R1','source_bbox':list(span['bbox']),'target_text_id':'r1'}]
+    result=prepare_stream_body(source,0,[0,0,120,80],rows)
+    receipt=json.loads(result.receipt_json)
+    assert receipt['source_sha256']==digest
+    assert receipt['origin_normalization']['local_coordinates_preserved'] is True
+    with fitz.open(stream=result.data,filetype='pdf') as doc:
+        assert not doc[0].get_texttrace() and not doc[0].get_fonts(full=True)
+        assert len(doc[0].get_drawings())==1
+        assert doc[0].cropbox_position==fitz.Point(0,0)

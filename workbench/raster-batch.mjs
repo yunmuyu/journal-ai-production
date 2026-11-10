@@ -86,7 +86,7 @@ export async function runRasterBatch(configPath,manifestPath,{onToolEvent=()=>{}
    }catch(error){caseIndexError=error.message;}
    return {id:task.id,label:task.label,status:result.newReceipt&&!result.receipt.historical?'returned':'already_returned',elapsedMs:item.requestedAt?Date.now()-Date.parse(item.requestedAt):performance.now()-started,
     requestStartedAt:item.requestedAt??null,timingScope:item.requestedAt?'from_requested_at':'execution_only',returnedAt:result.receipt.returnedAt,
-    figureId:result.figure.id,receipt:result.receipt,receiptCreated:result.newReceipt,caseEvents,...(caseIndexError?{caseIndexError}:{})};
+    figureId:result.figure.id,receipt:result.receipt,receiptCreated:result.newReceipt,deliveryState:result.deliveryState,caseEvents,...(caseIndexError?{caseIndexError}:{})};
   }
   async function submit(result){
    const latest=await figureForAdmission(task.figureId);assertStableRouteDecision(admissionFigure,latest);assertConfirmedRoute(latest,admissionPlan);

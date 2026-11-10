@@ -93,6 +93,10 @@ def test_prepared_raster_still_requires_original_comparison(tmp_path, reg):
     try:
         report = render_one(spec, reg, assets, sources, tmp_path / 'out')
         assert report['original_asset_references'][0]['changed_fraction'] <= 0.001
+        padding = report['export_padding_audit']['pages'][0]
+        assert min(padding['measured_margins_pt']) >= 1.99
+        assert padding['measurement_guard_pt'] >= .12
+        assert padding['source_view_pixels_identical']
     finally:
         assets.close()
 

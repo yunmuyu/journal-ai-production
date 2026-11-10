@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "release": "2026.11.10-r48-fidelity-candidate",
+  "status": "local-candidate-with-known-baseline-limitations",
+  "baseCommit": "87ba08ac31b5383208dc4985ad02352b2d150c7d",
+  "publication": {
+    "remoteChanged": false,
+    "deployed": false,
+    "productionConfigChanged": false,
+    "acceptanceChanged": false
+  },
+  "environment": {
+    "platform": "Linux",
+    "python": "3.12.14",
+    "node": "24.22.1",
+    "PyMuPDF": "1.26.7",
+    "pypdf": "6.1.1",
+    "Pillow": "12.3.0",
+    "pytest": "9.0.2",
+    "fontProfile": "Restored verified production fonts, not distributed"
+  },
+  "nodeFullWithRealFonts": {
+    "passed": 693,
+    "failed": 4,
+    "skipped": 16,
+    "baselineComparison": "All four failures reproduced unchanged on r47. Source coverage, editorial status and raster identity fixtures remain strict; no gates disabled."
+  },
+  "pythonEngineFull": {
+    "passed": 1570,
+    "failed": 6,
+    "skipped": 28,
+    "subtestsPassed": 7,
+    "baselineComparison": "The same six tests fail unchanged on r47 because this Linux executor lacks Windows icu.dll; no additional final failures."
+  },
+  "rasterTaskPreflightLocalAndUtilityPython": {
+    "passed": 427,
+    "failed": 0,
+    "subtestsPassed": 42
+  },
+  "additionalFinalChecks": {
+    "realRasterReturn": {
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0
+    },
+    "realConcurrentPdfReturnAndStateRecovery": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    "finalWidthAndPadding": {
+      "passed": 36,
+      "failed": 0
+    },
+    "originalRouteCapacityAndPaddingComposition": {
+      "passed": 64,
+      "failed": 0
+    }
+  },
+  "privateReadOnlyRegression": {
+    "originalRoutes": {
+      "figures": 2,
+      "routes": 35,
+      "maxCoordinateDeltaPt": 0,
+      "sourceAndPdfHashesVerified": true,
+      "movedBendsRejected": true
+    },
+    "mixedSources": {
+      "cases": 5,
+      "passed": 5,
+      "imageInstancesInThreeRecentFigures": [
+        6,
+        13,
+        7
+      ],
+      "duplicateRgbCase": {
+        "imageInstances": 184,
+        "imageResources": 72,
+        "vectorPaths": 208
+      },
+      "negativeOriginCase": {
+        "nativeSpans": 83,
+        "retainedPaths": 619
+      },
+      "sourceFilesUnchanged": true,
+      "scope": "Preparation and evidence replay; not re-delivery, visual acceptance or print approval"
+    },
+    "realPadding": {
+      "cases": 2,
+      "minimumPt": 2.0399999618530273,
+      "sourceViewportPixelsUnchanged": true,
+      "rescaled": false
+    }
+  },
+  "review": {
+    "archivedManifestPackaging": "fixed and regression tested",
+    "staleAcceptanceAfterReverificationFailure": "fixed and real state recovery tested",
+    "newInvalidPaddingErrorPriorityRegression": "fixed",
+    "newRasterPaddingRoundingRegression": "fixed without relaxing minimum"
+  },
+  "remainingLimits": [
+    "Windows ICU word segmentation is unavailable on this Linux executor; six unchanged baseline engine tests fail.",
+    "Windows GDI, Adobe/InDesign and optional bold font tests are conditional or not run.",
+    "Native PDF text coverage cannot prove absence of unregistered outline or raster text.",
+    "Unsupported inline image/mask/clipping and rotated or annotated nonzero-origin PDF cases remain fail-closed.",
+    "No GitHub CI, installation or production deployment was performed."
+  ],
+  "commands": [
+    "node --test tests/*.test.mjs workbench/*.test.mjs collaboration/*.test.mjs collaboration/tests/*.test.mjs collaboration/state-transfer/*.test.mjs knowledge/*.test.mjs",
+    "python -m pytest portable-production/direct-pdf/tests -q",
+    "python -m pytest portable-production/tests-raster portable-production/tests-task portable-production/preflight/tests tests portable-production/tests-local -q"
+  ]
+}
