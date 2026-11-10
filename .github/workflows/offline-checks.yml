@@ -17,7 +17,7 @@ jobs:
       - run: python -m unittest discover -s portable-production/tests-local -p test_engine_directory.py -v
         env:
           PYTHONPATH: portable-production
-      - run: python scripts/release_bundle.py build --root . --output "${{ runner.temp }}/journal-portable.zip"
+      - run: python scripts/release_bundle.py build --candidate --root . --output "${{ runner.temp }}/journal-r49-draft.zip"
   production-routes:
     runs-on: ubuntu-latest
     steps:

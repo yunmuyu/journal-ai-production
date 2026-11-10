@@ -59,3 +59,13 @@ node --test --test-concurrency=1 tests/*.test.mjs workbench/*.test.mjs
 - git diff --check通过；补丁另在完整r48快照执行apply --check。未修改正式工作台、未发布、未合并。
 
 结果可进入r48之上的代码审查；不能宣称全套通过，也不是可直接覆盖用户本机脏工作树的安装包。Windows/InDesign等剩余验证、实际稿件终检及发行清单重建仍待后续授权与环境条件。
+
+
+## 候选打包修复
+
+原CI错误来自以历史r48清单校验r49源码。历史RELEASE.json保持逐字节不变。
+CANDIDATE.json仅锁定本草稿的代码与文档，并明确draft-only/productionEligible=false。
+CI显式使用候选构建；默认正式构建在候选清单存在时失败关闭。所有既有输入、
+新增留白模块及其测试和候选文档继续完整校验SHA256与字节长度，不自动刷新预期值。
+包目录使用journal-ai-candidate前缀及draft标记，不产生tag、GitHub Release或部署。
+这只修复可复现测试包，不代表Windows、真实字体、Adobe或实际稿件验收通过。

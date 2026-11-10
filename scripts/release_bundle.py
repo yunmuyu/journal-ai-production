@@ -43,11 +43,22 @@ def verify(root: Path) -> dict:
         data = file_bytes(root, name)
         if len(data) != item["bytes"] or digest(data) != item["sha256"]:
             raise ValueError(f"Bundle hash mismatch: {name}")
-    return {"release": manifest["release"], "verified_files": len(names)}
+    result = {"release": manifest["release"], "verified_files": len(names)}
+    if "status" in manifest:
+        result.update(status=manifest["status"],
+                      productionEligible=manifest.get("productionEligible"))
+    return result
 
 
-def build(root: Path, output: Path) -> dict:
-    release = json.loads((root / "RELEASE.json").read_text(encoding="utf-8"))
+def build(root: Path, output: Path, *, candidate: bool = False) -> dict:
+    manifest_name = "CANDIDATE.json" if candidate else "RELEASE.json"
+    if not candidate and (root / "CANDIDATE.json").exists():
+        raise ValueError("Draft candidate checkout cannot build a release bundle")
+    release = json.loads(file_bytes(root, manifest_name).decode("utf-8"))
+    if candidate and (release.get("status") != "draft-only"
+                      or not release.get("id", "").endswith("-draft")
+                      or release.get("productionEligible") is not False):
+        raise ValueError("Candidate manifest must be explicitly draft-only")
     identity = release["id"]
     if not re.fullmatch(r"\d{4}\.\d{2}\.\d{2}-[a-z0-9-]+", identity):
         raise ValueError("Invalid release identity")
@@ -61,12 +72,16 @@ def build(root: Path, output: Path) -> dict:
         data = file_bytes(root, name)
         if digest(data) != item["sha256"] or len(data) != item["bytes"]:
             raise ValueError(f"Release hash mismatch: {name}")
+        if name in payload:
+            raise ValueError(f"Duplicate release input: {name}")
         payload[name] = data
     for item in release["portableFiles"]:
         name = "portable-production/" + item["path"]
         data = file_bytes(root, name)
         if digest(data) != item["sha256"] or len(data) != item["bytes"]:
             raise ValueError(f"Release hash mismatch: {name}")
+        if name in payload:
+            raise ValueError(f"Duplicate release input: {name}")
         payload[name] = data
     for item in release.get("publicFiles", []):
         name = item["path"]
@@ -79,7 +94,12 @@ def build(root: Path, output: Path) -> dict:
     for name in ("README.md", "CHANGELOG.md", "RELEASE.json",
                  "docs/RELEASE-GUIDE.md", "scripts/release_bundle.py",
                  f"release-notes/{identity}.md"):
-        payload[name] = file_bytes(root, name)
+        data = file_bytes(root, name)
+        if candidate and (name not in payload or payload[name] != data):
+            raise ValueError(f"Unsealed candidate input: {name}")
+        payload[name] = data
+    if candidate:
+        payload[manifest_name] = file_bytes(root, manifest_name)
     for name in payload:
         if name not in tracked:
             raise ValueError(f"Untracked bundle input: {name}")
@@ -90,13 +110,15 @@ def build(root: Path, output: Path) -> dict:
     manifest = {"schemaVersion": 1, "release": identity, "files": [
         {"path": name, "bytes": len(data), "sha256": digest(data)}
         for name, data in sorted(payload.items())]}
+    if candidate:
+        manifest.update(status="draft-only", productionEligible=False)
     payload["BUNDLE-MANIFEST.json"] = (
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     # Fixed timestamp, order and permissions make the same inputs reproducible.
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, "x", compression=zipfile.ZIP_DEFLATED) as archive:
         for name, data in sorted(payload.items()):
-            entry = zipfile.ZipInfo(f"journal-ai-production-{identity}/{name}",
+            entry = zipfile.ZipInfo(f"{'journal-ai-candidate' if candidate else 'journal-ai-production'}-{identity}/{name}",
                                     date_time=(2026, 1, 1, 0, 0, 0))
             entry.create_system = 3
             entry.external_attr = 0o100644 << 16
@@ -114,10 +136,12 @@ def main() -> None:
     parser.add_argument("command", choices=("build", "verify"))
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--candidate", action="store_true",
+                        help="Build a draft-only archive using CANDIDATE.json")
     args = parser.parse_args()
     if args.command == "build" and args.output is None:
         parser.error("build requires --output (must not already exist)")
-    result = build(args.root, args.output) if args.command == "build" else verify(args.root)
+    result = build(args.root, args.output, candidate=args.candidate) if args.command == "build" else verify(args.root)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
