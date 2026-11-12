@@ -42,8 +42,8 @@ def test_real_pdf_upright_parentheses_and_italic_variable(reg,tmp_path):
 
 
 @pytest.mark.parametrize('factor',[1,.75])
-def test_final_vector_strokes_include_legend_but_not_raster_pixels(reg,factor):
-    scene=Scene(reg)
+def test_final_vector_strokes_include_legend_but_not_raster_pixels(factor):
+    scene=Scene(None)
     scene.shape('marker',[0,0,10,10],width=.2)['source_legend_marker']=True
     scene.shape('fill-only',[20,0,30,10],width=None,fill=.5)
     scene.line('swatch',[[0,20],[30,20]],width=.2)
@@ -68,8 +68,8 @@ def route_scene(reg, horizontal=True):
 
 
 @pytest.mark.parametrize('horizontal',[True,False])
-def test_direct_connection_is_centre_bound_and_does_not_move_nodes(reg,horizontal):
-    scene=route_scene(reg,horizontal);nodes=deepcopy(scene.nodes)
+def test_direct_connection_is_centre_bound_and_does_not_move_nodes(horizontal):
+    scene=route_scene(None,horizontal);nodes=deepcopy(scene.nodes)
     straighten_connections(scene)
     path=scene.paths[0]
     axis=1 if horizontal else 0
@@ -79,8 +79,8 @@ def test_direct_connection_is_centre_bound_and_does_not_move_nodes(reg,horizonta
 
 
 @pytest.mark.parametrize('protected',['shared-net','explicit-ports','source','obstacle'])
-def test_straightening_does_not_break_constraints(reg,protected):
-    scene=route_scene(reg)
+def test_straightening_does_not_break_constraints(protected):
+    scene=route_scene(None)
     if protected=='shared-net':scene.paths[0]['shared_net']='bus'
     elif protected=='explicit-ports':scene.paths[0]['endpoint_nodes']=[{'node':'a','side':'right','fraction':.5},{'node':'b','side':'left','fraction':.5}]
     elif protected=='source':scene.paths[0]['source_bound']=True

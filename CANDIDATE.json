@@ -2340,8 +2340,8 @@
     },
     {
       "path": "direct-pdf/tests/test_common_figure_rules.py",
-      "bytes": 4868,
-      "sha256": "587b38e6bdf2cd0a43333ed03be715a6d86416f2466dde0d1be3743e799ac10f"
+      "bytes": 4859,
+      "sha256": "141321fe50da46c9633c90eb104e3248b7eaf05bf30ebde6c751b44ce6bf8d73"
     }
   ],
   "publicFiles": [
