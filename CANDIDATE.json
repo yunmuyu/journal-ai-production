@@ -1,13 +1,14 @@
 {
   "schemaVersion": 1,
-  "id": "2026.11.10-r49-padding-draft",
+  "id": "2026.11.12-r49-common-rules-draft",
   "status": "draft-only",
   "productionEligible": false,
-  "sourceParent": "1556883452afeae004cebd17f0f9fcb239256809",
+  "sourceParent": "53385275998be853bd8ad618582e11370554ac5d",
   "historicalReleaseSha256": "7ce8d5c96883823e0a63e8f6096acf0d79f4e49543a66f6e9c54679f72439e4a",
   "limitations": [
     "Code-only test candidate; not a production release or deployment.",
-    "Existing baseline failures and Windows/Adobe validation remain unresolved. See docs/r49-pdf-padding-candidate.md."
+    "Existing baseline failures and Windows/Adobe validation remain unresolved. See docs/r49-pdf-padding-candidate.md.",
+    "Common figure rules candidate. See docs/figure-common-rules-20261112.md. Native production acceptance not run."
   ],
   "files": [
     {
@@ -884,8 +885,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/charts.py",
-      "bytes": 39891,
-      "sha256": "917f097f510629dd82f97dab15d7bc3a16c9cb34fdb5065faecb345a6dbd47f0"
+      "bytes": 39831,
+      "sha256": "d02a9be10f401590d301111787b206634e9b4b8d042efe181183ef564358864d"
     },
     {
       "path": "direct-pdf/journal_pdf/chinese_wrap.py",
@@ -944,8 +945,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/editorial.py",
-      "bytes": 11489,
-      "sha256": "a2d8eedba528317ed33c17ffd831e5a9a1c313544a347ab399fa907c0013e38f"
+      "bytes": 11377,
+      "sha256": "d0867e14f5cef20014ef3f37d7acf2330622f71168965bdd791cb519f3614978"
     },
     {
       "path": "direct-pdf/journal_pdf/export_padding.py",
@@ -974,8 +975,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/fonts.py",
-      "bytes": 19046,
-      "sha256": "c35f0cb2ecb02fc376152521a4461cb8d647c15b8cd01809cff4ede5645c0ff5"
+      "bytes": 19597,
+      "sha256": "d181b5415aff4cb105526bf90cf4d3d644d6717dcc13226b12ef12d20b1296b6"
     },
     {
       "path": "direct-pdf/journal_pdf/gallery.py",
@@ -1039,8 +1040,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/layouts.py",
-      "bytes": 49854,
-      "sha256": "e386697af7252136e946c3688d198af3a38e397fba9d953fbe918ae78a3d4762"
+      "bytes": 50305,
+      "sha256": "dc1ddda239e841e45e8b0b381bc6407e48d3c6620386c6e377009937cd02cfc1"
     },
     {
       "path": "direct-pdf/journal_pdf/legend_collision.py",
@@ -1149,8 +1150,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/scene_straighten.py",
-      "bytes": 5811,
-      "sha256": "b78a6b308ca9faac54be8ea81d58e0fb1989709f0bdcf9f1b1207d75b35d7f5d"
+      "bytes": 6663,
+      "sha256": "33e04d6bcb75f74b67017f4ad8396c5c1b63264ceef1ee660c35801f13c1fd29"
     },
     {
       "path": "direct-pdf/journal_pdf/scientific_text.py",
@@ -1184,8 +1185,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/source_legend.py",
-      "bytes": 3895,
-      "sha256": "b98a306524e4117e4014621159afd9a80dd4a932816b52587efd0c41c0807734"
+      "bytes": 4194,
+      "sha256": "a61a55946ecd72952aa200a7b8617be144fdb0ec56f91161bbaff97c9be28aab"
     },
     {
       "path": "direct-pdf/journal_pdf/source_mixed_body.py",
@@ -1739,8 +1740,8 @@
     },
     {
       "path": "direct-pdf/tests/test_outside_legend_columns.py",
-      "bytes": 2521,
-      "sha256": "a017cce95460fa5ea2a4570da146ac3df47e83bc403fe3ca2dc125596c476327"
+      "bytes": 2510,
+      "sha256": "9d75ee69104001b5e87e7db1fd51b4a1596368fda76adda01781184e987e4b2c"
     },
     {
       "path": "direct-pdf/tests/test_page_external_ports.py",
@@ -1824,8 +1825,8 @@
     },
     {
       "path": "direct-pdf/tests/test_scene_compact_links.py",
-      "bytes": 11044,
-      "sha256": "ddea2fe9ab05c8e2892c3ebe5350562f7149e7fbc024f499f82248cc406832b5"
+      "bytes": 11100,
+      "sha256": "b73e1429de0229f26f4551083ae32e196a0be816bb3604588dbd5681a8f8554e"
     },
     {
       "path": "direct-pdf/tests/test_scene_raster_reletter.py",
@@ -1844,8 +1845,8 @@
     },
     {
       "path": "direct-pdf/tests/test_source_legend.py",
-      "bytes": 2564,
-      "sha256": "43a07b85f4413e1b180a2d2e315a56cb9654c27616bc703ee8a1a0b3efde319c"
+      "bytes": 3283,
+      "sha256": "6f8cdc6402b6794ee97e81386308772aef0b61ee12ebd43ee7e63852cedeae98"
     },
     {
       "path": "direct-pdf/tests/test_source_mixed_body.py",
@@ -2336,13 +2337,18 @@
       "path": "tests-task/test_svg_preview.py",
       "bytes": 4307,
       "sha256": "bac29aaaa5a953b08f10cd19875c48f669e2b1535769f395ee4e28237db27729"
+    },
+    {
+      "path": "direct-pdf/tests/test_common_figure_rules.py",
+      "bytes": 4868,
+      "sha256": "587b38e6bdf2cd0a43333ed03be715a6d86416f2466dde0d1be3743e799ac10f"
     }
   ],
   "publicFiles": [
     {
       "path": "AGENTS.md",
-      "bytes": 10966,
-      "sha256": "222c2be74dd62dcb6eba27359103d06089234408b7c1ffd9d67c5dcaa1f3f740"
+      "bytes": 11274,
+      "sha256": "24ca9e682170c558c41c91de5add77f01e144e7d594a388b949f40afed7eefb7"
     },
     {
       "path": "CHANGELOG.md",
@@ -4818,6 +4824,16 @@
       "path": "运行说明.md",
       "bytes": 13247,
       "sha256": "569ba3e12efdfd5aa33281bf68dde44e9792c4f09d87ae597cbcd4288e54fd4e"
+    },
+    {
+      "path": "docs/figure-common-rules-20261112.md",
+      "bytes": 2577,
+      "sha256": "6aea7ffd5fe12a12a1afa5d7952600eeb34a181f0c039ba7bbd4f94fcdf77013"
+    },
+    {
+      "path": "release-notes/2026.11.12-r49-common-rules-draft.md",
+      "bytes": 2577,
+      "sha256": "6aea7ffd5fe12a12a1afa5d7952600eeb34a181f0c039ba7bbd4f94fcdf77013"
     }
   ]
 }
