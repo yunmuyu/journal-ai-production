@@ -1,5 +1,7 @@
 # 项目协作约束
 
+- 2026-11-12 共性作图纠错落实见 `docs/figure-common-rules-20261112.md`：括号正体；自产矢量最终线宽0.5pt（位图不改）；安全直连优先且默认框边中心接点；图例优先图内安全位置。保留原图布局和已确认连线，不能用自动优化覆盖源绑定。
+
 ## 唯一生产与搬家入口
 
 - 公共主线为main，生产只运行`node journal.mjs`，共用外置machine.local.json。start启动仓库内工作台，produce委托现有production-runner并分流raster。旧私有server、localflow和冻结副本不是生产入口。

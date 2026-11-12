@@ -33,5 +33,9 @@ jobs:
         run: python -m pytest portable-production/tests-raster portable-production/tests-task portable-production/preflight/tests -q
         env:
           PYTHONPATH: portable-production:portable-production/preflight
+      - name: Common vector figure rules (font-dependent cases require configured profile)
+        run: python -m pytest portable-production/direct-pdf/tests/test_common_figure_rules.py portable-production/direct-pdf/tests/test_outside_legend_columns.py portable-production/direct-pdf/tests/test_chart_legend_fallback.py portable-production/direct-pdf/tests/test_source_legend.py portable-production/direct-pdf/tests/test_scene_compact_links.py -q -rs
+        env:
+          PYTHONPATH: portable-production/direct-pdf
       - name: Workbench dispatch and return gates
         run: node --test workbench/*.test.mjs

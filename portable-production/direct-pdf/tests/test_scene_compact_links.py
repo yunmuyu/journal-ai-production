@@ -163,7 +163,7 @@ def test_container_auto_compaction_keeps_crossing_connections_inside(reg):
     assert a['rect'][3] < region[3]
 
 
-def test_straighten_overlapping_ports_preserves_endpoints_and_arrows(reg):
+def test_offset_centres_do_not_get_silently_replaced_with_offcentre_ports(reg):
     from journal_pdf.scene_straighten import straighten_connections
     from journal_pdf.scene import Scene
     s=Scene(reg,8);s.template='primitive-scene'
@@ -171,7 +171,8 @@ def test_straighten_overlapping_ports_preserves_endpoints_and_arrows(reg):
     ax=(a['rect'][0]+a['rect'][2])/2;bx=(b['rect'][0]+b['rect'][2])/2
     s.line('line',[[ax,a['rect'][3]],[ax,60],[bx,60],[bx,b['rect'][1]]],arrow=True,both=True,endpoint_nodes=['a','b'])
     s.finish(100,110);straighten_connections(s)
-    assert len({round(p[0],4) for p in s.paths[0]['points']}) == 1
+    assert len({round(p[0],4) for p in s.paths[0]['points']}) == 2
+    assert s.paths[0]['endpoint_nodes']==['a','b']
     assert s.paths[0]['both'] and not audit_scene(s)
 
 
