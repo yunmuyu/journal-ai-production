@@ -196,12 +196,12 @@ def scale_scene(scene, factor):
     for n in scene.nodes:
         # width=None 是"只填充不描边"的语义，不是线宽，归一化时原样保留。
         n['rect']=[v*factor for v in n['rect']]
-        n['width']=None if n.get('width') is None else n['width']*factor if n.get('source_legend_marker') else STROKE
+        n['width']=None if n.get('width') is None else STROKE
         if 'dash' in n:n['dash']=[v*factor for v in n['dash']]
         if 'padding_pt' in n:n['padding_pt']=[v*factor for v in n['padding_pt']]
     for p in scene.paths:
         p['points']=[[v*factor for v in q] for q in p['points']]
-        p['dash']=[v*factor for v in p['dash']];p['width']=p['width']*factor if p.get('source_legend_swatch') else STROKE;p['arrow_scale']=p.get('arrow_scale',1)*factor if p.get('arrow_style')=='block-outline' else 1
+        p['dash']=[v*factor for v in p['dash']];p['width']=STROKE;p['arrow_scale']=p.get('arrow_scale',1)*factor if p.get('arrow_style')=='block-outline' else 1
     for a in scene.assets:a['rect']=[v*factor for v in a['rect']]
     for background in scene.legend_backgrounds:background['rect']=[v*factor for v in background['rect']]
     for check in scene.axis_label_gap_checks+scene.axis_tick_gap_checks:

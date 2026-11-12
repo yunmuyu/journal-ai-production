@@ -40,6 +40,9 @@ def validate_source_legends(scene, bindings):
             _fail('源系列包含不同标记，不能用单一图例标记概括')
         sx=(target[2]-target[0])/(clip[2]-clip[0]);sy=(target[3]-target[1])/(clip[3]-clip[1])
         if abs(sx-sy)>1e-5:_fail('源系列必须等比缩放')
+        if abs(line['width']*sx-.5)>.005 or abs(marker['width']*sx-.5)>.005:
+            raise FigureError('source_legend_stroke_requires_normalization',
+                '源系列或标记不是最终0.5pt；须先规范化源矢量再绑定图例，不能只改图例线宽或冒充位图豁免')
         raw=line['dashes'];match=re.fullmatch(r'\[([^\]]*)\]\s*([-+\d.]+)',raw)
         if not match or abs(float(match.group(2)))>.01:_fail('源虚线相位不受支持')
         try:dash=[float(v)*sx for v in match.group(1).split()]

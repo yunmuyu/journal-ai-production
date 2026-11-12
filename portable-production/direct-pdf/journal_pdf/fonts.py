@@ -104,7 +104,7 @@ class FontRegistry:
                 self._font_models[role]=(model,cmap,glyphset,upm)
             self.stats['fonts_loaded']+=1
         if new!=old: atomic_json(index_path,new)
-        self.fingerprint=digest_json({'measurement_engine':'fonttools-outline-v3-line-center','profile':self.profile,'faces':{r:v['face_sha256'] for r,v in self.face_info.items()}})
+        self.fingerprint=digest_json({'measurement_engine':'fonttools-outline-v4-upright-parentheses','profile':self.profile,'faces':{r:v['face_sha256'] for r,v in self.face_info.items()}})
         self.db=sqlite3.connect(self.cache/'text-measurements.sqlite',timeout=20)
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('CREATE TABLE IF NOT EXISTS measurements (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
@@ -176,7 +176,15 @@ class FontRegistry:
             s=size*factor
             for ch in text:
                 if ch=='\n':x=0.;y+=leading;line_no+=1;continue
-                role=part.get('face') or self.choose(ch,part.get('style'))
+                style=part.get('style');face=part.get('face')
+                # Parentheses are punctuation, not variables. Split at glyph selection
+                # so measurement and PDF drawing use the same upright face.
+                if ch in '()（）':
+                    if style == 'italic':style='regular'
+                    elif style == 'bolditalic':style='bold'
+                    if face and face.endswith('_bolditalic'):face=face[:-len('_bolditalic')]+'_bold'
+                    elif face and face.endswith('_italic'):face=face[:-len('_italic')]
+                role=face or self.choose(ch,style)
                 adv,b=self.glyph(ch,role)
                 box=[x+b[0]*s,y+shift+b[1]*s,x+b[2]*s,y+shift+b[3]*s]
                 if not ch.isspace(): boxes.append(box)

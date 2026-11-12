@@ -12,7 +12,7 @@ def spec_for(tmp_path):
     svg=source/'chart.svg'
     svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
         'width="100pt" height="80pt" viewBox="0 0 100 80">'
-        '<g id="series"><path d="M 10 40 L 80 50" style="fill:none;stroke:#444;stroke-width:1;stroke-dasharray:6,3"/>'
+        '<g id="series"><path d="M 10 40 L 80 50" style="fill:none;stroke:#444;stroke-width:.5;stroke-dasharray:6,3"/>'
         '<defs><path id="marker" d="M -2 -2 L 2 -2 L 2 2 L -2 2 Z" style="fill:#888;stroke:#333;stroke-width:.5"/></defs>'
         '<use xlink:href="#marker" x="10" y="40"/><use xlink:href="#marker" x="80" y="50"/></g></svg>',encoding='utf-8')
     spec={'version':1,'id':'legend','author':'synthetic','kind':'scene','synthetic':True,'width_pt':130,'height_pt':100,
@@ -20,7 +20,7 @@ def spec_for(tmp_path):
           'assets':[{'id':'plot','path':'chart.svg','source_kind':'svg','source_svg_group':True,'group_id':'series',
                      'clip':[0,0,100,80],'target':[0,0,100,80]}],
           'nodes':[{'id':'key','shape':'rectangle','rect':[107,18,111,22],'width':.5,'gray':51/255,'fill':136/255}],
-          'paths':[{'id':'key-line','points':[[100,20],[125,20]],'gray':68/255,'width':1,'dash':[6,3],
+          'paths':[{'id':'key-line','points':[[100,20],[125,20]],'gray':68/255,'width':.5,'dash':[6,3],
                     'semantic_role':'data-annotation'}],
           'source_legend_bindings':[{'asset_id':'plot','path_id':'key-line','marker_node_id':'key'}]}
     return source,spec
@@ -44,4 +44,18 @@ def test_mismatched_source_legend_is_rejected(tmp_path,reg,change):
     assets=Assets()
     try:
         with pytest.raises(FigureError,match='图例'):render_one(spec,reg,assets,source,tmp_path/'out')
+    finally:assets.close()
+
+
+@pytest.mark.parametrize('original_width,canvas_width',[(1,130),(.5,300)])
+def test_preserved_source_non_half_point_is_explicitly_blocked(tmp_path,reg,original_width,canvas_width):
+    source,spec=spec_for(tmp_path)
+    svg=source/'chart.svg'
+    svg.write_text(svg.read_text().replace('stroke-width:.5;stroke-dasharray',f'stroke-width:{original_width};stroke-dasharray'))
+    spec['sources'][0]['sha256']=hashlib.sha256(svg.read_bytes()).hexdigest()
+    spec['width_pt']=canvas_width
+    assets=Assets()
+    try:
+        with pytest.raises(FigureError) as err:render_one(spec,reg,assets,source,tmp_path/'out')
+        assert err.value.code=='source_legend_stroke_requires_normalization'
     finally:assets.close()
