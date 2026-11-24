@@ -196,13 +196,25 @@ def test_fractional_rebuild_preserves_verified_fixed_source_binding(reg,tmp_path
  assert scene.source_root==tmp_path
  assert not any(i['code'].startswith('primitive_box_measurement') for i in audit_scene(scene))
 
-def test_under_6pt_requires_reflow_not_auto_double(reg,tmp_path):
+def test_auto_column_scales_to_floor_then_relayout_then_next_tier(reg,tmp_path):
+ spec={'kind':'scene','width_pt':360,'height_pt':40,'texts':[{'id':'a','text':'A','x':180,'y':20}],
+       'policy':{'column':'auto','font_sizes':[8,7,6]}}
+ a=Assets()
+ try:
+  scene=compile_figure(spec,reg,a,tmp_path)
+  assert scene.layout_evidence['column_mm']==160
+  assert scene.size>=6
+  assert scene.width<160*72/25.4-1
+ finally:a.close()
+
+def test_explicit_single_still_does_not_advance_to_double(reg,tmp_path):
  spec={'kind':'scene','nodes':[{'id':'n','text':'测试','rect':[10,10,50,40]}],
-       'width_pt':400,'height_pt':60,'policy':{'column':'auto','font_sizes':[8,7,6]}}
+       'width_pt':400,'height_pt':60,'policy':{'column':'single','font_sizes':[8,7,6]}}
  a=Assets()
  try:
   with pytest.raises(FigureError) as e:compile_figure(spec,reg,a,tmp_path)
   assert e.value.code=='layout_reflow_required'
+  assert e.value.details.get('owner_flag') is True
  finally:a.close()
 
 def test_synthetic_numeric_pdf_actual_spaces_and_black_strokes(reg,tmp_path):

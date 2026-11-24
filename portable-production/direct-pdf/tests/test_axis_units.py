@@ -12,6 +12,8 @@ from journal_pdf.editorial import display_content
  ('Freq/Hz','Freq/Hz'),('MCC','MCC'),('AUC','AUC'),('train/loss','train/loss'),
  ('P(x)','P(x)'),('理想线（y=x）','理想线（y=x）'),
  ('f(x) (Hz)','f(x) (Hz)'),('速度(m/s)','速度/（m/s）'),
+ ('发文量（篇）','发文量/篇'),
+ ('文字（m²/s）','文字/（m²/s）'),('发文量（万元）','发文量/万元'),
  ('密度（kg/m³）','密度/（kg/m³）'),('电量（kW·h）','电量/（kW·h）'),
  ('Freq(Hz）','Freq(Hz）'),('Freq/（Hz）','Freq/（Hz）'),
 ])
@@ -46,6 +48,19 @@ def test_audit_accepts_actual_normalized_text():
  t={'id':'x','source_content':'Freq(Hz)','content':'Freq/Hz','measurement':{'text':'Freq/Hz'},'role':'axis-title'}
  assert audit_axis_titles(SimpleNamespace(texts=[t]),'1.5G 2.0G\nFreq/Hz')['ok']
  assert not audit_axis_titles(SimpleNamespace(texts=[t]),'FreqHz')['ok']
+
+
+def test_legend_parentheses_stay_until_the_open_question_is_closed():
+    assert normalize_axis_title('发文量(篇)')=='发文量/篇'
+    assert normalize_axis_title('发文量（篇）','label')=='发文量（篇）'
+    assert normalize_axis_title('发文量（篇）','legend-label')=='发文量（篇）'
+
+
+def test_ambiguous_bracket_uses_a_recorded_decision_and_does_not_guess():
+    assert normalize_axis_title('发文量（篇次）')=='发文量（篇次）'
+    assert axis_title_evidence('发文量（篇次）')['status']=='semantic_review_needed'
+    assert normalize_axis_title('发文量（篇次）',decisions=[{'fragment':'篇次','is_unit':True}])=='发文量/篇次'
+    assert normalize_axis_title('发文量（篇次）',decisions=[{'fragment':'篇次','is_unit':False}])=='发文量（篇次）'
 
 
 def test_unsupported_formula_is_not_claimed_as_completed():

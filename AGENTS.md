@@ -5,7 +5,7 @@
 - 公共主线为main，生产只运行`node journal.mjs`，共用外置machine.local.json。start启动仓库内工作台，produce委托现有production-runner并分流raster。旧私有server、localflow和冻结副本不是生产入口。
 - 旧文档的组件直调命令仅供内部测试和特殊兼容操作，不绕过统一入口、版本锁或回传检查。
 - 普通框间净距3pt、组间净距6pt，随整图等比缩放；带箭头的距离按真实端口和末段计算，不额外加描边造成偏差。
-- 生产PDF留白至少2pt。更小留白仅允许显式diagnostic_only，报告为diagnostic-rendered，不得回传生产候选。
+- 生产留白四边都是 0.25pt（成品边缘到内容墨迹）。规则以 `rules/journal-rules.yaml` 为准，说明见 `docs/规则对照.md`。正文字号下限仍是 6pt。
 
 ## “三分钟测试”固定入口（2026-11-04）
 

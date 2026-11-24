@@ -59,7 +59,8 @@ class Scene:
         self.texts.append(t);return t
     def shape(self,id,rect,kind='rectangle',container=False,width=.5,dash=None,checked=False,fill=None,gray=0):
         self.ident(id)
-        if kind not in ('rectangle','ellipse','diamond','roundrect','terminator','inputOutput','checkbox'):raise FigureError('unsupported_shape','形状未支持',kind=kind)
+        if kind not in ('rectangle','ellipse','diamond','roundrect','terminator','inputOutput','checkbox','actor','frame'):raise FigureError('unsupported_shape','形状未支持',kind=kind)
+        if kind=='frame':container=True
         if not finite(rect) or rect[2]<=rect[0] or rect[3]<=rect[1]:raise FigureError('invalid_node_rect','节点矩形无效',id=id)
         validate_node_dash(dash, id=id)
         if not isinstance(checked,bool):raise FigureError('checkbox_state_invalid','复选框选中态须为布尔值',id=id)

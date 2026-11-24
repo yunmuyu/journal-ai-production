@@ -331,4 +331,6 @@ def graph(spec,reg,size):
         s.text('graph-title',title,new_width/2,margin/2+measured['height']/2,role='title')
         s.layout_evidence['source_title']='graph-title'
         width=new_width;height+=dy
+    if len(route_records)!=len(edges):
+        raise FigureError('graph_edge_dropped','声明的连接没有全部画出来',expected=len(edges),drawn=len(route_records))
     return s.finish(width,height)

@@ -4,8 +4,9 @@ import math
 import pymupdf as fitz
 from PIL import Image, ImageChops, ImageStat
 from .common import FigureError
-DEFAULT_PADDING_PT = 2.0
-MEASURE_DPI = 600
+from .journal_rules import load_rules, margin_tolerance_pt
+DEFAULT_PADDING_PT = float(load_rules()['normative']['margin_pt'])
+MEASURE_DPI = int(load_rules()['normative']['margin_measure_dpi'])
 
 def ink_rect(page):
     pix = page.get_pixmap(dpi=MEASURE_DPI, colorspace=fitz.csRGB, alpha=False)
@@ -60,8 +61,9 @@ def normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADDI
             actual = ink_rect(page)
             margins = [actual.x0,actual.y0,page.rect.width-actual.x1,page.rect.height-actual.y1]
             receipt['measured_margins_pt'] = margins
-            if any(abs(value-padding) > .25 for value in margins):
-                raise FigureError('export_padding_mismatch', '保存后四边留白不符合目标', actual=margins, expected=padding)
+            tolerance = margin_tolerance_pt(padding)
+            if any(abs(value-padding) > tolerance for value in margins):
+                raise FigureError('export_padding_mismatch', '保存后四边留白不符合目标', actual=margins, expected=padding, tolerance_pt=tolerance)
             after.xref_set_key(page.xref,'MediaBox',before.xref_get_key(before[index].xref,'MediaBox')[1])
             after.xref_set_key(page.xref,'CropBox',before.xref_get_key(before[index].xref,'CropBox')[1])
             page=after.reload_page(page)

@@ -1,0 +1,362 @@
+# 期刊图件规则（机器可读）。迁入仓库既有规范后，并入主人 2026-11-24 确认。
+# status: kept 原样保留 | overridden 主人明确覆盖 | added 主人新增 | open 冲突未覆盖，行为仍按仓库原规则
+# 代码只读 normative。open_questions 不改行为。
+version: 1
+journal: 现代信息科技
+
+normative:
+  margin_pt: 0.25
+  margin_measure_dpi: 600
+  margin_measure_tolerance_pt: 0.15
+  legacy_large_pad_tolerance_pt: 0.25
+  engine_padding_min_pt: 0
+  engine_padding_max_pt: 12
+  grayscale_channel_delta_max: 2
+  grayscale_required: true
+  body_pt: 8
+  scale_floor_pt: 6
+  stroke_pt: 0.5
+  simple_chart_mm: 60
+  single_column_mm: 80
+  double_column_mm: 160
+  simple_chart_max_series: 4
+  never_fill_column: true
+  explicit_single_advances: false
+  box_pad_x_pt: 4.5
+  box_pad_y_pt: 2.7
+  compact_gap_pt: 3
+  group_gap_pt: 6
+  connected_gap_mm: 3
+  arrow_length_mm: 3
+  arrow_depth_pt: 4.4
+  arrow_width_pt: 3.7
+  arrow_notch_pt: 0.8
+  label_clearance_pt: 3
+  tick_clearance_pt: 2.5
+  summary_badge_pt: 7
+  bus_leg_mm_default: 2
+  subscript_may_be_below_floor: true
+  font_roles:
+    cn: SimSun
+    punct: HYa3gj
+    latin: Times New Roman
+    latin_italic: Times New Roman
+  font_role_labels:
+    cn: 宋体 Regular
+    punct: 汉仪中宋简 regular
+    latin: Times New Roman Regular
+    latin_italic: Times New Roman Italic
+  heading_font: none
+  emphasis_font: none
+  forbidden_font_substitutes:
+    - Noto
+  delivery_vector: pdf
+  delivery_raster: jpg
+  raster_floor_dpi_when_resampled: 300
+  default_delivery: author-folder
+  adobe_role: merge-and-local-illustrator
+  workbench_required_for_production: false
+  naming_pattern: "{author}-图{number}"
+  subfigure_style: dotted-arabic
+  unit_slash: true
+  unit_scope: axis-title
+  raster_only_qa:
+    - format
+    - size
+    - grayscale
+
+units:
+  lexicon:
+    - "%"
+    - "‰"
+    - "°"
+    - "°C"
+    - "℃"
+    - dB
+    - dBm
+    - rad
+    - sr
+    - min
+    - h
+    - L
+    - l
+    - t
+    - 篇
+    - 次
+    - 个
+    - 人
+    - 万元
+    - 元
+    - 件
+    - 台
+    - 项
+    - 条
+    - 名
+    - 户
+    - 只
+    - 倍
+    - 分
+    - 秒
+    - 分钟
+    - 小时
+    - 天
+    - 年
+    - 月
+    - 日
+
+open_questions:
+  - id: explicit-single-column
+    kept: "用户指定 column=single 时不自动改双栏"
+    owner_tension: "放不下时升下一档；固定规格优先级最低"
+    behavior: "explicit_single_advances=false，仅 column=auto 在 6pt 与重排之后升档"
+  - id: padding-range
+    kept: "direct-pdf 低层仍接受显式 0–12pt"
+    owner_tension: "生产留白一律 0.25pt"
+    behavior: "缺省与无头生产用 0.25；显式其他值不作为生产缺省，证据核对接该说明声明的留白"
+  - id: legend-parentheses
+    kept: "图例与说明文字的括号不一律改斜杠；中文说明默认全角括号"
+    owner_tension: "轴题/标签中的单位括号改为斜杠"
+    behavior: "只改 axis-title 上已识别的单位；图例不改"
+  - id: gray-delta
+    kept: "300dpi 下通道差超过 2 的像素必须为零"
+    owner_tension: "任何交付物不得含彩色"
+    behavior: "沿用通道差上限 2，JPG 模式 L；不把抗锯齿容差收成 0"
+  - id: bus-leg
+    kept: "汇总线脚本默认 2mm，部分历史反馈要求 3mm"
+    behavior: "默认 2mm，已确认案例按其要求，不全局覆盖"
+  - id: simple-chart-heuristic
+    kept: "仓库原先没有 60mm 档"
+    owner_tension: "简单统计图尽量落在 60mm"
+    behavior: "仅 column=auto 且系列数不超过 simple_chart_max_series 时先试 60mm；判定启发式待主人确认"
+  - id: fill-width-switch
+    kept: "stage-grid 的 policy.fill_width 会把窄内容匀进栏宽"
+    owner_tension: "版心始终取最紧尺寸，不撑满"
+    behavior: "缺省仍不撑满。显式 fill_width 未删，等主人确认是否关闭"
+  - id: preview-png
+    kept: "光栅工具另写 PNG 预览供检查"
+    owner_tension: "交付只有 PDF 与 JPG"
+    behavior: "交付只认 PDF/JPG。PNG 仍作非交付检查件，等主人确认可否去掉"
+  - id: hairline-stroke
+    kept: "stage-grid 有一处 width=0.1 的矩形"
+    owner_tension: "线宽尽量统一 0.5pt"
+    behavior: "最终可见描边审计仍是 0.5pt。0.1pt 那一处未改，避免静默改版式"
+  - id: composite-font
+    kept: "Illustrator 复合字体必须是现 宋体 1，不能回退后仍声称合格"
+    owner_tension: "中文用宋体、标点用汉仪中宋简、拉丁和数字用 Times New Roman"
+    behavior: "direct-pdf 按三个角色配字。复合字体仍是 Adobe 合并这些角色的结果，缺复合字体时不把单独宋体说成已通过"
+
+catalog:
+  - id: margin
+    status: overridden
+    value: "0.25pt，四边都是成品边缘到内容墨迹的距离"
+    sources:
+      - references/editorial-profile.md
+      - portable-production/direct-pdf/journal_pdf/editorial.py
+      - portable-production/direct-pdf/journal_pdf/render.py
+      - workbench/processing-evidence.mjs
+      - AGENTS.md
+    note: "轮廓与 Adobe 路径早已是 0.25pt。direct-pdf 缺省 2pt、证据门 >=1.99、AGENTS 至少 2pt 被主人明确覆盖。测量容差 0.15pt，避免 0pt 冒充 0.25pt。"
+  - id: scale-floor
+    status: kept
+    value: "6pt"
+    sources:
+      - references/editorial-profile.md
+      - skill/SKILL.md
+      - portable-production/direct-pdf/journal_pdf/render.py
+      - portable-production/direct-pdf/journal_pdf/scientific_text.py
+    note: "2026-10-11：低于 6pt 停止缩放并重排；6pt 本身可试排。角标可以低于 6pt，不带动正文。主人曾提议 7.5pt，随后改回 6pt。"
+  - id: body-size
+    status: kept
+    value: "8pt 设计起点，允许 6–8pt 小数"
+    sources:
+      - references/editorial-profile.md
+      - portable-production/direct-pdf/docs/RULE-COVERAGE.md
+    note: "2026-10-11 起不再锁死 8/7/6 三档整数。先按目标字号排，略超宽再整图等比缩小。"
+  - id: fit-order
+    status: overridden
+    value: "目标档内先缩到 6pt，仍超则换行重排，然后才升下一档"
+    sources:
+      - references/editorial-profile.md
+      - skill/SKILL.md
+      - portable-production/direct-pdf/docs/RULE-COVERAGE.md
+    note: "旧顺序是单栏 8/7/6 再双栏 8/7/6，且写明不能把失败当成自动改双栏。主人明确改为先缩放、再重排、再升档。显式 single 仍不升档，见 open_questions。"
+  - id: columns
+    status: kept
+    value: "单栏上限 80mm，双栏 160mm，不撑满"
+    sources:
+      - references/editorial-profile.md
+      - skill/SKILL.md
+      - knowledge/production-policy.json
+    note: "小图保持自然宽度。新增 60mm 只是简单统计图的更紧一档，不替换 80/160。"
+  - id: simple-60
+    status: added
+    value: "简单统计图先试 60mm"
+    sources:
+      - rules/journal-rules.yaml
+    note: "主人新增。启发式见 open_questions.simple-chart-heuristic。"
+  - id: stroke
+    status: kept
+    value: "0.5pt"
+    sources:
+      - portable-production/direct-pdf/journal_pdf/editorial.py
+      - portable-production/direct-pdf/docs/RULE-COVERAGE.md
+    note: "最终可见路径 0.5pt。文字、框和箭头几何仍随整图缩放，描边最后归一。"
+  - id: box-padding
+    status: kept
+    value: "左右 4.5pt，上下 2.7pt"
+    sources:
+      - references/editorial-profile.md
+      - portable-production/direct-pdf/journal_pdf/editorial.py
+    note: "随字号同比。不是 3mm。"
+  - id: gaps
+    status: kept
+    value: "框间 3pt，组间 6pt；带箭头的直接连接按 3mm"
+    sources:
+      - AGENTS.md
+      - references/editorial-profile.md
+      - portable-production/direct-pdf/journal_pdf/layouts.py
+    note: "3pt 与 3mm 不混用。箭头距离按真实端口和末段计算。"
+  - id: arrow
+    status: kept
+    value: "Arrow5 宽 3.7pt、深 4.4pt、凹口 0.8pt"
+    sources:
+      - references/editorial-profile.md
+      - portable-production/direct-pdf/journal_pdf/scene.py
+    note: "不用临时三角形代替。"
+  - id: grayscale
+    status: overridden
+    value: "交付的 PDF、JPG、预览都不得含彩色"
+    sources:
+      - knowledge/production-policy.json
+      - AGENTS.md
+      - references/editorial-profile.md
+    note: "2026-11-02 已禁止保彩。旧 profile 里的 source-color 登记例外被主人再次明确取消。通道差上限仍为 2，见 open_questions.gray-delta。"
+  - id: raster-qa
+    status: overridden
+    value: "难处理位图只做灰度、栏宽内缩小、格式检查"
+    sources:
+      - skill/SKILL.md
+      - AGENTS.md
+    note: "不再用像素字高触发重绘。主人明确：CiteSpace、照片、截图、JPG 不做文字可读性门禁。内容是否仍须人工看图，不在自动门里宣称通过。"
+  - id: fonts
+    status: kept
+    value: "cn=宋体 Regular；punct=汉仪中宋简 regular；latin=Times New Roman Regular；latin_italic=Times New Roman Italic"
+    sources:
+      - portable-production/direct-pdf/docs/FONT-CACHE.md
+      - portable-production/direct-pdf/config/fonts.production-windows.example.json
+    note: "没有单独的标题字体或强调字体。不使用 Noto。预览字体不是正式验收。fonts.local.json 的角色字段不改。"
+  - id: adobe-role
+    status: overridden
+    value: "保留 Illustrator，只用于合并和与主人本机 Illustrator 交互，不再当画图路线"
+    sources:
+      - journal.mjs
+      - production-runtime/lib/render.mjs
+      - docs/RELEASE-GUIDE.md
+    note: "代码不删。常规 PDF/JPG 不经过 Adobe 绘制。"
+  - id: workbench
+    status: overridden
+    value: "工作台保留且默认不启动；生产不读取 november-data.js"
+    sources:
+      - workbench/server.mjs
+      - journal.mjs
+    note: "审校交互仍在。有 november-data.js 时工作台照旧加载；否则扫描期次目录生成 issue manifest。"
+  - id: screenshot-route
+    status: added
+    value: "网页截图不重绘；单独一张统计图截图才裁出图区并重做矢量文字"
+    sources:
+      - rules/journal-rules.yaml
+    note: "看不清是不是单图时走光栅，不猜测重绘。"
+  - id: outputs
+    status: kept
+    value: "矢量 PDF，光栅 JPG；重采样时不低于既有 300dpi"
+    sources:
+      - portable-production/raster/render.py
+      - portable-production/direct-pdf/journal_pdf/render.py
+    note: "不新发明分辨率。PNG 预览见 open_questions.preview-png。"
+  - id: delivery-folder
+    status: added
+    value: "默认写回作者原目录，另有指定再用指定目录"
+    sources:
+      - rules/journal-rules.yaml
+    note: "不覆盖来源文件。"
+  - id: stroke-unify
+    status: kept
+    value: "可见描边尽量 0.5pt"
+    sources:
+      - portable-production/direct-pdf/journal_pdf/editorial.py
+      - portable-production/direct-pdf/docs/RULE-COVERAGE.md
+    note: "未知变换不假装已经改成 0.5。0.1pt 发丝线见 open_questions.hairline-stroke。"
+  - id: units
+    status: overridden
+    value: "简单单位 发文量/篇；含斜杠或运算符的复合单位 文字/（m²/s）"
+    sources:
+      - references/editorial-profile.md
+      - portable-production/direct-pdf/journal_pdf/axis_units.py
+    note: "斜杠规则原本只覆盖轴题和有限单位表。主人要求默认开启，并扩充分类词（篇、次、个、人、万元等）。图例括号仍不改，见 open_questions。歧义写入任务记录，不猜测。"
+  - id: naming
+    status: added
+    value: "作者-图1、作者-图1.1；禁止 1.A / 1a"
+    sources:
+      - references/editorial-profile.md
+      - scripts/audit_delivery.py
+    note: "仓库已有 1.1 这种分图号。主人要求校验，拒绝字母子图号。"
+  - id: fidelity
+    status: kept
+    value: "不删内容、不改数据、不改拓扑来换尺寸"
+    sources:
+      - references/editorial-profile.md
+      - AGENTS.md
+      - portable-production/direct-pdf/journal_pdf/rebuild_fidelity.py
+    note: "统计图不得凭截图或估读重绘数据。放不下就停并请主人看，不删字。"
+  - id: numeric-grouping
+    status: kept
+    value: "三位一空，不用于型号、IP、版本"
+    sources:
+      - references/editorial-profile.md
+      - portable-production/direct-pdf/journal_pdf/editorial.py
+    note: "整数从个位向左，小数从小数点向右。"
+  - id: prose-parentheses
+    status: kept
+    value: "中文说明括号用全角；范围连接用全角～"
+    sources:
+      - references/editorial-profile.md
+    note: "纯英文和技术调用不全局替换。轴单位先按斜杠处理。"
+  - id: text-black
+    status: kept
+    value: "可编辑文字纯黑；白字仅限已核对的原白字"
+    sources:
+      - knowledge/production-policy.json
+      - portable-production/direct-pdf/docs/RULE-COVERAGE.md
+  - id: terminator
+    status: kept
+    value: "开始/结束用胶囊形 terminator"
+    sources:
+      - AGENTS.md
+      - portable-production/AGENTS.md
+    note: "真正的椭圆不全局改成胶囊。"
+  - id: summary
+    status: kept
+    value: "一图一页，图外 7pt 身份"
+    sources:
+      - references/editorial-profile.md
+      - portable-production/direct-pdf/docs/RULE-COVERAGE.md
+  - id: sources-word
+    status: kept
+    value: "以当前 Word 保留的图为准；不覆盖来源；不自动验收"
+    sources:
+      - references/editorial-profile.md
+      - AGENTS.md
+      - knowledge/production-policy.json
+  - id: headless
+    status: added
+    value: "node journal.mjs produce --input --output 可无工作台数据运行"
+    sources:
+      - journal.mjs
+      - AGENTS.md
+    note: "主人明确：工作台改为可选。原 produce --config --request 仍保留。"
+  - id: priority
+    status: added
+    value: "来源保真 > 8pt（可缩到 6pt）> 更小尺寸档 > 固定规格"
+    sources:
+      - rules/journal-rules.yaml
+    note: "与「用户指定单栏不升档」冲突的部分列入 open_questions，不静默改掉。"

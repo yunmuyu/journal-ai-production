@@ -27,7 +27,11 @@ import pymupdf as fitz
 from .common import (FigureError, PT_PER_MM, atomic_json, digest_file, finite,
                      resolve_source, safe_name, validate_output_isolation)
 
-DEFAULT_WIDTH_MM = 80.0
+def _default_width_mm():
+    from .journal_rules import load_rules
+    return float(load_rules()['normative']['single_column_mm'])
+
+DEFAULT_WIDTH_MM = _default_width_mm()
 JPEG_QUALITY = 95
 _SUPPORTED_MODES = {"1", "L", "LA", "P", "RGB", "RGBA"}
 

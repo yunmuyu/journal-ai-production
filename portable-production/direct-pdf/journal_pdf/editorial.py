@@ -6,6 +6,9 @@ from __future__ import annotations
 import re, math, copy
 from .common import FigureError, PT_PER_MM
 from .mathematical_signs import normalize_mathematical_signs
+from .journal_rules import load_rules
+
+_NORM = load_rules()['normative']
 
 RULESET = {
     'id': 'journal-editorial-20261016-r21-directpdf-bridge-4-unified-nodes',
@@ -15,16 +18,16 @@ RULESET = {
     'adapter': 'production-runtime/adobe/editorial-generator.jsx',
     'latest_override': 'release-notes/2026.10.14-r21.md',
 }
-PAD_X = 4.5
-PAD_Y = 2.7
-COMPACT_GAP = 3.0
-ARROW_LENGTH = 3 * PT_PER_MM
-ARROW_DEPTH = 4.4
+PAD_X = float(_NORM['box_pad_x_pt'])
+PAD_Y = float(_NORM['box_pad_y_pt'])
+COMPACT_GAP = float(_NORM['compact_gap_pt'])
+ARROW_LENGTH = float(_NORM['arrow_length_mm']) * PT_PER_MM
+ARROW_DEPTH = float(_NORM['arrow_depth_pt'])
 ARROW_BOUNDARY_GAP = ARROW_LENGTH
-LABEL_CLEARANCE = 3.0
-TICK_CLEARANCE = 2.5
-STROKE = 0.5
-EXPORT_PAD = 0.25
+LABEL_CLEARANCE = float(_NORM['label_clearance_pt'])
+TICK_CLEARANCE = float(_NORM['tick_clearance_pt'])
+STROKE = float(_NORM['stroke_pt'])
+EXPORT_PAD = float(_NORM['margin_pt'])
 
 # ASCII spaces match the provided reference samples. No float conversion: zeros,
 # signs, precision, exponent spelling, and leading zeros must survive.
