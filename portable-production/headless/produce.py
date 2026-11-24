@@ -8,7 +8,7 @@ from pathlib import Path
 
 from production_rules.load import load_rules
 from production_rules.names import figure_stem
-from production_rules.routing import route_source
+from production_rules.routing import route_dense_chart, route_source
 from production_rules.width import column_tiers
 
 from .intake import convert_to_pdf, discover
@@ -82,8 +82,16 @@ def produce(input_dir: Path, output_dir: Path | None = None, job_path: Path | No
         shutil.rmtree(work)
     work.mkdir(parents=True)
     for figure in figures:
-        hint = (job.get('figures') or {}).get(figure['id'], {}).get('hint')
+        figure_job = (job.get('figures') or {}).get(figure['id'], {})
+        hint = figure_job.get('hint')
         decision = route_source(figure['path'], hint)
+        if 'point_count' in figure_job or 'line_count' in figure_job or figure_job.get('bitmap_plot_vector_text') is True:
+            if decision['route'] != 'raster-only':
+                decision = route_dense_chart(
+                    int(figure_job.get('point_count') or 0),
+                    int(figure_job.get('line_count') or 0),
+                    approved=figure_job.get('bitmap_plot_vector_text') is True,
+                )
         row = {'id': figure['id'], 'source': figure['path'], 'route': decision, 'status': 'skipped'}
         source = Path(figure['path'])
         try:
@@ -98,6 +106,11 @@ def produce(input_dir: Path, output_dir: Path | None = None, job_path: Path | No
             elif decision['route'] == 'screenshot-chart':
                 row.update(status='needs-vector-redraw',
                            message='单独统计图截图要裁出图区并重做文字。本轮不凭空造数据。请在 job.json 给出图区。')
+            elif decision['route'] == 'needs-owner-approval':
+                row.update(status='needs-owner-approval', message=decision['reason'],
+                           approval_field=decision.get('approval_field'))
+            elif decision['route'] == 'bitmap-plot-vector-text':
+                row.update(status='approved-bitmap-plot', message=decision['reason'])
             else:
                 pdf = convert_to_pdf(source, work / figure['id'])
                 row.update(status='converted', intermediate_pdf=str(pdf), message=decision['reason'])

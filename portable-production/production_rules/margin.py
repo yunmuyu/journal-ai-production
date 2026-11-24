@@ -2,9 +2,8 @@
 from .load import load_rules
 
 
-def margin_tolerance_pt(padding: float) -> float:
+def margin_tolerance_pt(padding: float | None = None) -> float:
+    """Measurement slack for the one PDF margin. It stays below that margin."""
     rules = load_rules()['normative']
-    tight = float(rules['margin_measure_tolerance_pt'])
-    if padding <= 0.5:
-        return tight
-    return max(tight, float(rules['legacy_large_pad_tolerance_pt']))
+    margin = float(rules['margin_pt'] if padding is None else padding)
+    return min(float(rules['margin_measure_tolerance_pt']), margin * 0.6)

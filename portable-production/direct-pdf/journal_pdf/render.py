@@ -441,11 +441,11 @@ def render_one(spec,reg,assets,source_root:Path,output_root:Path,*,overwrite=Fal
     diagnostic_only=spec.get('policy',{}).get('diagnostic_only',False)
     if not isinstance(diagnostic_only,bool):raise FigureError('diagnostic_policy','diagnostic_only must be boolean')
     from .journal_rules import load_rules
-    padding_rule=load_rules()['normative']
-    crop_padding=spec.get('policy',{}).get('export_crop_padding_pt',float(padding_rule['margin_pt']))
-    pad_min,pad_max=float(padding_rule['engine_padding_min_pt']),float(padding_rule['engine_padding_max_pt'])
-    if isinstance(crop_padding,bool) or not isinstance(crop_padding,(int,float)) or not math.isfinite(crop_padding) or not pad_min<=crop_padding<=pad_max:
-        raise FigureError('export_crop_padding_invalid','导出裁切留白必须为0到12pt的有限数值')
+    required_padding=float(load_rules()['normative']['margin_pt'])
+    requested=spec.get('policy',{}).get('export_crop_padding_pt', required_padding)
+    if isinstance(requested,bool) or not isinstance(requested,(int,float)) or not math.isfinite(requested) or abs(float(requested)-required_padding)>1e-9:
+        raise FigureError('export_crop_padding_invalid','矢量 PDF 留白只使用规则文件中的 margin_pt', expected=required_padding)
+    crop_padding=required_padding
     from .common import validate_output_isolation
     validate_output_isolation(source_root, output_root)
     id=safe_name(spec['id']);author=safe_name(spec.get('author','未归属'))

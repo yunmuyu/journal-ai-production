@@ -20,7 +20,7 @@ def test_axis_precision_notice_requires_identifiable_numeric_axis(values,flagged
 def render_ticks(reg,tmp_path,values,groups='auto',size=8):
     texts=[{'id':f'y{i}','text':value,'x':20,'y':15+12*i,'role':'axis-tick'} for i,value in enumerate(values)]
     spec={'id':'precision','author':'Synthetic','synthetic':True,'kind':'scene','width_pt':80,'height_pt':110,
-          'policy':{'design_font_size_pt':size,'export_crop_padding_pt':4},'texts':texts}
+          'policy':{'design_font_size_pt':size},'texts':texts}
     if groups=='auto':spec['axis_tick_groups']=[{'id':'y','text_ids':[t['id'] for t in texts]}]
     elif groups is not None:spec['axis_tick_groups']=groups
     source=tmp_path/'source';source.mkdir(exist_ok=True);assets=Assets()

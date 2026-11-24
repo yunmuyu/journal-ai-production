@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from production_rules.load import load_rules
 from production_rules.margin import margin_tolerance_pt
 from production_rules.names import FigureNameError, figure_stem, validate_figure_stem
-from production_rules.routing import route_source
+from production_rules.routing import route_dense_chart, route_source
 from production_rules.width import column_tiers
 from journal_pdf.editorial import EXPORT_PAD, STROKE, COMPACT_GAP, PAD_X, PAD_Y
 from journal_pdf.scene import Scene
@@ -37,15 +37,16 @@ def test_font_roles_match_the_existing_statement():
 
 
 def test_quarter_point_tolerance_rejects_a_missing_margin():
-    assert margin_tolerance_pt(0.25) < 0.25
-    assert abs(0 - 0.25) > margin_tolerance_pt(0.25)
-    assert margin_tolerance_pt(4) == 0.25
+    slack = margin_tolerance_pt()
+    margin = load_rules()['normative']['margin_pt']
+    assert slack < margin
+    assert abs(0 - margin) > slack
 
 
 def test_names_accept_decimal_subfigures_and_reject_letters():
     assert figure_stem('张三', '1.2') == '张三-图1.2'
     validate_figure_stem('张三-图1')
-    for bad in ('张三-图1.A', '张三-图1a', '张三-图1A', '张三-图A'):
+    for bad in ('张三-图1.A', '张三-图1a', '张三-图1A', '张三-图A', '张三-图18（a）', '张三-图2 3'):
         try:
             validate_figure_stem(bad)
         except FigureNameError:
@@ -56,7 +57,8 @@ def test_names_accept_decimal_subfigures_and_reject_letters():
 def test_explicit_single_does_not_include_the_double_tier():
     assert column_tiers('single', {'policy': {}}, 'scene') == [80]
     assert column_tiers('auto', {'policy': {}}, 'scene') == [80, 160]
-    assert column_tiers('auto', {'policy': {'simple_chart': True}}, 'chart')[0] == 60
+    assert column_tiers('single', {'policy': {'simple_chart': True}}, 'chart') == [60, 80]
+    assert column_tiers('auto', {'policy': {'simple_chart': True}}, 'chart') == [60, 80, 160]
 
 
 def test_screenshot_routing_does_not_redraw_web_pages():
@@ -65,6 +67,12 @@ def test_screenshot_routing_does_not_redraw_web_pages():
     chart = route_source('仅此一张.png', 'standalone-chart')
     assert chart['route'] == 'screenshot-chart' and chart['redraw'] is True
     assert route_source('photo.jpg')['redraw'] is False
+    assert route_dense_chart(10, 2, approved=False)['route'] == 'vector-chart'
+    assert route_dense_chart(800, 2, approved=False)['route'] == 'needs-owner-approval'
+    assert route_dense_chart(800, 2, approved=True)['route'] == 'bitmap-plot-vector-text'
+    script = load_rules()['normative']
+    assert script['scientific_exponent_scale'] == 0.7
+    assert script['scientific_baseline_shift_ratio'] == -0.4
 
 
 def test_actor_and_frame_are_scene_primitives():

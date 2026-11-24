@@ -305,19 +305,7 @@ def stage_grid(spec, reg, size, assets=None, root=None):
                                                   and arrow_gap <= v <= 60 for v in gap_overrides.values()),
           'gap_overrides须为列ID到箭头最小长度以上列距的映射')
     if spec.get('policy', {}).get('fill_width'):
-        # 内容比版心窄时，把余量均分给各列：保持 8pt，又不让整幅缩在中间
-        target = ((160 if spec.get('policy', {}).get('column') == 'double' else 80) * 72 / 25.4
-                  - 2 * margin - 8)
-        crossings = 0
-        for ci in range(len(columns) - 1):
-            here = {panel_of.get(b['id']) for b in columns[ci]['blocks']}
-            there = {panel_of.get(b['id']) for b in columns[ci + 1]['blocks']}
-            if here != there:
-                crossings += 1
-        used = sum(col_widths) + column_gap * (len(col_widths) - 1) + panel_gap * crossings
-        if used < target:
-            extra = (target - used) / len(col_widths)
-            col_widths = [w + extra for w in col_widths]
+        raise FigureError('column_fill_forbidden', 'fill_width 会把窄图撑满栏宽，已禁止。同组框要等宽时用 equal_width 或 equal_width_groups，按最长一项取宽。')
     col_left = []; cursor = margin
     for ci, width in enumerate(col_widths):
         col_left.append(cursor)

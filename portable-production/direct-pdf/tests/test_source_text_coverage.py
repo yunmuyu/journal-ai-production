@@ -30,7 +30,7 @@ def test_partial_native_relettering_does_not_certify_retained_source_text(reg, t
             doc.update_stream(xref, bytes([100] * 12))
         doc.save(source)
     spec = {'id':'coverage', 'author':'Synthetic', 'kind':'scene', 'width_pt':100, 'height_pt':80,
-            'policy':{'column':'single', 'design_font_size_pt':8, 'export_crop_padding_pt':4},
+            'policy':{'column':'single', 'design_font_size_pt':8},
             'sources':[{'path':source.name, 'sha256':digest_file(source)}],
             'texts':[{'id':'label', 'text':'Native', 'x':30, 'y':20}],
             'assets':[{'id':'body', 'path':source.name, 'source_kind':'pdf', mode:True,

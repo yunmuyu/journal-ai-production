@@ -105,5 +105,8 @@ def test_chart_measures_normalized_title_before_placement(reg,tmp_path):
   y=next(t for t in scene.texts if t['id']=='ytitle')
   assert x['source_content']=='Freq(Hz)' and x['measurement']['text']=='Freq/Hz'
   assert y['source_content']=='S21(dB)' and y['measurement']['text']=='S21/dB'
-  assert scene.layout_evidence['layout_build_count']==1 and scene.size==8
+  assert scene.layout_evidence['layout_build_count']==1
+  assert scene.layout_evidence['initial_design_font_size_pt']==8
+  assert scene.layout_evidence['column_mm']==60
+  assert scene.size==pytest.approx(8*scene.layout_evidence['whole_artwork_scale'])
  finally:assets.close()

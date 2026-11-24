@@ -1,5 +1,7 @@
+import pytest
 from PIL import Image, ImageChops
 from journal_pdf.assets import Assets
+from journal_pdf.journal_rules import load_rules
 from journal_pdf.render import render_one
 
 
@@ -11,7 +13,7 @@ def test_export_padding_survives_original_scene_boundary(tmp_path, reg):
     spec = {'version': 1, 'id': 'edge', 'author': 'fixture', 'synthetic': True,
             'kind': 'scene', 'width_pt': 100, 'height_pt': 50,
             'texts': [{'id': 'edge', 'text': '测试', 'x': width/2+.3, 'y': 10}],
-            'policy': {'column': 'single', 'export_crop_padding_pt': 4}}
+            'policy': {'column': 'single'}}
     assets = Assets()
     try:
         result = render_one(spec, reg, assets, source, tmp_path/'output')
@@ -20,6 +22,8 @@ def test_export_padding_survives_original_scene_boundary(tmp_path, reg):
             box = ImageChops.difference(rgb, Image.new('RGB', rgb.size, 'white')).getbbox()
             # Then actual rendered ink, not just the requested policy, has four safe margins.
             margins = [box[0], box[1], rgb.width-box[2], rgb.height-box[3]]
-            assert min(margins)*72/300 >= 2
+            measured = min(margins) * 72 / 300
+            assert measured == pytest.approx(float(load_rules()['normative']['margin_pt']), abs=0.2)
+            assert measured > 0.05
     finally:
         assets.close()

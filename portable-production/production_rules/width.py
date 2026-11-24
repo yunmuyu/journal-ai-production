@@ -26,14 +26,13 @@ def column_tiers(mode: str, spec, kind, rules=None) -> list[float]:
     simple = float(normative['simple_chart_mm'])
     if mode == 'double':
         return [double]
-    if mode == 'single' and not normative.get('explicit_single_advances'):
-        return [single]
     tiers = []
-    if is_simple_chart(spec, kind, rules) and mode != 'double':
+    # Simple charts start at 60mm even when the column is explicitly single.
+    # Single still does not jump to the two-column tier.
+    if is_simple_chart(spec, kind, rules):
         tiers.append(simple)
-    if mode != 'double':
-        tiers.append(single)
-    if mode != 'single' or normative.get('explicit_single_advances'):
+    tiers.append(single)
+    if mode == 'auto' or normative.get('explicit_single_advances'):
         tiers.append(double)
     # de-duplicate while keeping order
     seen = []

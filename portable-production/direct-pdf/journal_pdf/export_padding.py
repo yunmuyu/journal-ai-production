@@ -18,8 +18,9 @@ def ink_rect(page):
 
 def normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADDING_PT):
     """Stage and check page boxes, retaining original content and clipping."""
-    if isinstance(padding, bool) or not isinstance(padding, (int, float)) or not math.isfinite(padding) or not 0 <= padding <= 12:
-        raise FigureError('export_crop_padding_invalid', '导出留白须为0到12pt的有限数值')
+    required = float(load_rules()['normative']['margin_pt'])
+    if isinstance(padding, bool) or not isinstance(padding, (int, float)) or not math.isfinite(padding) or abs(float(padding) - required) > 1e-9:
+        raise FigureError('export_crop_padding_invalid', '矢量 PDF 留白只使用规则文件中的 margin_pt', expected=required)
     if source.resolve() == destination.resolve():
         raise FigureError('output_isolation', '先验证裁边副本，不能原位写入')
     pages = []

@@ -524,8 +524,8 @@
     },
     {
       "path": "direct-pdf/README.md",
-      "sha256": "10ea1da87d9979cdf251d9d1472b3a9a7fde729a7466e7778deea012027966e6",
-      "bytes": 24649
+      "sha256": "aecd81497fa659978d408e79b9629a1aa33de6bffe23692a6669454b4fec9390",
+      "bytes": 24604
     },
     {
       "path": "direct-pdf/RELEASE-CANDIDATE.json",
@@ -1004,8 +1004,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/export_padding.py",
-      "sha256": "fc0194ad7baef88ea0f84f5c239e9485d6a46cbda833a9988bbf98a7cc55b70e",
-      "bytes": 5640
+      "sha256": "3e8c01bef075ed928ace0a6653cb6bc06b0d03ff402cd200e53be628388b5d7e",
+      "bytes": 5748
     },
     {
       "path": "direct-pdf/journal_pdf/final_visibility.py",
@@ -1099,8 +1099,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/layouts.py",
-      "sha256": "e386697af7252136e946c3688d198af3a38e397fba9d953fbe918ae78a3d4762",
-      "bytes": 49854
+      "sha256": "19c894e9437dd05679e6e21f13d2f72431e883dbcb152f4064ac005b2cdb08fe",
+      "bytes": 49963
     },
     {
       "path": "direct-pdf/journal_pdf/legend_collision.py",
@@ -1179,8 +1179,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/render.py",
-      "sha256": "be40010083a88e9544a7158e0e85db456c666480c57b494eb39917f240e6a188",
-      "bytes": 44805
+      "sha256": "ae1976a85aee614a53b36d86a8c03905cd7035022d720701faea5d18cfe08c7e",
+      "bytes": 44766
     },
     {
       "path": "direct-pdf/journal_pdf/route_clearances.py",
@@ -1214,8 +1214,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/scientific_text.py",
-      "sha256": "0020e844bcbea18f2354df3679045c3d4b02de72a3514a76646ed73065e01795",
-      "bytes": 2282
+      "sha256": "afd7011bac8a3c28dcfd727dc40021c20af333394b7f09c6a7471efb38a2c2b9",
+      "bytes": 2541
     },
     {
       "path": "direct-pdf/journal_pdf/semantic_panels.py",
@@ -1329,8 +1329,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/stage_grid.py",
-      "sha256": "7b60fa0cc060717d1d2f7f85d7f142c62349be3d929ce2e5e22ffaf893918d0b",
-      "bytes": 47743
+      "sha256": "054aae73efb328155d27d681f3a1c34dc9d88ce6f9c8bfb1bb0f6e9b3b98fa8a",
+      "bytes": 47192
     },
     {
       "path": "direct-pdf/journal_pdf/svg_embedded.py",
@@ -1414,13 +1414,13 @@
     },
     {
       "path": "direct-pdf/tests/test_axis_precision_review.py",
-      "sha256": "5c6ea5bf0c7b1f8e826d39b38bcf3e02415f278f8a30b9d3cdd83adba5c5fc3c",
-      "bytes": 4178
+      "sha256": "effb9146f684e0b05ba6f27ac1976931f3e82a019b4c95128143eb7eaf99004b",
+      "bytes": 4151
     },
     {
       "path": "direct-pdf/tests/test_axis_units.py",
-      "sha256": "a34828507534da284c5b0bd985720f61317bf7ac31e287d8c131213d06710343",
-      "bytes": 5408
+      "sha256": "b272917b664441a3bd16085fa6303471de6bd395b37bd10287dd42b366db745f",
+      "bytes": 5586
     },
     {
       "path": "direct-pdf/tests/test_bar_top_labels.py",
@@ -1494,8 +1494,8 @@
     },
     {
       "path": "direct-pdf/tests/test_chart_vector_layout.py",
-      "sha256": "fbfeb9466bff23fd0ccb2009b3dd0be73395e7cfa33a1cd88180e15bb27bb737",
-      "bytes": 12345
+      "sha256": "5960fb0430a4f123c3f34416b54f6787ede2262a3a32c1b0f9671d40f9e47ed9",
+      "bytes": 12318
     },
     {
       "path": "direct-pdf/tests/test_checkbox_glyph.py",
@@ -1564,13 +1564,13 @@
     },
     {
       "path": "direct-pdf/tests/test_export_crop_padding.py",
-      "sha256": "04164de646aa002f21dce8d36d97629e017f947a4fae64a2e17bb8504f3c10c0",
-      "bytes": 2974
+      "sha256": "19d356c27edec732e63f36aff1e7ca0915d54bf97dac601a9b03332b7243f933",
+      "bytes": 1706
     },
     {
       "path": "direct-pdf/tests/test_export_margin.py",
-      "sha256": "8f68fb169c547b9df6bc67d820cd0606426bc40be2f4a19b973b0b87ff48b7bb",
-      "bytes": 1231
+      "sha256": "75545a4c97f5777e09ac823b524753f91441c4190c51895fff01b8f9e7c5deb5",
+      "bytes": 1404
     },
     {
       "path": "direct-pdf/tests/test_figure_audit_contract.py",
@@ -1584,8 +1584,8 @@
     },
     {
       "path": "direct-pdf/tests/test_final_visibility.py",
-      "sha256": "bb50ab43af8ad95ba4f013cf26d72251e2559cb0ba983e3a32fa11090c675ca5",
-      "bytes": 11908
+      "sha256": "3fa0ea26ea0c373ba1bfdbda92c778e5019093c16c932abb7ff879c76598f03a",
+      "bytes": 11739
     },
     {
       "path": "direct-pdf/tests/test_flow_terminal_shapes.py",
@@ -1599,8 +1599,8 @@
     },
     {
       "path": "direct-pdf/tests/test_generation_contracts.py",
-      "sha256": "f43b0e9141c289b78ba2a553b5443416779fc8fb071f10cb4db9a864b74ad94d",
-      "bytes": 9239
+      "sha256": "f206a5349df6760341fde5d33cd85ec8d1261f629de14bb3a475a5356d212b6b",
+      "bytes": 9212
     },
     {
       "path": "direct-pdf/tests/test_graph_branch_directions.py",
@@ -1669,8 +1669,8 @@
     },
     {
       "path": "direct-pdf/tests/test_journal_rules.py",
-      "sha256": "f8bff8b4b0f83a69fe4ddd5fdcadf4b86e479c07e2e2f77c3e7a62c79b2c882a",
-      "bytes": 2948
+      "sha256": "962ef5e83ef52c4309607034787e5e033f3606069777f8a08ca239094a811a70",
+      "bytes": 3525
     },
     {
       "path": "direct-pdf/tests/test_label_fit.py",
@@ -1829,8 +1829,8 @@
     },
     {
       "path": "direct-pdf/tests/test_quantity_spacing.py",
-      "sha256": "7c69c46517dbf0e34991c61c2a5c3e8a098a51afb81df0ccf307cc4039535828",
-      "bytes": 10587
+      "sha256": "55ed3f5ff584823951a93d60042fd25bf0b7adea94e123324d87840570ec338f",
+      "bytes": 10535
     },
     {
       "path": "direct-pdf/tests/test_raster_preprocess.py",
@@ -1874,8 +1874,8 @@
     },
     {
       "path": "direct-pdf/tests/test_scientific_text.py",
-      "sha256": "59a6f39fa7c852790d4ea14a3c4db8247b0e5ecb8ee0bd8314e0fbe60ffe8ea0",
-      "bytes": 9982
+      "sha256": "82564fac2590389d2c2d62d5b0316884e88ad2b9c58b693c280e973e4118b243",
+      "bytes": 10355
     },
     {
       "path": "direct-pdf/tests/test_source_icons.py",
@@ -1934,13 +1934,13 @@
     },
     {
       "path": "direct-pdf/tests/test_source_text_bindings.py",
-      "sha256": "6746bf2c3f157adac566a5344f81d30ba0dcf284c5c66b61bc84eb81e47c06ac",
-      "bytes": 3313
+      "sha256": "0da907c3896b911357b78aa5f9f2d1bdf3ba6692af6bae299a7baadae70833d8",
+      "bytes": 3287
     },
     {
       "path": "direct-pdf/tests/test_source_text_coverage.py",
-      "sha256": "f354a5ba2b7b02c84f557a4b4ba6a0c65ac3714bfbd0a28698beb20ffbc25e23",
-      "bytes": 3061
+      "sha256": "c90bf4158546175b5d49b94ea6bcc46444b60d4c34ef36e4827cf55f09a75e4e",
+      "bytes": 3033
     },
     {
       "path": "direct-pdf/tests/test_source_tick_gap.py",
@@ -2034,8 +2034,8 @@
     },
     {
       "path": "headless/produce.py",
-      "sha256": "cca4091f30e8f5e340fa01ffd70d413c830c65fe29d353a2e65dde560f21900b",
-      "bytes": 6026
+      "sha256": "d2fdd4818ae6e1e9b5b0ccd3487eb8f176d9308968b1d019014f96d2f6755cfe",
+      "bytes": 6889
     },
     {
       "path": "localflow/EDITORIAL-GATE.md",
@@ -2229,8 +2229,8 @@
     },
     {
       "path": "production_rules/margin.py",
-      "sha256": "847d3790dc8a0765199c7d567ef8484fdeb80b1a2ee375594ff0b9d0b0b18766",
-      "bytes": 368
+      "sha256": "867a69f2355fe434ae57eff424ca9ce07a83f5ba27ab0039a1fb0e73183fe57b",
+      "bytes": 438
     },
     {
       "path": "production_rules/names.py",
@@ -2239,13 +2239,13 @@
     },
     {
       "path": "production_rules/routing.py",
-      "sha256": "4f242da41ebd033ff2cdb6a71e1507be4886ce68da487d31c2c9c941d1b1c6dd",
-      "bytes": 1925
+      "sha256": "9891d90ad00a09d2356a0fc017fbde91c4f3b7be2d3cdc97522757ada9106332",
+      "bytes": 2981
     },
     {
       "path": "production_rules/width.py",
-      "sha256": "fbb8ffd353b0b5dd5780009bd9f7dc7d296f6a866da40818954b410f754d89cd",
-      "bytes": 1525
+      "sha256": "230037ca807b87d7648746f0f09c1dbe4051cccc273433ec37f5e4cf8e9b8e8d",
+      "bytes": 1508
     },
     {
       "path": "quality-recipes/README.md",
@@ -2851,13 +2851,13 @@
     },
     {
       "path": "docs/无头生产.md",
-      "sha256": "1081c415af5974528559602bce1a81bb6681afa371a142837ea511bbf15c8cc5",
-      "bytes": 1379
+      "sha256": "f69c65ef1dd831efe2b8b070edcac34df2f7d39130e0e9dd87c89cafd4d89043",
+      "bytes": 2144
     },
     {
       "path": "docs/规则对照.md",
-      "sha256": "7597bf010ee949fe9e6e45135afaa6b565e083d5fa6f76bb7d9d99f4831ade70",
-      "bytes": 5344
+      "sha256": "dcc62049265ea39eb2ca864a279cdfd2a2e61091047eb14349428620984413e5",
+      "bytes": 5201
     },
     {
       "path": "journal.mjs",
@@ -3411,8 +3411,8 @@
     },
     {
       "path": "rules/journal-rules.yaml",
-      "sha256": "895c61f6653a8a85070a22413314012bd75a835686924332c1750a71b8061e57",
-      "bytes": 14063
+      "sha256": "b0a3c59bd77aec8ceace4d00da0dd377ccf25fe7cf690a507128664ade9dec57",
+      "bytes": 13534
     },
     {
       "path": "scripts/archive-manuscripts.ps1",
@@ -3741,8 +3741,8 @@
     },
     {
       "path": "tests/golden/run_golden.py",
-      "sha256": "8c081ccb9f34a02984277aed8f672af070df8ad97eac92eba975e56cdf38edc4",
-      "bytes": 1493
+      "sha256": "297c8a60ca24fc88e3c9740044d2faff524383027dee6854e912c543f1bc1986",
+      "bytes": 3270
     },
     {
       "path": "tests/grayscale-only.test.mjs",
@@ -4101,8 +4101,8 @@
     },
     {
       "path": "workbench/chart-binding-fixture.py",
-      "sha256": "0188a7fa32b5b08989afc376622d664e9baadea3f268966205d0426ba897f23d",
-      "bytes": 2962
+      "sha256": "9f1012ad4c4b1910512a49be3901a1e0b9f95666555ae5d2e089f73f16bee470",
+      "bytes": 2935
     },
     {
       "path": "workbench/chart-panels.test.mjs",
@@ -4421,13 +4421,13 @@
     },
     {
       "path": "workbench/processing-evidence.mjs",
-      "sha256": "005ffcc3ee8c5df87802e070df383588231f3b5c559f5253e965222fced18762",
-      "bytes": 15314
+      "sha256": "690405bd9b68d98d91d3c1db84d9edb61ff889dd76844a9b9c70986aa07f3f37",
+      "bytes": 15427
     },
     {
       "path": "workbench/processing-evidence.test.mjs",
-      "sha256": "8c71c559a0de3bbe9bf35c900af612f2fc9e027827770cd11ca4021e84e3eaa5",
-      "bytes": 8877
+      "sha256": "a2312957c680ca11be4fab7d0536236eb30bfc9924a39a007cde7ecee50d6dbf",
+      "bytes": 8852
     },
     {
       "path": "workbench/processing-test-fixture.mjs",
@@ -4436,8 +4436,8 @@
     },
     {
       "path": "workbench/processing-test-fixture.py",
-      "sha256": "4273671348a6e3085f4963cdb58026b23f7e35d52bb1d1c1d4c9436c0b24055a",
-      "bytes": 3598
+      "sha256": "d586f32641c756db2f91e76ad7784ac8affcf3a24b161cee5c093a82f6dcf826",
+      "bytes": 3569
     },
     {
       "path": "workbench/production-admission.mjs",

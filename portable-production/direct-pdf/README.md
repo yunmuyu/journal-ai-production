@@ -158,6 +158,6 @@ stage-grid 节点可以声明 `fill_column: true`，将节点拉到本列实测�
 
 ### 保存后的统一留白
 
-`policy.export_crop_padding_pt` 缺省 0.25 pt（生产留白）。低层仍接受显式 0～12 pt，见规则文件里的未决问题；无头生产不用其他值。公共 `journal_pdf.export_padding.normalize_pdf_padding` 同时用于新导出和旧 PDF 批处理：测量可见墨迹，必要时扩展 MediaBox，并保护原 CropBox，防止露出旧裁切范围之外的内容。输出先写副本，再核验四边留白和原视口渲染；不缩放图形或字号。旋转页、空白页和验证失败均阻断。
+矢量 PDF 的四边留白只读规则文件里的 `margin_pt`（现为 0.25pt）。JPG 不加这道留白。改这一处即可，不再接受 0～12pt 的另一套范围。公共 `journal_pdf.export_padding.normalize_pdf_padding` 用于新导出和旧 PDF 批处理：测量可见墨迹，必要时扩展 MediaBox，并保护原 CropBox。输出先写副本，再核验四边留白和原视口渲染；不缩放图形或字号。旋转页、空白页和验证失败均阻断。
 
 场景坐标及遮挡检查先在原坐标系完成；最后的页面框调整由 `export_padding_audit` 记录实际 MediaBox、CropBox、四边测量及渲染一致性。`layout.evidence.export_crop` 是前一步裁切证据，不能当作最终留白实测。原视口边缘最多两像素的裁切抗锯齿变化单独标记，内部像素必须一致；新增白边不得暴露旧裁切外内容。

@@ -133,9 +133,10 @@ export function verifyProcessingEvidence(task,outputs,evidence,{python}={}){
   const bindings=report.source_bindings;
   if(!Array.isArray(bindings)||bindingKeys(bindings)!==bindingKeys(spec.sources)||hash(route.sourceReview.selected.path)!==route.sourceReview.selected.sha256||!bindings.some(b=>b.sha256===route.sourceReview.selected.sha256)||bindings.some(b=>hash(path.resolve(entry.sourceRoot??path.dirname(entry.spec.path),b.path))!==b.sha256))throw Error('加工报告没有绑定本图已核对的原始来源');
   const marginRule=loadJournalRules().normative;
-  const declared=spec.policy?.export_crop_padding_pt??marginRule.margin_pt;
-  const tolerance=declared<=0.5?marginRule.margin_measure_tolerance_pt:marginRule.legacy_large_pad_tolerance_pt;
-  if(!report.pdf_audit?.text_multiset_exact||!report.pdf_audit?.neutral_rgb_300dpi||!report.pdf_audit?.all_fonts_embedded||!report.pdf_audit?.editable_text_pure_black||report.pdf_audit?.editable_text_margin_passed!==true||!(Math.abs(report.pdf_audit.minimum_text_margin_pt-declared)<=tolerance+1e-9))throw Error('加工报告缺少实际PDF文字、字体、灰度及页边检查');
+  const declared=spec.policy?.export_crop_padding_pt;
+  const tolerance=Math.min(marginRule.margin_measure_tolerance_pt, marginRule.margin_pt*0.6);
+  if(declared!=null && Math.abs(declared-marginRule.margin_pt)>1e-9)throw Error('矢量 PDF 留白必须使用规则文件中的 margin_pt');
+  if(!report.pdf_audit?.text_multiset_exact||!report.pdf_audit?.neutral_rgb_300dpi||!report.pdf_audit?.all_fonts_embedded||!report.pdf_audit?.editable_text_pure_black||report.pdf_audit?.editable_text_margin_passed!==true||!(Math.abs(report.pdf_audit.minimum_text_margin_pt-marginRule.margin_pt)<=tolerance+1e-9))throw Error('加工报告缺少实际PDF文字、字体、灰度及页边检查');
   verifyOperation(requirement,spec,report,route.sourceReview.selected.sha256);
   const proof=JSON.parse(execFileSync(python,['-c','import json,sys; from journal_pdf.common import read_json,digest_json; from journal_pdf.editorial import engine_signature; print(json.dumps({"engine":engine_signature(),"spec":digest_json(read_json(sys.argv[1]))}))',entry.spec.path],{cwd:engineRoot,env:{...process.env,PYTHONPATH:engineRoot,PYTHONUTF8:'1'},encoding:'utf8',windowsHide:true,timeout:30000}));
   if(report.engine_signature!==proof.engine||report.spec_hash!==proof.spec)throw Error('加工报告的公共工具版本或制作说明已变化');

@@ -6,11 +6,9 @@ journal: 现代信息科技
 
 normative:
   margin_pt: 0.25
+  margin_applies_to: vector-pdf
   margin_measure_dpi: 600
   margin_measure_tolerance_pt: 0.15
-  legacy_large_pad_tolerance_pt: 0.25
-  engine_padding_min_pt: 0
-  engine_padding_max_pt: 12
   grayscale_channel_delta_max: 2
   grayscale_required: true
   body_pt: 8
@@ -34,8 +32,12 @@ normative:
   label_clearance_pt: 3
   tick_clearance_pt: 2.5
   summary_badge_pt: 7
-  bus_leg_mm_default: 2
+  summary_bus_leg_mm: 1.06
+  scientific_exponent_scale: 0.7
+  scientific_baseline_shift_ratio: -0.4
   subscript_may_be_below_floor: true
+  dense_chart_point_threshold: 500
+  dense_chart_line_threshold: 40
   font_roles:
     cn: SimSun
     punct: HYa3gj
@@ -50,6 +52,8 @@ normative:
   emphasis_font: none
   forbidden_font_substitutes:
     - Noto
+    - 等线
+    - Adobe宋体
   delivery_vector: pdf
   delivery_raster: jpg
   raster_floor_dpi_when_resampled: 300
@@ -108,42 +112,11 @@ open_questions:
   - id: explicit-single-column
     kept: "用户指定 column=single 时不自动改双栏"
     owner_tension: "放不下时升下一档；固定规格优先级最低"
-    behavior: "explicit_single_advances=false，仅 column=auto 在 6pt 与重排之后升档"
-  - id: padding-range
-    kept: "direct-pdf 低层仍接受显式 0–12pt"
-    owner_tension: "生产留白一律 0.25pt"
-    behavior: "缺省与无头生产用 0.25；显式其他值不作为生产缺省，证据核对接该说明声明的留白"
-  - id: legend-parentheses
-    kept: "图例与说明文字的括号不一律改斜杠；中文说明默认全角括号"
-    owner_tension: "轴题/标签中的单位括号改为斜杠"
-    behavior: "只改 axis-title 上已识别的单位；图例不改"
-  - id: gray-delta
-    kept: "300dpi 下通道差超过 2 的像素必须为零"
-    owner_tension: "任何交付物不得含彩色"
-    behavior: "沿用通道差上限 2，JPG 模式 L；不把抗锯齿容差收成 0"
-  - id: bus-leg
-    kept: "汇总线脚本默认 2mm，部分历史反馈要求 3mm"
-    behavior: "默认 2mm，已确认案例按其要求，不全局覆盖"
-  - id: simple-chart-heuristic
-    kept: "仓库原先没有 60mm 档"
-    owner_tension: "简单统计图尽量落在 60mm"
-    behavior: "仅 column=auto 且系列数不超过 simple_chart_max_series 时先试 60mm；判定启发式待主人确认"
-  - id: fill-width-switch
-    kept: "stage-grid 的 policy.fill_width 会把窄内容匀进栏宽"
-    owner_tension: "版心始终取最紧尺寸，不撑满"
-    behavior: "缺省仍不撑满。显式 fill_width 未删，等主人确认是否关闭"
-  - id: preview-png
-    kept: "光栅工具另写 PNG 预览供检查"
-    owner_tension: "交付只有 PDF 与 JPG"
-    behavior: "交付只认 PDF/JPG。PNG 仍作非交付检查件，等主人确认可否去掉"
+    behavior: "explicit_single_advances=false。简单统计图即使指定单栏也先试 60mm，再 80mm，仍不升双栏"
   - id: hairline-stroke
-    kept: "stage-grid 有一处 width=0.1 的矩形"
+    kept: "stage-grid 注释框有一处 width=0.1"
     owner_tension: "线宽尽量统一 0.5pt"
-    behavior: "最终可见描边审计仍是 0.5pt。0.1pt 那一处未改，避免静默改版式"
-  - id: composite-font
-    kept: "Illustrator 复合字体必须是现 宋体 1，不能回退后仍声称合格"
-    owner_tension: "中文用宋体、标点用汉仪中宋简、拉丁和数字用 Times New Roman"
-    behavior: "direct-pdf 按三个角色配字。复合字体仍是 Adobe 合并这些角色的结果，缺复合字体时不把单独宋体说成已通过"
+    behavior: "主人尚未决定。重绘的矩形和组框仍是 0.5pt。这条 0.1pt 先留着"
 
 catalog:
   - id: margin
@@ -360,3 +333,29 @@ catalog:
     sources:
       - rules/journal-rules.yaml
     note: "与「用户指定单栏不升档」冲突的部分列入 open_questions，不静默改掉。"
+  - id: script-metrics
+    status: kept
+    value: "科学计数法上标比例 0.7，基线位移 -0.4 倍基础字号"
+    sources:
+      - portable-production/direct-pdf/journal_pdf/scientific_text.py
+      - portable-production/task_quality/typography.py
+    note: "6pt 下限只约束正文。角标角色不套这个下限。负号是现有坐标里的上移，不改成正值。"
+  - id: equal-width
+    status: kept
+    value: "equal_width 与 equal_width_groups 把同组框宽收到最长一项"
+    sources:
+      - portable-production/direct-pdf/README.md
+      - portable-production/direct-pdf/journal_pdf/graph_layout.py
+    note: "这是对齐外观，不是撑满栏宽。fill_width 会把窄图摊到 80 或 160mm，已禁止。"
+  - id: dense-chart-bitmap
+    status: added
+    value: "点或线过多时，只有 job 里 bitmap_plot_vector_text 为 true 才改成位图图面加矢量文字"
+    sources:
+      - rules/journal-rules.yaml
+    note: "未批准就停。重绘矩形和组框用 0.5pt。"
+  - id: summary-bus
+    status: overridden
+    value: "汇总线引出长度默认 1.06mm，约 3pt，可在规则文件里改"
+    sources:
+      - portable-production/direct-pdf/journal_pdf/layouts.py
+    note: "原先写死 2mm。有箭头时仍至少留出箭头本身的长度。"
