@@ -23,11 +23,13 @@
 
 ```powershell
 python scripts/release_bundle.py verify --root .
-node journal.mjs doctor --config '<机器配置.json>'
+node journal.mjs doctor
+node journal.mjs produce --input '<期次目录>' --output '<交付目录>'
 node journal.mjs start --config '<机器配置.json>'
-node journal.mjs status --config '<机器配置.json>'
 node journal.mjs produce --config '<机器配置.json>' --request '<本轮任务.json>'
 ```
+
+不带工作台的做法见 [无头生产](docs/无头生产.md)。现行尺寸、字体和留白以 [规则对照](docs/规则对照.md) 为准。工作台仍可用于审校，默认不必启动。Illustrator 保留给合并和本机交互，不作为画图路线。
 
 produce委托现有production-runner，JPG由同一执行器分流raster-batch。内部组件文档的直调示例只用于开发和特殊兼容，不是其他生产入口。具备条件时至少5图并行，Adobe串行；已有候选先复用，卡点记录并跳过，终审由用户完成。
 

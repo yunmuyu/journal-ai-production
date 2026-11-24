@@ -11,19 +11,20 @@ import {createRevisionHandler} from './revision-http.mjs';
 import {activateRevision} from './revision-candidates.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
-import vm from 'node:vm';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {execFile} from 'node:child_process';
 import {page,app} from './review/presentation.mjs';
 import {createFeedbackStore} from './review/feedback-store.mjs';
 import {createReviewStore,reviewVersion,reviewState} from './review/review-store.mjs';
+import {loadWorkbenchInventory} from './issue-manifest.mjs';
 const machinePath=process.env.JFW_MACHINE_CONFIG;
 if(!machinePath)throw Error('Start through node journal.mjs start --config machine.local.json');
 const machine=JSON.parse(fs.readFileSync(machinePath,'utf8').replace(/^\uFEFF/,''));
 const base=machine.workbenchRoot,source=fileURLToPath(new URL('.',import.meta.url));
 if(!base||!machine.wordRoot)throw Error('workspace_roots_required: configure workbenchRoot and wordRoot first');
-const context={window:{}};vm.runInNewContext(fs.readFileSync(path.join(base,'november-data.js'),'utf8'),context);
+const inventory=loadWorkbenchInventory({workbenchRoot:base,issueRoot:machine.issueRoot||machine.wordRoot});
+if(!inventory?.data?.authors)throw Error('工作台清单不可用。可沿用 november-data.js，或改扫期次目录。生产命令不读这份清单。');
 const editor=JSON.parse(fs.readFileSync(path.join(base,'editor.json'),'utf8').replace(/^\uFEFF/,'')).editor;
 const previewMap=JSON.parse(fs.readFileSync(path.join(base,'preview-map.json'),'utf8'));
 const metadata=JSON.parse(fs.readFileSync(path.join(base,'figure-metadata.json'),'utf8'));
@@ -32,7 +33,7 @@ const wordRoot=machine.wordRoot;
 const wordNames=fs.readdirSync(wordRoot).filter(n=>!n.startsWith('~$')&&/\.docx?$/i.test(n));
 const files=new Map(),wordTokens=new Set();
 function link(uri){const file=fileURLToPath(uri);if(!fs.existsSync(file))return null;const token=createHash('sha256').update(file).digest('hex').slice(0,24);files.set(token,file);return {token,name:path.basename(file),path:file,meta:metadata[file]||null};}
-const articles=context.window.NOVEMBER_DATA.authors.map((a,index)=>{
+const articles=inventory.data.authors.map((a,index)=>{
  const matches=wordNames.filter(n=>n.includes(a.author));if(matches.length!==1)throw Error('Word配对不唯一：'+a.author);
  const word=link(pathToFileURL(path.join(wordRoot,matches[0])));wordTokens.add(word.token);
  const id='NOV-'+(index+1);return {id,word,author:a.author,label:a.author,editor,state:'全部通过',notices:[],figures:Array.from({length:a.main},(_,i)=>({id:id+'-F'+(i+1),articleId:id,author:a.author,number:String(i+1),editor,type:'待分类',status:'终检通过',outputs:a.files.filter(f=>f.number.split('.')[0]===String(i+1)).map(f=>({number:f.number,file:link(f.url)})),notices:[],feedback:null,reason:''}))};
