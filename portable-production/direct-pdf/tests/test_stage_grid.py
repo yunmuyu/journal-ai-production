@@ -354,13 +354,21 @@ def test_vertical_merge_draws_bracket_into_target(reg):
     legs = [p for p in scene.paths if p.get('semantic_role') == 'merge-leg']
     buses = [p for p in scene.paths if p.get('semantic_role') == 'bus']
     outlets = [p for p in scene.paths if p['id'].endswith(':outlet')]
-    # Then the bracket is two stubs, one horizontal bus and one arrowed outlet,
-    # the outlet ends on the target top port, and its terminal respects ARROW_LENGTH.
+    # Then the bracket is two stubs, one horizontal bus and one arrowed outlet.
+    # The bus is centered in the 3mm row gap, and the arrowhead stays inside the trunk.
     assert len(legs) == 2 and len(buses) == 1 and len(outlets) == 1
     outlet = outlets[0]
-    assert outlet['arrow'] is True
+    assert outlet['arrow'] is True and outlet['bus_arrow'] is True
+    from journal_pdf.common import PT_PER_MM
+    from journal_pdf.editorial import ARROW_DEPTH, STROKE
+    from journal_pdf.journal_rules import load_rules
+    normative = load_rules()['normative']
+    edge = float(normative['summary_bus_edge_mm']) * PT_PER_MM
+    trunk = float(normative['summary_bus_trunk_mm']) * PT_PER_MM
+    assert all(abs(p['points'][1][1] - p['points'][0][1]) == pytest.approx(edge) for p in legs)
     terminal = abs(outlet['points'][-1][1] - outlet['points'][-2][1])
-    assert terminal >= 3 * 72 / 25.4 - 1e-6
+    assert terminal == pytest.approx(trunk)
+    assert ARROW_DEPTH * outlet['arrow_scale'] + STROKE / 2 < terminal
     assert not audit_scene(scene)
 
 

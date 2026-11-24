@@ -73,11 +73,16 @@ def test_screenshot_routing_does_not_redraw_web_pages():
     script = load_rules()['normative']
     assert script['scientific_exponent_scale'] == 0.7
     assert script['scientific_baseline_shift_ratio'] == -0.4
-    assert script['summary_bus_edge_mm'] == 2
-    assert script['summary_bus_trunk_mm'] == 2
+    assert script['summary_bus_edge_mm'] == 1.5
+    assert script['summary_bus_trunk_mm'] == 1.5
     assert script['direct_connector_mm'] == 3
     assert script['short_connector_mm'] == 2
-    assert script['graph_branch_bus_leg_pt'] == 6
+    from journal_pdf.common import PT_PER_MM
+    from journal_pdf.editorial import ARROW_DEPTH, STROKE, bus_leg_arrow_scale
+    leg = 1.5 * PT_PER_MM
+    scale = bus_leg_arrow_scale(leg)
+    assert ARROW_DEPTH * scale + STROKE / 2 < leg
+    assert scale < 1
 
 
 def test_actor_and_frame_are_scene_primitives():

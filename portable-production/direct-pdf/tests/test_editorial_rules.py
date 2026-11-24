@@ -88,15 +88,18 @@ def test_graph_branch_buses_keep_real_arrow5_shaft_and_one_merge_arrow(reg):
                 {'id':'merge-left','from':'left','to':'target'},
                 {'id':'merge-right','from':'right','to':'target'}]}
  s=graph(spec,reg,8)
- # The approved no-arrow branch stub is 6 pt; the terminal arrow still needs 3 mm.
- branch_gap=ARROW_LENGTH+6
+ from journal_pdf.common import PT_PER_MM
+ from journal_pdf.journal_rules import load_rules
+ normative=load_rules()['normative']
+ branch_gap=(float(normative['summary_bus_edge_mm'])+float(normative['summary_bus_trunk_mm']))*PT_PER_MM
  assert s.layout_evidence['rank_gaps_pt']==pytest.approx({0:branch_gap,1:branch_gap})
  arrow_paths=[p for p in s.paths if p['arrow']]
  terminal_segments=[(tuple(p['points'][-2]),tuple(p['points'][-1])) for p in arrow_paths]
  assert len(arrow_paths)==3
  assert len(terminal_segments)==len(set(terminal_segments))
- assert all(math.dist(*segment)>=ARROW_LENGTH-1e-5 for segment in terminal_segments)
- assert not any(i['code']=='arrow_terminal_length' for i in audit_scene(s))
+ assert all(p.get('bus_arrow') for p in arrow_paths)
+ assert all(math.dist(*segment)==pytest.approx(float(normative['summary_bus_trunk_mm'])*PT_PER_MM) for segment in terminal_segments)
+ assert not audit_scene(s)
 
 def test_arrow_audit_checks_actual_external_terminal_segment(reg):
  short=Scene(reg,8);short.line('external',[[2,10],[20,10],[20,14.5]],arrow=True);short.finish(30,30)
