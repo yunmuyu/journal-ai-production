@@ -73,6 +73,11 @@ def test_screenshot_routing_does_not_redraw_web_pages():
     script = load_rules()['normative']
     assert script['scientific_exponent_scale'] == 0.7
     assert script['scientific_baseline_shift_ratio'] == -0.4
+    assert script['summary_bus_edge_mm'] == 2
+    assert script['summary_bus_trunk_mm'] == 2
+    assert script['direct_connector_mm'] == 3
+    assert script['short_connector_mm'] == 2
+    assert script['graph_branch_bus_leg_pt'] == 6
 
 
 def test_actor_and_frame_are_scene_primitives():

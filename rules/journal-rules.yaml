@@ -32,7 +32,11 @@ normative:
   label_clearance_pt: 3
   tick_clearance_pt: 2.5
   summary_badge_pt: 7
-  summary_bus_leg_mm: 1.06
+  summary_bus_edge_mm: 2
+  summary_bus_trunk_mm: 2
+  direct_connector_mm: 3
+  short_connector_mm: 2
+  graph_branch_bus_leg_pt: 6
   scientific_exponent_scale: 0.7
   scientific_baseline_shift_ratio: -0.4
   subscript_may_be_below_floor: true
@@ -117,6 +121,10 @@ open_questions:
     kept: "stage-grid 注释框有一处 width=0.1"
     owner_tension: "线宽尽量统一 0.5pt"
     behavior: "主人尚未决定。重绘的矩形和组框仍是 0.5pt。这条 0.1pt 先留着"
+  - id: summary-bus-3mm
+    kept: "汇总线.jsx 默认框边到总线 2mm、向外干线 2mm"
+    owner_tension: "部分历史反馈要求汇总线 3mm"
+    behavior: "默认仍是 2mm。没有把 3mm 写成新默认。遇到已确认要 3mm 的图再按该图。"
 
 catalog:
   - id: margin
@@ -354,8 +362,9 @@ catalog:
       - rules/journal-rules.yaml
     note: "未批准就停。重绘矩形和组框用 0.5pt。"
   - id: summary-bus
-    status: overridden
-    value: "汇总线引出长度默认 1.06mm，约 3pt，可在规则文件里改"
+    status: kept
+    value: "框边到总线 2mm，总线向外干线 2mm，描边 0.5pt"
     sources:
+      - references/editorial-profile.md
       - portable-production/direct-pdf/journal_pdf/layouts.py
-    note: "原先写死 2mm。有箭头时仍至少留出箭头本身的长度。"
+    note: "两个长度分开配置。直接正交连接仍是 3mm；源图明显是短接时才用 2mm。流程图分支总线的现有长度是 6pt，测试锁定，不改成 2mm。"

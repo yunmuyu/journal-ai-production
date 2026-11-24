@@ -199,7 +199,7 @@ def tree(spec,reg,size):
     arrows=spec.get('arrows',False)
     if not isinstance(arrows,bool):raise FigureError('tree_arrows','树形箭头设置须为布尔值')
     from .journal_rules import load_rules
-    bus_leg=float(spec.get('bus_leg_mm', load_rules()['normative']['summary_bus_leg_mm']))
+    bus_leg=float(spec.get('bus_leg_mm', load_rules()['normative']['summary_bus_edge_mm']))
     s=Scene(reg,size);s.template='hierarchy-tree';p=2.;padx=4.5*size/8;padv=2.7*size/8;gapx=max(2*bus_leg*PT_PER_MM,2*ARROW_LENGTH if arrows else 0);gapy=spacing[0]*size/8+.5;groupgap=spacing[1]*size/8+.5
     branches=spec['branches'];roottext=spec['root']
     if spec.get('root_vertical'):roottext='\n'.join(roottext.replace('\n',''))

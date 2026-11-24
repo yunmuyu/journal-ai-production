@@ -7,7 +7,11 @@ from .common import FigureError,segment_hits,intersects,PT_PER_MM
 from .scene import Scene,port,_collinear_overlap_length
 from .editorial import PAD_X,PAD_Y,ARROW_LENGTH,ARROW_DEPTH,ARROW_BOUNDARY_GAP,LABEL_CLEARANCE,diamond_size,display_content
 
-BRANCH_BUS_LEG = 6.
+def _graph_branch_bus_leg():
+    from .journal_rules import load_rules
+    return float(load_rules()['normative']['graph_branch_bus_leg_pt'])
+
+BRANCH_BUS_LEG = _graph_branch_bus_leg()
 BRANCH_BOUNDARY_GAP = BRANCH_BUS_LEG + ARROW_BOUNDARY_GAP
 ROUTE_SOURCE_STUB = 6.
 ROUTE_OBSTACLE_CLEARANCE = 4.1
