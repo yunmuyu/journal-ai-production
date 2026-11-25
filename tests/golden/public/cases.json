@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "cases": [
+    {"name": "网页截图.png", "hint": "网页截图", "route": "raster-only", "redraw": false},
+    {"name": "图谱.png", "hint": "citespace", "route": "raster-only", "redraw": false},
+    {"name": "单图.png", "hint": "standalone-chart", "route": "screenshot-chart", "redraw": true},
+    {"name": "照片.jpg", "hint": "", "route": "raster-only", "redraw": false},
+    {"stem": "张三-图1.2", "valid": true},
+    {"stem": "张三-图1a", "valid": false}
+  ]
+}

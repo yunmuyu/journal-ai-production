@@ -8,7 +8,6 @@ from pathlib import Path
 from .common import FigureError, PT_PER_MM, finite
 from .scene import Scene, port, ray_ellipse, audit_scene
 from .label_layout import layout_label
-from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, STROKE, COMPACT_GAP, display_content, wrap_text
 from .editorial import diamond_size, ARROW_LENGTH, LABEL_CLEARANCE, TICK_CLEARANCE, STROKE, COMPACT_GAP, display_content, wrap_text
 from .label_fit import plan as plan_label
 from .fonts import position_text
@@ -198,7 +197,12 @@ def tree(spec,reg,size):
     if spacing != [3,6]:raise FigureError('tree_spacing','树形间距固定为组内3 pt、组间6 pt')
     arrows=spec.get('arrows',False)
     if not isinstance(arrows,bool):raise FigureError('tree_arrows','树形箭头设置须为布尔值')
-    s=Scene(reg,size);s.template='hierarchy-tree';p=2.;padx=4.5*size/8;padv=2.7*size/8;gapx=max(2*float(spec.get('bus_leg_mm',2))*PT_PER_MM,2*ARROW_LENGTH if arrows else 0);gapy=spacing[0]*size/8+.5;groupgap=spacing[1]*size/8+.5
+    from .editorial import bus_leg_arrow_scale
+    from .journal_rules import load_rules
+    normative=load_rules()['normative']
+    edge_pt=float(spec.get('bus_leg_mm', normative['summary_bus_edge_mm']))*PT_PER_MM
+    trunk_pt=float(spec.get('bus_trunk_mm', normative['summary_bus_trunk_mm']))*PT_PER_MM
+    s=Scene(reg,size);s.template='hierarchy-tree';p=2.;padx=4.5*size/8;padv=2.7*size/8;gapx=edge_pt+trunk_pt;gapy=spacing[0]*size/8+.5;groupgap=spacing[1]*size/8+.5
     branches=spec['branches'];roottext=spec['root']
     if spec.get('root_vertical'):roottext='\n'.join(roottext.replace('\n',''))
     rootm=reg.measure(roottext,size);mainms=metrics(reg,size,[b['text'] for b in branches]);leafms=metrics(reg,size,[t for b in branches for t in b['children']])
@@ -220,17 +224,19 @@ def tree(spec,reg,size):
             leaf=s.box('leaf'+str(i)+'-'+str(j),text,lx,ly,lw,lh)
             leaf['measurement_contract']={'mode':'measured-group','group':'tree-leaves','axis':'both','expected_wh':[lw,lh]}
             lcenters.append(ly+lh/2);ly+=lh+gapy
-        bus=mx+mw+gapx/2
+        bus=mx+mw+edge_pt
         s.line('branch-stem'+str(i),[port(main,'right'),[bus,cy]])
         if len(lcenters)>1:s.line('branch-bus'+str(i),[[bus,min(lcenters)],[bus,max(lcenters)]])
-        for j,lcy in enumerate(lcenters):s.line('branch-leaf'+str(i)+'-'+str(j),([[bus,lcy],[lx-ARROW_LENGTH,lcy],[lx,lcy]] if arrows else [[bus,lcy],[lx,lcy]]),arrow=arrows,exact_terminal=arrows,endpoint_nodes=[None,'leaf'+str(i)+'-'+str(j)] if arrows else None)
+        leaf_scale=bus_leg_arrow_scale(trunk_pt) if arrows else None
+        for j,lcy in enumerate(lcenters):s.line('branch-leaf'+str(i)+'-'+str(j),[[bus,lcy],[lx,lcy]],arrow=arrows,bus_arrow=arrows,arrow_scale=leaf_scale,endpoint_nodes=[None,'leaf'+str(i)+'-'+str(j)] if arrows else None)
         my+=gh[i]+groupgap
     s.measurement_groups['tree-branches']={'axis':'both','nodes':['branch'+str(i) for i in range(len(branches))]}
     s.measurement_groups['tree-leaves']={'axis':'both','nodes':['leaf'+str(i)+'-'+str(j) for i,b in enumerate(branches) for j in range(len(b['children']))]}
-    bus=p+rootw+gapx/2;rootcy=(root['rect'][1]+root['rect'][3])/2
+    bus=p+rootw+edge_pt;rootcy=(root['rect'][1]+root['rect'][3])/2
     s.line('root-stem',[port(root,'right'),[bus,rootcy]])
     if len(centers)>1:s.line('root-bus',[[bus,min(centers)],[bus,max(centers)]])
-    for i,cy in enumerate(centers):s.line('root-branch'+str(i),([[bus,cy],[mx-ARROW_LENGTH,cy],[mx,cy]] if arrows else [[bus,cy],[mx,cy]]),arrow=arrows,exact_terminal=arrows,endpoint_nodes=[None,'branch'+str(i)] if arrows else None)
+    root_scale=bus_leg_arrow_scale(trunk_pt) if arrows else None
+    for i,cy in enumerate(centers):s.line('root-branch'+str(i),[[bus,cy],[mx,cy]],arrow=arrows,bus_arrow=arrows,arrow_scale=root_scale,endpoint_nodes=[None,'branch'+str(i)] if arrows else None)
     s.layout_evidence={'algorithm':'deterministic measured hierarchy','font_size_kept':size,'whole_artwork_scale':1,'tree_spacing_pt':spacing,'sibling_clearance_pt':gapy-STROKE,'group_clearance_pt':groupgap-STROKE,'group_to_sibling_clearance_ratio':2}
     return s.finish(lx+lw+p,height+2*p)
 
@@ -507,6 +513,13 @@ def primitive(spec,reg,size):
             s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
                                              exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'),
                                              shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'),arrow_style=p.get('arrow_style','standard'))
+    protected_routes=set(spec.get('rebuild_fidelity',{}).get('connections',{}))
+    for raw in spec.get('paths',[]):
+        if 'source_bound' in raw and not isinstance(raw['source_bound'],bool):
+            raise FigureError('source_route_protection_invalid','source_bound须为布尔值')
+        if raw.get('source_bound'):protected_routes.add(raw['id'])
+    for path in s.paths:
+        if path['id'] in protected_routes:path['source_bound']=True
     from .scene import require_arrow_styles
     require_arrow_styles(s.paths,spec.get('required_arrow_styles',{}))
     from .legend_marker_alignment import prepare_legend_marker_centers

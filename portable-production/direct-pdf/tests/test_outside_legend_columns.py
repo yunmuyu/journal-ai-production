@@ -24,7 +24,7 @@ def test_long_labels_keep_one_column_without_reducing_font_size():
     assert grid.rows == 3
 
 
-def test_first_layout_prefers_two_short_rows_over_safe_four_row_inside_legend(reg, tmp_path):
+def test_safe_inside_legend_takes_priority_over_fewer_outside_rows(reg, tmp_path):
     label_width = reg.measure('Series A label', 8)['width']
     plot_width = 2 * (label_width + 13) + 6 - 15
     source = tmp_path / 'chart.svg'
@@ -45,8 +45,8 @@ def test_first_layout_prefers_two_short_rows_over_safe_four_row_inside_legend(re
     assets = Assets()
     try:
         scene = compile_figure(spec, reg, assets, tmp_path)
-        assert scene.layout_evidence['legend_columns'] == 2
-        assert scene.layout_evidence['legend_rows'] == 2
-        assert scene.layout_evidence['legend_placement'] == 'outside-top'
+        assert scene.layout_evidence['legend_columns'] == 1
+        assert scene.layout_evidence['legend_rows'] == 4
+        assert scene.layout_evidence['legend_placement'] == 'auto-inside'
     finally:
         assets.close()

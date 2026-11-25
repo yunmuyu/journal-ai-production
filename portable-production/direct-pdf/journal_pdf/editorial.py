@@ -6,6 +6,9 @@ from __future__ import annotations
 import re, math, copy
 from .common import FigureError, PT_PER_MM
 from .mathematical_signs import normalize_mathematical_signs
+from .journal_rules import load_rules
+
+_NORM = load_rules()['normative']
 
 RULESET = {
     'id': 'journal-editorial-20261016-r21-directpdf-bridge-4-unified-nodes',
@@ -15,16 +18,16 @@ RULESET = {
     'adapter': 'production-runtime/adobe/editorial-generator.jsx',
     'latest_override': 'release-notes/2026.10.14-r21.md',
 }
-PAD_X = 4.5
-PAD_Y = 2.7
-COMPACT_GAP = 3.0
-ARROW_LENGTH = 3 * PT_PER_MM
-ARROW_DEPTH = 4.4
+PAD_X = float(_NORM['box_pad_x_pt'])
+PAD_Y = float(_NORM['box_pad_y_pt'])
+COMPACT_GAP = float(_NORM['compact_gap_pt'])
+ARROW_LENGTH = float(_NORM['arrow_length_mm']) * PT_PER_MM
+ARROW_DEPTH = float(_NORM['arrow_depth_pt'])
 ARROW_BOUNDARY_GAP = ARROW_LENGTH
-LABEL_CLEARANCE = 3.0
-TICK_CLEARANCE = 2.5
-STROKE = 0.5
-EXPORT_PAD = 0.25
+LABEL_CLEARANCE = float(_NORM['label_clearance_pt'])
+TICK_CLEARANCE = float(_NORM['tick_clearance_pt'])
+STROKE = float(_NORM['stroke_pt'])
+EXPORT_PAD = float(_NORM['margin_pt'])
 
 # ASCII spaces match the provided reference samples. No float conversion: zeros,
 # signs, precision, exponent spelling, and leading zeros must survive.
@@ -186,6 +189,24 @@ def diamond_size(width, height, font_size=8):
         'containment_scale':containment,'source':RULESET['adapter']}
 
 
+def bus_leg_arrow_scale(leg_pt, depth=None, stroke=None):
+    """Scale an Arrow5 head so it stays inside a summary-bus leg.
+
+    The tip stays clear of the box stroke and the tail stays clear of the bus
+    stroke. The full-size head is used only when the leg is long enough.
+    """
+    depth = ARROW_DEPTH if depth is None else float(depth)
+    stroke = STROKE if stroke is None else float(stroke)
+    clearance = stroke / 2
+    limit = float(leg_pt) - clearance
+    if not math.isfinite(leg_pt) or limit <= 0 or depth <= 0:
+        raise FigureError('bus_arrow_overlap', '汇总线间距容不下箭头', leg_pt=leg_pt)
+    scale = min(1.0, (limit - 1e-3) / depth)
+    if scale <= 0 or depth * scale + clearance >= float(leg_pt):
+        raise FigureError('bus_arrow_overlap', '箭头会贴住框线或压住总线', leg_pt=leg_pt, scale=scale)
+    return scale
+
+
 def scale_scene(scene, factor):
     """Scale the WHOLE composed scene. Final path widths reset to r21's 0.5pt.
     Measurements are copied before editing, never mutating the shared font cache.
@@ -196,12 +217,16 @@ def scale_scene(scene, factor):
     for n in scene.nodes:
         # width=None 是"只填充不描边"的语义，不是线宽，归一化时原样保留。
         n['rect']=[v*factor for v in n['rect']]
-        n['width']=None if n.get('width') is None else n['width']*factor if n.get('source_legend_marker') else STROKE
+        n['width']=None if n.get('width') is None else STROKE
         if 'dash' in n:n['dash']=[v*factor for v in n['dash']]
         if 'padding_pt' in n:n['padding_pt']=[v*factor for v in n['padding_pt']]
     for p in scene.paths:
         p['points']=[[v*factor for v in q] for q in p['points']]
-        p['dash']=[v*factor for v in p['dash']];p['width']=p['width']*factor if p.get('source_legend_swatch') else STROKE;p['arrow_scale']=p.get('arrow_scale',1)*factor if p.get('arrow_style')=='block-outline' else 1
+        p['dash']=[v*factor for v in p['dash']];p['width']=STROKE
+        if p.get('bus_arrow'):
+            p['arrow_scale']=bus_leg_arrow_scale(math.dist(p['points'][-2], p['points'][-1]))
+        else:
+            p['arrow_scale']=p.get('arrow_scale',1)*factor if p.get('arrow_style')=='block-outline' else 1
     for a in scene.assets:a['rect']=[v*factor for v in a['rect']]
     for background in scene.legend_backgrounds:background['rect']=[v*factor for v in background['rect']]
     for check in scene.axis_label_gap_checks+scene.axis_tick_gap_checks:

@@ -4,8 +4,9 @@ import re
 from dataclasses import dataclass
 from typing import Literal, NotRequired, TypedDict
 
-from .common import FigureError
+from .common import FigureError, PT_PER_MM
 from .editorial import COMPACT_GAP, PAD_X, PAD_Y, display_content
+from .journal_rules import load_rules
 from .fonts import FontRegistry
 from .scene import Scene, port
 
@@ -50,7 +51,10 @@ def bilateral_tree(spec: TreeSpec, reg: FontRegistry, size: float) -> Scene:
     scale = size / 8
     spacing_values=spec.get('tree_spacing_pt',[3,6])
     if spacing_values != [3,6]:raise FigureError('tree_spacing','树形间距固定为组内3 pt、组间6 pt')
-    padding, gap, link_gap = PAD_X, COMPACT_GAP*scale, 2*COMPACT_GAP*scale
+    normative=load_rules()['normative']
+    edge_pt=float(normative['summary_bus_edge_mm'])*PT_PER_MM
+    trunk_pt=float(normative['summary_bus_trunk_mm'])*PT_PER_MM
+    padding, gap, link_gap = PAD_X, COMPACT_GAP*scale, edge_pt+trunk_pt
     def spacing(a: MeasuredNode, b: MeasuredNode, *, root: bool = False) -> float:
         return spacing_values[1 if root or a.children or b.children else 0] * scale + .5
 
@@ -153,7 +157,7 @@ def bilateral_tree(spec: TreeSpec, reg: FontRegistry, size: float) -> Scene:
         parent = boxes[parent_id]
         outgoing, incoming = ('right', 'left') if side == 'right' else ('left', 'right')
         start = port(parent, outgoing)
-        bus = start[0]+(link_gap/2 if side == 'right' else -link_gap/2)
+        bus = start[0]+(edge_pt if side == 'right' else -edge_pt)
         endpoints = [port(boxes[n.id], incoming) for n in nodes]
         scene.line(f'{parent_id}-{side}-stem', [start, [bus, start[1]]])
         ys = [start[1], *(p[1] for p in endpoints)]

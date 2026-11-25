@@ -7,8 +7,14 @@ from .common import FigureError,segment_hits,intersects,PT_PER_MM
 from .scene import Scene,port,_collinear_overlap_length
 from .editorial import PAD_X,PAD_Y,ARROW_LENGTH,ARROW_DEPTH,ARROW_BOUNDARY_GAP,LABEL_CLEARANCE,diamond_size,display_content
 
-BRANCH_BUS_LEG = 6.
-BRANCH_BOUNDARY_GAP = BRANCH_BUS_LEG + ARROW_BOUNDARY_GAP
+def _summary_bus_pt():
+    from .journal_rules import load_rules
+    normative=load_rules()['normative']
+    return (float(normative['summary_bus_edge_mm'])*PT_PER_MM,
+            float(normative['summary_bus_trunk_mm'])*PT_PER_MM)
+
+BRANCH_BUS_LEG, BRANCH_BUS_TRUNK = _summary_bus_pt()
+BRANCH_BOUNDARY_GAP = BRANCH_BUS_LEG + BRANCH_BUS_TRUNK
 ROUTE_SOURCE_STUB = 6.
 ROUTE_OBSTACLE_CLEARANCE = 4.1
 
@@ -158,6 +164,7 @@ def graph(spec,reg,size):
             rank_gaps[source_rank]=max(rank_gaps[source_rank],ROUTE_SOURCE_STUB+target_stub)
             rank_gaps[target_rank-1]=max(rank_gaps[target_rank-1],ROUTE_SOURCE_STUB+target_stub)
         if e.get('return_edge') or target_rank-source_rank!=1:continue
+        if any(e in group for group in (*fanout_groups.values(), *merge_groups.values())):continue
         default_ports=('bottom','top') if direction=='TB' else ('right','left')
         ss=e.get('from_port',default_ports[0]);ts=e.get('to_port',default_ports[1])
         aligned=(ss,ts)==default_ports and abs(cross_centers[e['from']]-cross_centers[e['to']])<1e-5
@@ -210,8 +217,11 @@ def graph(spec,reg,size):
         s.line(identifiers[0]+':fanout-trunk',[source_port,_branch_point(source_port[cross_axis],bus,direction)],shared_net=net_id,semantic_role='trunk')
         left=min(p[cross_axis] for p in target_ports);right=max(p[cross_axis] for p in target_ports)
         if right-left>1e-4:s.line(identifiers[0]+':fanout-bus',[_branch_point(left,bus,direction),_branch_point(right,bus,direction)],shared_net=net_id,semantic_role='bus')
+        from .editorial import bus_leg_arrow_scale
         for e,target_port,ident in zip(group,target_ports,identifiers):
-            s.line(ident,[_branch_point(target_port[cross_axis],bus,direction),target_port],arrow=True,exact_terminal=True,
+            leg=_branch_point(target_port[cross_axis],bus,direction)
+            s.line(ident,[leg,target_port],arrow=True,bus_arrow=True,
+                   arrow_scale=bus_leg_arrow_scale(math.dist(leg,target_port)),
                    endpoint_nodes=[None,e['to']],shared_net=net_id,semantic_role='branch')
             route_records.append({'edge':ident,'from':e['from'],'to':e['to'],'from_port':branch_source_port,'to_port':branch_target_port,'return_edge':False,'branch_group':'fanout'})
             handled_edges.add(id(e))
@@ -228,7 +238,9 @@ def graph(spec,reg,size):
         outlet=identifiers[0]+':merge-outlet';mid=(left+right)/2
         target_cross=target_port[cross_axis]
         outlet_points=[_branch_point(target_cross,bus,direction),target_port] if left<=target_cross<=right else [_branch_point(mid,bus,direction),_branch_point(target_cross,bus,direction),target_port]
-        s.line(outlet,outlet_points,arrow=True,exact_terminal=True,
+        from .editorial import bus_leg_arrow_scale
+        s.line(outlet,outlet_points,arrow=True,bus_arrow=True,
+               arrow_scale=bus_leg_arrow_scale(math.dist(outlet_points[-2], outlet_points[-1])),
                endpoint_nodes=[None,group[0]['to']],shared_net=net_id,semantic_role='outlet')
         for e,ident in zip(group,identifiers):
             route_records.append({'edge':ident,'from':e['from'],'to':e['to'],'from_port':branch_source_port,'to_port':branch_target_port,'return_edge':False,'branch_group':'merge','merge_outlet':outlet})
@@ -331,4 +343,6 @@ def graph(spec,reg,size):
         s.text('graph-title',title,new_width/2,margin/2+measured['height']/2,role='title')
         s.layout_evidence['source_title']='graph-title'
         width=new_width;height+=dy
+    if len(route_records)!=len(edges):
+        raise FigureError('graph_edge_dropped','声明的连接没有全部画出来',expected=len(edges),drawn=len(route_records))
     return s.finish(width,height)

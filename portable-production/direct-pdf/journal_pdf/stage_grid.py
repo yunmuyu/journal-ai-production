@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-from .common import FigureError, resolve_source
+from .common import FigureError, resolve_source, PT_PER_MM
 from .editorial import PAD_X, PAD_Y, COMPACT_GAP, ARROW_BOUNDARY_GAP, display_content
 from .scene import Scene, port
 
@@ -126,6 +126,10 @@ def stage_grid(spec, reg, size, assets=None, root=None):
         _need(panel.get('span') in (None, 'members', 'figure'), 'span只接受members或figure')
         _need(all(isinstance(b, str) and b in blocks for b in panel['blocks']), '面板成员须为已声明块')
     gap = COMPACT_GAP * scale; arrow_gap = ARROW_BOUNDARY_GAP
+    from .journal_rules import load_rules
+    _bus = load_rules()['normative']
+    bus_edge = float(_bus['summary_bus_edge_mm']) * PT_PER_MM
+    bus_trunk = float(_bus['summary_bus_trunk_mm']) * PT_PER_MM
     margin = 3.9
     column_gap = spec.get('policy', {}).get('column_gap', 2 * arrow_gap)
     _need(isinstance(column_gap, (int, float)) and not isinstance(column_gap, bool) and arrow_gap <= column_gap <= 40,
@@ -235,8 +239,10 @@ def stage_grid(spec, reg, size, assets=None, root=None):
             if band_of[a['id']] != band_of[b['id']]:
                 continue          # 换行处不串联：行内独立排布，行间由 band 堆叠
             pair = (a['id'], b['id'])
-            if pair in vertical or pair in merge_span:
-                distance = arrow_gap + (2.5 if pair in merge_span else 0.0)
+            if pair in merge_span:
+                distance = bus_edge + bus_trunk
+            elif pair in vertical:
+                distance = arrow_gap
             else:
                 distance = gap
             ordering.append((a['id'], b['id'], distance))
@@ -305,19 +311,7 @@ def stage_grid(spec, reg, size, assets=None, root=None):
                                                   and arrow_gap <= v <= 60 for v in gap_overrides.values()),
           'gap_overrides须为列ID到箭头最小长度以上列距的映射')
     if spec.get('policy', {}).get('fill_width'):
-        # 内容比版心窄时，把余量均分给各列：保持 8pt，又不让整幅缩在中间
-        target = ((160 if spec.get('policy', {}).get('column') == 'double' else 80) * 72 / 25.4
-                  - 2 * margin - 8)
-        crossings = 0
-        for ci in range(len(columns) - 1):
-            here = {panel_of.get(b['id']) for b in columns[ci]['blocks']}
-            there = {panel_of.get(b['id']) for b in columns[ci + 1]['blocks']}
-            if here != there:
-                crossings += 1
-        used = sum(col_widths) + column_gap * (len(col_widths) - 1) + panel_gap * crossings
-        if used < target:
-            extra = (target - used) / len(col_widths)
-            col_widths = [w + extra for w in col_widths]
+        raise FigureError('column_fill_forbidden', 'fill_width 会把窄图撑满栏宽，已禁止。同组框要等宽时用 equal_width 或 equal_width_groups，按最长一项取宽。')
     col_left = []; cursor = margin
     for ci, width in enumerate(col_widths):
         col_left.append(cursor)
@@ -669,10 +663,10 @@ def stage_grid(spec, reg, size, assets=None, root=None):
             _need(len(members) >= 2 and all(e['to'] == target and e['from_port'] == 'bottom' and e['to_port'] == 'top' for e in members),
                   '竖向合流须至少两条下到上边和同一目标')
             starts = [port(placed[e['from']], 'bottom') for e in members]
-            _need(all(s[1] < end[1] - arrow_gap for s in starts), '竖向合流目标与源之间须留出箭头空间')
+            _need(all(s[1] + bus_edge + bus_trunk <= end[1] + 1e-4 for s in starts), '竖向合流目标与源之间须留出汇总线')
             top_start = max(s[1] for s in starts)
-            # 母线优先取中点；箭头末段不得短于 ARROW_LENGTH，空间不足时母线贴近源侧
-            bus_y = min((top_start + end[1]) / 2, end[1] - arrow_gap)
+            # 总线距源框 bus_edge，距目标 bus_trunk；1.5+1.5 时总间距 3mm 且居中
+            bus_y = top_start + bus_edge
             xs = sorted(s[0] for s in starts)
             for edge, start in zip(members, starts):
                 scene.line(edge['id'], [start, [start[0], bus_y]], shared_net=merge, semantic_role='merge-leg')
@@ -681,7 +675,9 @@ def stage_grid(spec, reg, size, assets=None, root=None):
             bus_x0 = min(xs[0], end[0]); bus_x1 = max(xs[-1], end[0])
             if bus_x1 - bus_x0 > 1e-6:
                 scene.line(merge + ':bus', [[bus_x0, bus_y], [bus_x1, bus_y]], shared_net=merge, semantic_role='bus')
-            scene.line(merge + ':outlet', [[end[0], bus_y], end], arrow=True, endpoint_nodes=[None, target])
+            from .editorial import bus_leg_arrow_scale
+            scene.line(merge + ':outlet', [[end[0], bus_y], end], arrow=True, bus_arrow=True,
+                       arrow_scale=bus_leg_arrow_scale(end[1] - bus_y), endpoint_nodes=[None, target])
             continue
         target = members[0]['to']; target_node=placed[target]; end=port(target_node,'left')
         _need(len(members)>=2 and all(e['to']==target and e['from_port']=='right' and e['to_port']=='left' for e in members), '合流须至少两条右到左边和同一目标')

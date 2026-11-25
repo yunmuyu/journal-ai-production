@@ -15,11 +15,14 @@ def _font_policy_evidence(spec,evidence):
     if not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in values):
         return False,False
     initial,initial_width,design,width,scale,final,column=values
+    from .journal_rules import load_rules
+    normative=load_rules()['normative']
+    allowed_columns=tuple(float(normative[key]) for key in ('simple_chart_mm','single_column_mm','double_column_mm'))
     policy=spec.get('policy',{});legacy=policy.get('font_sizes',[8])
     declared=policy.get('design_font_size_pt',legacy[0] if legacy else None)
     attempts=evidence.get('fit_attempts',[])
     measured=(6<=initial<=8 and declared==initial and initial_width>0 and width>0
-              and 6-1e-6<=final<=8+1e-6 and 6<=design<=initial and 0<scale<=1 and column in (80,160)
+              and 6-1e-6<=final<=8+1e-6 and 6<=design<=initial and 0<scale<=1 and column in allowed_columns
               and math.isclose(design*scale,final,abs_tol=1e-6)
               and math.isclose(scale,min(1.,(column*PT_PER_MM-.5)/width),abs_tol=1e-6)
               and (final>=initial-1e-6 or initial_width>column*PT_PER_MM-.5)

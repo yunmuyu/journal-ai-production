@@ -16,7 +16,7 @@ source_root = root / 'source'
 source_root.mkdir(parents=True, exist_ok=True)
 spec = {'version': 1, 'id': 'proof', 'author': 'fixture', 'kind': 'scene',
         'width_pt': 210, 'height_pt': 150,
-        'policy': {'column': 'single', 'design_font_size_pt': 8, 'export_crop_padding_pt': 4}}
+        'policy': {'column': 'single', 'design_font_size_pt': 8}}
 if operation == 'vector-reletter':
     source = source_root / 'original.pdf'
     with fitz.open() as doc:
@@ -58,6 +58,9 @@ spec['sources'] = [{'path': str(source), 'sha256': digest_file(source)}]
 assets = Assets()
 reg = FontRegistry(profile, root / 'font-cache')
 try:
+    if len(sys.argv)>4:
+        if sys.argv[4]=='default':spec['policy'].pop('export_crop_padding_pt',None)
+        else:spec['policy']['export_crop_padding_pt']=float(sys.argv[4])
     report = render_one(spec, reg, assets, source_root, root / 'output')
     print(json.dumps({'source': spec['sources'][0], 'report': report}, ensure_ascii=False))
 finally:

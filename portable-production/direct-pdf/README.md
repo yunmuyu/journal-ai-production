@@ -6,9 +6,14 @@
 
 同排等宽框及不同数量的编组按统一总宽对齐，见 [等宽横排与编组对齐](docs/MEASURED-ROWS.md)。
 
+当前规格可先运行[栏宽容量实测](docs/CAPACITY.md)，复用相同布局算法，在生成PDF前给出当前方案的字号、缩放和几何失败证据；不自动改栏宽或人工决定。
+
 开发版新增[原始区域独立核验](docs/ORIGINAL-ASSET-REFERENCE.md)：登记原始 PDF 后，自动比较准备素材，拒绝漏图层、异常裁切等差异；不等同于重绘连线语义已核验。
 
+混合 PDF 的实例、绘制顺序和非零原点准备边界见 [Mixed source fidelity](docs/MIXED-SOURCE-FIDELITY.md)。原生字换字不会豁免路径/位图内文字覆盖门禁。
+
 重绘后的连接另由[来源结构合同与最终可见性检查](docs/STRUCTURE-AND-VISIBILITY.md)验证，实际 PDF 保存后检查遮挡，失败不替换候选文件。
+需要保留原图走线时，可另绑定[原图连线路径合同](docs/SOURCE-ROUTE-CONTRACT.md)，检查端点、折角和方向共享唯一全图变换；拓扑相同不等于走线未变。
 
 先读 **AGENT.md**，使用说明见 **docs/AGENT-ENTRY.md**。新增能力与边界机器可读表：**docs/CAPABILITIES.json**。
 
@@ -67,7 +72,7 @@ python -m journal_pdf serve private-samples/batch.json --profile config/fonts.pr
 
 ## 本版主要变化
 
-数值三位一空在测量之前处理；菱形移植正式runtime校准公式；普通框增加实际墨迹留白检查；流程直接箭头使用3mm基础、标签按实测避让；完整等比适配允许6～8pt小数，低于6pt阻断重排；最终路径0.5pt与文字纯黑检查；实际PDF默认四边2pt留白（600dpi复测、容差0.25pt，不缩图）；图外7pt身份汇总；引擎/规则改变使旧审核缓存失效。
+数值三位一空在测量之前处理；菱形移植正式runtime校准公式；普通框增加实际墨迹留白检查；流程直接箭头使用3mm基础、标签按实测避让；完整等比适配允许6～8pt小数，低于6pt阻断重排；最终路径0.5pt与文字纯黑检查；实际PDF默认四边0.25pt留白（1200dpi复测、容差0.065pt，不缩图，仅读规则文件 `margin_pt`）；图外7pt身份汇总；引擎/规则改变使旧审核缓存失效。
 
 本批SVG线宽按新规则规范化，但路径和dash属性保留，位图曲线没有重画。任意SVG变换或PDF内容流的线宽改写不在本版自动支持范围。
 
@@ -158,6 +163,6 @@ stage-grid 节点可以声明 `fill_column: true`，将节点拉到本列实测�
 
 ### 保存后的统一留白
 
-`policy.export_crop_padding_pt` 默认 2 pt，可显式指定 0～12 pt。公共 `journal_pdf.export_padding.normalize_pdf_padding` 同时用于新导出和旧 PDF 批处理：测量可见墨迹，必要时扩展 MediaBox，并保护原 CropBox，防止露出旧裁切范围之外的内容。输出先写副本，再核验四边留白和原视口渲染；不缩放图形或字号。旋转页、空白页和验证失败均阻断。
+矢量 PDF 的四边留白只读规则文件里的 `margin_pt`（现为 0.25pt），1200 dpi 复测容差 0.065 pt（逐边最多 4 轮补偿，不缩图）。JPG 不加这道留白。改这一处即可，不再接受 0～12pt 的另一套范围。公共 `journal_pdf.export_padding.normalize_pdf_padding` 用于新导出和旧 PDF 批处理：测量可见墨迹，必要时扩展 MediaBox，并保护原 CropBox。输出先写副本，再核验四边留白和原视口渲染；不缩放图形或字号。旋转页、空白页和验证失败均阻断。
 
 场景坐标及遮挡检查先在原坐标系完成；最后的页面框调整由 `export_padding_audit` 记录实际 MediaBox、CropBox、四边测量及渲染一致性。`layout.evidence.export_crop` 是前一步裁切证据，不能当作最终留白实测。原视口边缘最多两像素的裁切抗锯齿变化单独标记，内部像素必须一致；新增白边不得暴露旧裁切外内容。

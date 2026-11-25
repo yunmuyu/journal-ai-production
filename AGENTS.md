@@ -1,11 +1,13 @@
 # 项目协作约束
 
+- 2026-11-12 共性作图纠错落实见 `docs/figure-common-rules-20261112.md`：括号正体；自产矢量最终线宽0.5pt（位图不改）；安全直连优先且默认框边中心接点；图例优先图内安全位置。保留原图布局和已确认连线，不能用自动优化覆盖源绑定。
+
 ## 唯一生产与搬家入口
 
 - 公共主线为main，生产只运行`node journal.mjs`，共用外置machine.local.json。start启动仓库内工作台，produce委托现有production-runner并分流raster。旧私有server、localflow和冻结副本不是生产入口。
 - 旧文档的组件直调命令仅供内部测试和特殊兼容操作，不绕过统一入口、版本锁或回传检查。
 - 普通框间净距3pt、组间净距6pt，随整图等比缩放；带箭头的距离按真实端口和末段计算，不额外加描边造成偏差。
-- 生产PDF留白至少2pt。更小留白仅允许显式diagnostic_only，报告为diagnostic-rendered，不得回传生产候选。
+- 生产留白四边都是 0.25pt（成品边缘到内容墨迹，1200dpi 复测容差 0.065pt）。规则以 `rules/journal-rules.yaml` 为准，说明见 `docs/规则对照.md`。正文字号下限仍是 6pt。diagnostic_only 仍不得回传生产候选。
 
 ## “三分钟测试”固定入口（2026-11-04）
 

@@ -256,7 +256,7 @@ def _diagram(reply,source,page,base):
                 texts.append(q['text']);used.append(native_ref)
             text=n.get('join','\n').join(texts)
             if 'text' in n:require(n['text']==text,'native_text_changed','原生文字不允许静默改写；需要另行内容修订证据')
-        require(shape in ('rectangle','diamond','roundrect','terminator','ellipse','inputOutput'),'shape_not_supported','特殊形状需明确适配',shape=shape)
+        require(shape in ('rectangle','diamond','roundrect','terminator','ellipse','inputOutput','actor','frame'),'shape_not_supported','特殊形状需明确适配',shape=shape)
         out.append({'id':ident,'text':text,'shape':shape})
     require(len(used)==len(set(used)),'duplicate_node_ref','同一原稿对象不能无依据拆成重复节点')
     # Selective figure extraction must name its exact semantic scope; not a claim of whole-page/whole-paper completeness.

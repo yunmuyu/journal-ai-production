@@ -101,3 +101,67 @@ class ReleaseBundleTest(unittest.TestCase):
         bundle.build(self.root, output)
         with zipfile.ZipFile(output) as archive:
             self.assertIn(f'journal-ai-production-{self.identity}/production-runtime/adapter.jsx', archive.namelist())
+
+    def candidate_manifest(self):
+        candidate = {"schemaVersion": 1, "id": "2026.11.10-r49-draft",
+                     "status": "draft-only", "productionEligible": False,
+                     "portableFiles": self.release["portableFiles"], "publicFiles": []}
+        note = self.root / "release-notes/2026.11.10-r49-draft.md"
+        note.write_text("Draft only. Not a release.")
+        for name in ("README.md", "CHANGELOG.md", "RELEASE.json",
+                     "docs/RELEASE-GUIDE.md", "scripts/release_bundle.py",
+                     "release-notes/2026.11.10-r49-draft.md"):
+            data = (self.root / name).read_bytes()
+            candidate["publicFiles"].append({"path": name, "bytes": len(data),
+                                             "sha256": hashlib.sha256(data).hexdigest()})
+        self.save_candidate(candidate)
+        subprocess.run(["git", "-C", str(self.root), "add", "."], check=True)
+        return candidate
+
+    def save_candidate(self, candidate):
+        (self.root / "CANDIDATE.json").write_text(json.dumps(candidate))
+
+    def test_candidate_is_reproducible_explicit_and_not_a_release(self):
+        historical = (self.root / "RELEASE.json").read_bytes()
+        self.candidate_manifest()
+        with self.assertRaisesRegex(ValueError, "cannot build a release"):
+            bundle.build(self.root, Path(self.temp.name) / "release.zip")
+        first, second = [Path(self.temp.name) / name for name in ("a.zip", "b.zip")]
+        self.assertEqual(bundle.build(self.root, first, candidate=True)["sha256"],
+                         bundle.build(self.root, second, candidate=True)["sha256"])
+        with zipfile.ZipFile(first) as archive:
+            archive.extractall(Path(self.temp.name) / "unpack")
+        target = Path(self.temp.name) / "unpack/journal-ai-candidate-2026.11.10-r49-draft"
+        result = bundle.verify(target)
+        self.assertEqual(result["status"], "draft-only")
+        self.assertFalse(result["productionEligible"])
+        self.assertEqual((target / "RELEASE.json").read_bytes(), historical)
+        (target / "CANDIDATE.json").write_text("tampered")
+        with self.assertRaisesRegex(ValueError, "hash mismatch"):
+            bundle.verify(target)
+
+    def test_candidate_rejects_changed_code_and_unsealed_metadata(self):
+        candidate = self.candidate_manifest()
+        code = self.root / "portable-production/localflow/demo.py"
+        code.write_bytes(b"changed")
+        with self.assertRaisesRegex(ValueError, "hash mismatch"):
+            bundle.build(self.root, Path(self.temp.name) / "bad.zip", candidate=True)
+        code.write_bytes(b"pass\n")
+        candidate["publicFiles"] = []
+        self.save_candidate(candidate)
+        with self.assertRaisesRegex(ValueError, "Unsealed candidate"):
+            bundle.build(self.root, Path(self.temp.name) / "bad.zip", candidate=True)
+
+    def test_candidate_rejects_invalid_identity_status_and_private_inputs(self):
+        candidate = self.candidate_manifest()
+        for key, value in (("status", "release"), ("productionEligible", True),
+                           ("id", self.identity)):
+            invalid = dict(candidate, **{key: value})
+            self.save_candidate(invalid)
+            with self.assertRaisesRegex(ValueError, "draft-only"):
+                bundle.build(self.root, Path(self.temp.name) / "bad.zip", candidate=True)
+        candidate["portableFiles"] = [{"path": "config.local.json", "bytes": 7,
+                                       "sha256": hashlib.sha256(b"private").hexdigest()}]
+        self.save_candidate(candidate)
+        with self.assertRaisesRegex(ValueError, "Private"):
+            bundle.build(self.root, Path(self.temp.name) / "bad.zip", candidate=True)

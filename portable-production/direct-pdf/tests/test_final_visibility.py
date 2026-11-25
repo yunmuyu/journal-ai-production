@@ -184,12 +184,9 @@ def test_reopened_saved_pdf_not_scene_declarations_is_checked(tmp_path, reg, mut
 
 
 @pytest.mark.parametrize('wide', [False, True])
-@pytest.mark.parametrize('padding', [0, .25, 4])
-def test_fractional_placement_and_whole_scene_scaling_remain_valid(tmp_path, reg, wide, padding):
+def test_fractional_placement_and_whole_scene_scaling_remain_valid(tmp_path, reg, wide):
     root = tmp_path / 'source'; root.mkdir(); spec = specification(root)
     spec['assets'][0]['target'] = [10.13, 10.29, 70.13, 50.29]
-    spec['policy']['export_crop_padding_pt'] = padding
-    if padding<2:spec['policy']['diagnostic_only']=True
     spec['texts'] = [{'id': 'caption', 'text': 'Caption', 'x': 25, 'y': 60}]
     spec['sources'].append({'path': 'prepared.pdf', 'sha256': digest_file(root / 'prepared.pdf'), 'role': 'derived'})
     if wide:

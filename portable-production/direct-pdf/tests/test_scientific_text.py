@@ -161,12 +161,14 @@ def test_both_chart_axes_measure_and_draw_scripts_at_current_fractional_size(reg
         scene = compile_figure(spec, reg, assets, tmp_path / 'source')
     finally:
         assets.close()
-    assert scene.size == 7.5
+    assert scene.layout_evidence['column_mm'] == 60
+    assert scene.layout_evidence['initial_design_font_size_pt'] == 7.5
+    assert 6 <= scene.size <= 7.5
     for object_id in ('xtick0', 'ytick0', 'ytick1', 'ytick2'):
         text = next(item for item in scene.texts if item['id'] == object_id)
         glyphs = text['measurement']['glyphs']
-        assert [glyph['size'] for glyph in glyphs] == pytest.approx([7.5, 7.5, 5.25, 5.25])
-        assert [glyph['y'] for glyph in glyphs] == pytest.approx([0, 0, -3, -3])
+        assert [glyph['size'] for glyph in glyphs] == pytest.approx([scene.size, scene.size, scene.size * 0.7, scene.size * 0.7])
+        assert [glyph['y'] for glyph in glyphs] == pytest.approx([0, 0, -0.4 * scene.size, -0.4 * scene.size])
 
 
 def test_production_entry_exports_default8_and_reduced_mathematical_scripts(reg, tmp_path):
@@ -183,8 +185,10 @@ def test_production_entry_exports_default8_and_reduced_mathematical_scripts(reg,
         result = render_one(spec, reg, assets, source, tmp_path / 'output')
     finally:
         assets.close()
-    assert result['layout']['layout_evidence']['whole_artwork_scale'] == 1
-    assert all(item['font_size_pt'] == 8 for item in result['layout']['texts'])
+    evidence = result['layout']['layout_evidence']
+    scale = evidence['whole_artwork_scale']
+    assert evidence['column_mm'] == 60 and evidence['initial_design_font_size_pt'] == 8
+    assert scale <= 1 and all(item['font_size_pt'] == pytest.approx(8 * scale) for item in result['layout']['texts'])
     with fitz.open(tmp_path / 'output' / result['output_pdf']) as document:
         page = document[0]
         spans = [span for block in page.get_text('dict')['blocks']
@@ -192,14 +196,14 @@ def test_production_entry_exports_default8_and_reduced_mathematical_scripts(reg,
         bases = [span for span in spans if span['text'] == '10']
         scripts = [span for span in spans if span['text'] in ('-1', '-2', '-3')]
         assert len(bases) == len(scripts) == 3
-        assert all(span['size'] == pytest.approx(8) for span in bases)
-        assert all(span['size'] == pytest.approx(5.6) for span in scripts)
+        assert all(span['size'] == pytest.approx(8 * scale) for span in bases)
+        assert all(span['size'] == pytest.approx(5.6 * scale) for span in scripts)
         for base, script in zip(bases, scripts):
-            assert base['origin'][1] - script['origin'][1] == pytest.approx(3.2, abs=0.001)
+            assert base['origin'][1] - script['origin'][1] == pytest.approx(3.2 * scale, abs=0.05)
             assert script['origin'][0] > base['origin'][0]
         text = ''.join(page.get_text().split())
         assert '注入物理噪声概率/%' in text
         assert '误码率/BER' in text
         assert '（' not in text and '）' not in text and '−' not in text
         ordinary_spans = [span for span in spans if span not in bases and span not in scripts]
-        assert ordinary_spans and all(span['size'] == pytest.approx(8) for span in ordinary_spans)
+        assert ordinary_spans and all(span['size'] == pytest.approx(8 * scale) for span in ordinary_spans)

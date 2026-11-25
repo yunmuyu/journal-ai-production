@@ -22,6 +22,9 @@ def main(argv=None):
         q=sub.add_parser(name);q.add_argument('input',type=Path);q.add_argument('--profile',required=True,type=Path)
         q.add_argument('--output',required=True,type=Path);q.add_argument('--cache',type=Path);q.add_argument('--overwrite',action='store_true')
         if name=='render':q.add_argument('--source-root',required=True,type=Path)
+    cp=sub.add_parser('capacity',help='提前实测当前方案的栏宽容量；不生成PDF、不修改栏宽决定')
+    cp.add_argument('input',type=Path);cp.add_argument('--profile',required=True,type=Path)
+    cp.add_argument('--source-root',required=True,type=Path);cp.add_argument('--cache',type=Path)
     sv=sub.add_parser('serve',help='本地审核台；只监听127.0.0.1')
     sv.add_argument('batch',type=Path);sv.add_argument('--profile',required=True,type=Path);sv.add_argument('--output',required=True,type=Path);sv.add_argument('--cache',type=Path);sv.add_argument('--port',type=int,default=8765)
     w=sub.add_parser('windows-fonts',help='仅首次配置时主动查询Windows字体注册表，不遍历字体文件夹')
@@ -108,6 +111,13 @@ def main(argv=None):
             r=run_batch(args.input,args.profile,args.output,args.cache,args.overwrite)
             out={'status':r['status'],'rendered':len(r['results']),'blocked':len(r['failures']),'wall_clock_ms':r['wall_clock_ms'],'output':str(args.output)}
             print(json.dumps(out,ensure_ascii=False));return 0 if not r['failures'] else 2
+        elif args.command=='capacity':
+            from .fonts import FontRegistry
+            from .assets import Assets
+            from .capacity import check_capacity
+            reg=FontRegistry(args.profile,args.cache);a=Assets()
+            try:out=check_capacity(read_json(args.input),reg,a,args.source_root)
+            finally:reg.close();a.close()
         elif args.command=='serve':
             from .server import serve
             serve(args.batch,args.profile,args.output,args.cache,args.port);return 0

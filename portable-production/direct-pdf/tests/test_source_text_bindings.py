@@ -38,7 +38,7 @@ def test_text_binding_actual_pdf_has_no_dummy_viewport_or_source_graphic(reg,tmp
     # Given source artwork and a text-only source binding.
     source=tmp_path/'source';source.mkdir()
     spec=binding_spec(source)
-    spec['policy']={'export_crop_padding_pt':4}
+    spec['policy']={}
     assets=Assets()
     try:
         # When rendering a real PDF through the normal pipeline.

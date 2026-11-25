@@ -59,7 +59,8 @@ class Scene:
         self.texts.append(t);return t
     def shape(self,id,rect,kind='rectangle',container=False,width=.5,dash=None,checked=False,fill=None,gray=0):
         self.ident(id)
-        if kind not in ('rectangle','ellipse','diamond','roundrect','terminator','inputOutput','checkbox'):raise FigureError('unsupported_shape','形状未支持',kind=kind)
+        if kind not in ('rectangle','ellipse','diamond','roundrect','terminator','inputOutput','checkbox','actor','frame'):raise FigureError('unsupported_shape','形状未支持',kind=kind)
+        if kind=='frame':container=True
         if not finite(rect) or rect[2]<=rect[0] or rect[3]<=rect[1]:raise FigureError('invalid_node_rect','节点矩形无效',id=id)
         validate_node_dash(dash, id=id)
         if not isinstance(checked,bool):raise FigureError('checkbox_state_invalid','复选框选中态须为布尔值',id=id)
@@ -106,7 +107,7 @@ class Scene:
                   wrap_chars=wrap_chars,wrap_width_pt=wrap_width_pt)
         return self.nodes[-1]
     def line(self,id,points,arrow=False,both=False,dash=None,width=.5,exact_terminal=False,endpoint_nodes=None,
-             shared_net=None,semantic_role='connection',arrow_style='standard'):
+             shared_net=None,semantic_role='connection',arrow_style='standard',arrow_scale=None,bus_arrow=False):
         self.ident(id); pts=[]
         for p in points:
             if not finite(p) or len(p)!=2:raise FigureError('path_point','无效线段坐标',id=id)
@@ -118,7 +119,10 @@ class Scene:
             block_arrow_vertices(pts,both=both,scale=self.size/8)
         self.paths.append({'id':id,'points':pts,'arrow':arrow or both,'both':both,'dash':dash or [],'width':width,
                            'exact_terminal':bool(exact_terminal),'endpoint_nodes':endpoint_nodes,
-                           'shared_net':shared_net,'semantic_role':semantic_role,'arrow_style':arrow_style})
+                           'shared_net':shared_net,'semantic_role':semantic_role,'arrow_style':arrow_style,
+                           'bus_arrow':bool(bus_arrow)})
+        if arrow_scale is not None:self.paths[-1]['arrow_scale']=float(arrow_scale)
+        elif bus_arrow:self.paths[-1]['arrow_scale']=1
         if arrow_style=='block-outline':self.paths[-1]['arrow_scale']=self.size/8
     def poly(self,id,points,fill=None,gray=0,width=.5,dash=None,closed=True,semantic_role=None,opacity=None):
         """闭合多边形（统计图数据几何）：0..1 墨量填充 + 0..1 灰度描边，不参与连接。"""
@@ -506,13 +510,21 @@ def audit_scene(s:Scene):
                 issues.append({'code':'path_outside_page','id':p['id']});break
         for start in ([False,True] if p['both'] else [False] if p['arrow'] else []):
             actual=math.dist(pts[0],pts[1]) if start else math.dist(pts[-2],pts[-1])
-            required=ARROW_LENGTH*p.get("arrow_scale",1)
-            if actual<required-1e-5:
-                issues.append({'code':'arrow_terminal_length','id':p['id'],'at_start':start,
-                               'actual_pt':actual,'required_pt':required})
-            elif p.get('exact_terminal') and abs(actual-required)>1e-5:
-                issues.append({'code':'arrow_terminal_not_exact','id':p['id'],'at_start':start,
-                               'actual_pt':actual,'required_pt':required})
+            if p.get('bus_arrow'):
+                from .editorial import ARROW_DEPTH, STROKE, bus_leg_arrow_scale
+                scale=p.get('arrow_scale',1)
+                if ARROW_DEPTH*scale+STROKE/2>=actual:
+                    issues.append({'code':'bus_arrow_overlap','id':p['id'],'leg_pt':actual,'arrow_pt':ARROW_DEPTH*scale})
+                elif abs(scale-bus_leg_arrow_scale(actual))>1e-6:
+                    issues.append({'code':'bus_arrow_scale','id':p['id'],'actual':scale,'expected':bus_leg_arrow_scale(actual)})
+            else:
+                required=ARROW_LENGTH*p.get("arrow_scale",1)
+                if actual<required-1e-5:
+                    issues.append({'code':'arrow_terminal_length','id':p['id'],'at_start':start,
+                                   'actual_pt':actual,'required_pt':required})
+                elif p.get('exact_terminal') and abs(actual-required)>1e-5:
+                    issues.append({'code':'arrow_terminal_not_exact','id':p['id'],'at_start':start,
+                                   'actual_pt':actual,'required_pt':required})
             try:
                 vertices=block_arrow_vertices(pts,scale=p.get('arrow_scale',1),both=p.get('both',False)) if p.get('arrow_style')=='block-outline' else arrow_vertices(pts,at_start=start,scale=p.get("arrow_scale",1))
                 box=[min(q[0] for q in vertices),min(q[1] for q in vertices),max(q[0] for q in vertices),max(q[1] for q in vertices)]
