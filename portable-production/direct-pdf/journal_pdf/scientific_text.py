@@ -9,10 +9,13 @@ from __future__ import annotations
 import math
 
 from .common import FigureError
+from .journal_rules import load_rules
+
+_FROM_RULES = object()
 
 
 def power_of_ten(
-    exponent: int, base_size_pt: float = 8.0, exponent_scale: float = 0.7
+    exponent: int, base_size_pt: float = 8.0, exponent_scale: float = _FROM_RULES
 ) -> list[dict]:
     """Return upright ``10`` and a genuinely smaller, raised integer exponent.
 
@@ -35,6 +38,9 @@ def power_of_ten(
         or not 6 <= base_size_pt <= 8
     ):
         raise FigureError('font_size_out_of_policy', '底数字号必须在6—8pt之间')
+    script = load_rules()['normative']
+    if exponent_scale is _FROM_RULES:
+        exponent_scale = float(script['scientific_exponent_scale'])
     if (
         isinstance(exponent_scale, bool)
         or not isinstance(exponent_scale, (int, float))
@@ -49,6 +55,6 @@ def power_of_ten(
             'text': exponent_text,
             'style': 'regular',
             'scale': float(exponent_scale),
-            'baseline_shift_pt': -0.4 * base_size_pt,
+            'baseline_shift_pt': float(script['scientific_baseline_shift_ratio']) * base_size_pt,
         },
     ]

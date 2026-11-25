@@ -18,7 +18,7 @@ test('auto-plan and existing manual plan share real batch CLI, quality gate and 
  const archive=testRef(write('archive.zip','fixture archive')),word=testRef(write('word.docx','fixture word')),inventory=testRef(write('inventory.json','{}'));
  const route={version:1,method:'raster-preserve',processing:{operation:'preserve',basis:'Synthetic pixel fixture has no lettering to replace'},sourceReview:{archive,word,inventory,selected:source,candidates:[{...source,kind:'raster',decision:'selected',reason:'Synthetic photo'}],basis:'Synthetic matched source',rasterReason:'Synthetic photo'},requirements:{format:'jpg',fontCheck:'none',widthMm:80}};
  const routeFile=write('route.json',route),history=write('history.json',{checked:true,conclusion:'new',reusable:false,observation:'Synthetic test has no prior outputs'}),frozen=write('frozen.json','[]'),fonts=write('fonts.json','{}');
- const authorRoot=path.join(root,'delivery'),rows=[],files=new Map();let handler,returned=0,previewFailure=true;
+ const authorRoot=path.join(root,'delivery'),rows=[1,2].map(number=>({id:'F'+number,articleId:'article',number:String(number),author:'fixture',status:'待制作',outputs:[]})),files=new Map();let handler,returned=0,previewFailure=true;
  const server=http.createServer((req,res)=>{
   if(req.url==='/data')return res.end(JSON.stringify({rows}));
   if(req.url==='/preview/F1'&&previewFailure){previewFailure=false;return res.writeHead(503).end();}
@@ -26,13 +26,13 @@ test('auto-plan and existing manual plan share real batch CLI, quality gate and 
   handler.handle(req,res,new URL(req.url,origin))||res.writeHead(404).end();
  });
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;t.after(()=>server.close());
- const config={workerToken:'fixture-only',qualityPython:process.env.WORKSPACE_TEST_PYTHON,directProduction:{enabled:true,batchHashes:[archive.sha256],groups:['raster']}};
- handler=createWorkBuddyHandler({root:path.join(root,'jobs'),origin,config,assertRoutineEligible:()=>({archive,word}),publish:(job,result)=>{
+ const config={workerToken:'fixture-only',qualityPython:process.env.WORKSPACE_TEST_PYTHON,catalog:{batchHash:archive.sha256,archive,articles:[{id:'article',word}]},directProduction:{enabled:true,batchHashes:[archive.sha256],groups:['raster']}};
+ handler=createWorkBuddyHandler({root:path.join(root,'jobs'),origin,config,figures:()=>rows,assertRoutineEligible:()=>({archive,word}),publish:(job,result)=>{
   returned++;const id='F'+job.figureNumber;files.set('/file/'+id,result.outputs[0].path);files.set('/preview/'+id,result.outputs[0].preview);
-  rows.push({id,articleId:job.articleId,number:job.figureNumber,author:'fixture',status:'待终检',outputs:result.outputs.map(o=>({number:o.number,file:{token:id,meta:{sha256:o.sha256}}}))});
+  Object.assign(rows.find(row=>row.id===id),{status:'待终检',outputs:result.outputs.map(o=>({number:o.number,file:{token:id,meta:{sha256:o.sha256}}}))});
  },restore(){}});
  const items=[1,2].map(number=>{
-  const job=handler.queue.enqueue({key:'fixture-'+number,batchHash:archive.sha256,articleId:'article',figureNumber:String(number),mainNumbers:['1','2'],outputNumbers:[String(number)],group:'raster',label:'fixture '+number,sources:[archive,word],productionRoute:route});handler.queue.pause(job.id);
+  const job=handler.queue.enqueue({key:'fixture-'+number,batchHash:archive.sha256,articleId:'article',figureId:'F'+number,figureNumber:String(number),mainNumbers:['1','2'],outputNumbers:[String(number)],group:'raster',label:'fixture '+number,sources:[archive,word],productionRoute:route});handler.queue.pause(job.id);
   const evidenceFile=write('evidence-'+number+'.json',{producer:'fixture',history:{evidence:history,conclusion:'new',reusable:false,revision_authorization:''},frozen_manifest:frozen,author_roots:[authorRoot],delivery_target:path.join(authorRoot,number+'.jpg'),runtime:{python:process.env.WORKSPACE_TEST_PYTHON,font_profile:fonts},allowed_changes:['grayscale'],immutable_content:['content'],failure_policy:{max_attempts:2,repair:'local-only',time_budget_seconds:null,cost_budget:null}});
   return {id:job.id,routeFile,evidenceFile,outputName:number+'.jpg',...(number===2?{autoPlan:{crop:null}}:{plan:{version:1,inputs:[{...source,crop:null}],layout:{mode:'single',gap_px:0},width_mm:80,quality:95}})};
  });

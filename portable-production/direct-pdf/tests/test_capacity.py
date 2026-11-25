@@ -13,7 +13,7 @@ def scene(width=309, column='single'):
     return {'version': 1, 'id': 'capacity-plan', 'author': 'Synthetic', 'synthetic': True,
             'kind': 'scene', 'width_pt': width, 'height_pt': 50,
             'texts': [{'id': 'a', 'text': 'A', 'x': 20, 'y': 25}],
-            'policy': {'column': column, 'design_font_size_pt': 8, 'export_crop_padding_pt': 2}}
+            'policy': {'column': column, 'design_font_size_pt': 8}}
 
 
 def inspect(spec, reg, root):
@@ -40,11 +40,11 @@ def test_measured_single_column_failure_matches_render_without_producing_pdf(reg
     assert capacity['spec_hash'] == digest_json(original)
     assert capacity['source_bindings'] == {identity.name: digest_file(identity)}
     assert capacity['layout_width_pt'] == 309
-    assert capacity['available_width_pt'] == pytest.approx(80*PT_PER_MM - 4 - .5)
-    assert capacity['proposed_font_size_pt'] == pytest.approx(5.754605916978825)
-    assert capacity['minimum_width_mm_for_font_rule'] == pytest.approx((309*6/8+4.5)/PT_PER_MM)
+    assert capacity['available_width_pt'] == pytest.approx(80*PT_PER_MM - .5 - .5)
+    assert capacity['proposed_font_size_pt'] == pytest.approx((80*PT_PER_MM - 1.0) * 8 / 309)
+    assert capacity['minimum_width_mm_for_font_rule'] == pytest.approx((309*6/8+1.0)/PT_PER_MM)
     assert capacity['status'] == 'blocked-font'
-    assert '5.75 pt' in capacity['summary'] and '80 mm' in capacity['summary']
+    assert '5.84 pt' in capacity['summary'] and '80 mm' in capacity['summary']
     assert 'not a global minimum' in capacity['scope']
     assets = Assets()
     try:
@@ -82,12 +82,12 @@ def test_explicit_double_column_is_measured_as_requested_without_single_probe(re
     assert spec == before
 
 
-def test_auto_does_not_switch_to_double_column(reg, tmp_path):
+def test_auto_advances_to_double_column_when_single_cannot_fit(reg, tmp_path):
     spec = scene(column='auto'); before = deepcopy(spec)
-    with pytest.raises(FigureError) as error:
-        inspect(spec, reg, tmp_path)
-    assert error.value.details['capacity']['requested_column'] == 'auto'
-    assert error.value.details['capacity']['column_mm'] == 80
+    result = inspect(spec, reg, tmp_path)
+    assert result['capacity']['requested_column'] == 'auto'
+    assert result['capacity']['column_mm'] == 160
+    assert result['capacity']['proposed_font_size_pt'] == 8
     assert spec == before
 
 
@@ -162,12 +162,12 @@ def test_capacity_cannot_claim_fitting_after_violating_registered_original_route
     assert error.value.code == 'source_route_bends_changed'
     assert not list(tmp_path.rglob('out/*.pdf'))
 
-@pytest.mark.parametrize('padding',['absent',0,.1,.25,2,4,12])
-def test_capacity_and_render_share_default_and_explicit_padding(reg,tmp_path,padding):
+@pytest.mark.parametrize('padding',['absent',.25])
+def test_capacity_and_render_share_rule_padding(reg,tmp_path,padding):
     spec=scene(width=100)
-    if padding=='absent':spec['policy'].pop('export_crop_padding_pt')
+    if padding=='absent':spec['policy'].pop('export_crop_padding_pt', None)
     else:spec['policy']['export_crop_padding_pt']=padding
-    expected=.25 if padding=='absent' else padding
+    expected=.25
     source=tmp_path/'source';source.mkdir()
     capacity=inspect(spec,reg,source)['capacity']
     assets=Assets()

@@ -38,9 +38,8 @@ def test_fractional_media_origin_does_not_overflow_cropbox(tmp_path):
     assert receipt['pages'][0]['measured_margins_pt'] == pytest.approx([.25]*4, abs=.065)
     assert receipt['pages'][0]['source_view_pixels_identical']
 
-@pytest.mark.parametrize('padding',[0,.1,.25,2,12])
 @pytest.mark.parametrize('kind',['text','thin-line','clipped'])
-def test_fractional_artwork_retains_text_paths_and_requested_margin(tmp_path,padding,kind):
+def test_fractional_artwork_retains_text_paths_and_requested_margin(tmp_path,kind):
     source,result=tmp_path/'source.pdf',tmp_path/'result.pdf'
     with fitz.open() as doc:
         page=doc.new_page(width=100.37,height=80.19)
@@ -50,8 +49,8 @@ def test_fractional_artwork_retains_text_paths_and_requested_margin(tmp_path,pad
             page.draw_rect(page.rect,fill=(0,0,0),color=None)
             page.set_cropbox(fitz.Rect(10.137,20.293,90.187,60.219))
         doc.save(source)
-    receipt=normalize_pdf_padding(source,result,padding)
-    assert receipt['pages'][0]['measured_margins_pt']==pytest.approx([padding]*4,abs=.065)
+    receipt=normalize_pdf_padding(source,result)
+    assert receipt['pages'][0]['measured_margins_pt']==pytest.approx([.25]*4,abs=.065)
     assert receipt['rescaled'] is False
     with fitz.open(source) as before,fitz.open(result) as after:
         assert before[0].get_text()==after[0].get_text()
@@ -92,9 +91,8 @@ def test_failed_saved_margin_verification_never_replaces_existing_output(tmp_pat
     assert not list(tmp_path.glob('.padding-*'))
 
 
-@pytest.mark.parametrize('padding',[.25,2])
 @pytest.mark.parametrize('offset', [0, .03, .07, .11, .19, .43])
-def test_r48_fractional_positions_match_requested_target(tmp_path, offset, padding):
+def test_r48_fractional_positions_match_requested_target(tmp_path, offset):
     import pymupdf as fitz
     source, target = tmp_path / 'source.pdf', tmp_path / 'result.pdf'
     with fitz.open() as doc:
@@ -102,8 +100,8 @@ def test_r48_fractional_positions_match_requested_target(tmp_path, offset, paddi
         page.draw_line((10+offset, 10+offset), (75+offset, 55+offset), width=.5)
         page.insert_text((20+offset, 30+offset), 'A', fontsize=8)
         doc.save(source)
-    receipt = normalize_pdf_padding(source, target, padding)
-    assert receipt['pages'][0]['measured_margins_pt'] == pytest.approx([padding]*4,abs=.065)
+    receipt = normalize_pdf_padding(source, target)
+    assert receipt['pages'][0]['measured_margins_pt'] == pytest.approx([.25]*4,abs=.065)
     assert receipt['pages'][0]['source_view_pixels_identical']
     assert receipt['rescaled'] is False
 

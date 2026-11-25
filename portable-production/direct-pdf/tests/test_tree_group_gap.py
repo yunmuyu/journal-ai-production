@@ -72,7 +72,7 @@ def test_right_tree_optional_arrows_preserve_semantic_branches(reg):
     s=tree({'root':'系统','arrows':True,'branches':[{'text':'甲','children':['一','二']},{'text':'乙','children':['三']}]},reg,8)
     assert len([p for p in s.paths if p['arrow']])==5
     assert not audit_scene(s)
-    assert all(p['exact_terminal'] for p in s.paths if p['arrow'])
+    assert all(p['bus_arrow'] for p in s.paths if p['arrow'])
 
 def test_tree_wraps_long_labels_before_reducing_eight_point(reg):
     from journal_pdf.render import compile_figure

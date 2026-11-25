@@ -60,7 +60,7 @@ def mixed_spec(tmp_path):
     source=tmp_path/'source';source.mkdir()
     image=source/'photo.png';Image.new('L',(30,20),128).save(image)
     spec={'id':'mixed-link','author':'Synthetic','kind':'scene','version':1,'synthetic':True,
-          'width_pt':270,'height_pt':100,'policy':{'column':'single','design_font_size_pt':8,'export_crop_padding_pt':4},
+          'width_pt':270,'height_pt':100,'policy':{'column':'single','design_font_size_pt':8},
           'sources':[{'path':'photo.png','sha256':digest_file(image)}],
           'nodes':[{'id':'left','rect':[10,10,80,85],'container':True},
                    {'id':'right','rect':[180,10,250,85],'container':True},

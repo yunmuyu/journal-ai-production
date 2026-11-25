@@ -3,48 +3,31 @@ import pymupdf as fitz
 import pytest
 from journal_pdf.assets import Assets
 from journal_pdf.common import FigureError
+from journal_pdf.journal_rules import load_rules
 from journal_pdf.render import render_one
 
 
-def render_sample(reg,tmp_path,name,padding='absent'):
+def render_sample(reg,tmp_path,name):
     spec={'id':name,'author':'test','synthetic':True,'kind':'scene','width_pt':100,'height_pt':100,'policy':{'design_font_size_pt':8},'texts':[{'id':'word','text':'Export','x':50,'y':50}]}
-    if padding!='absent':spec['policy']['export_crop_padding_pt']=padding
     source=tmp_path/'source';source.mkdir(exist_ok=True);assets=Assets()
-    try:result=render_one(spec,reg,assets,source,tmp_path/'out')
+    try:result=render_one(spec,reg,assets,source,tmp_path/'out'/name)
     finally:assets.close()
-    with fitz.open(tmp_path/'out'/result['output_pdf']) as doc:
-        page=doc[0];dimensions=list(page.rect);crop=list(page.cropbox)
+    with fitz.open(tmp_path/'out'/name/result['output_pdf']) as doc:
+        page=doc[0]
         pixels=hashlib.sha256(page.get_pixmap(dpi=300).samples).hexdigest()
-    return result,dimensions,crop,pixels
+    return result,pixels
 
 
-def test_explicit_export_crop_padding_changes_only_the_crop_margin(reg,tmp_path):
-    original,size,crop,_=render_sample(reg,tmp_path,'default')
-    result,padded,padded_crop,_=render_sample(reg,tmp_path,'padded',4)
-    assert result['layout']['layout_evidence']['export_crop']['protection_pt']==4
-    assert padded[2]-size[2]==pytest.approx(7.5,abs=.065)
-    assert padded[3]-size[3]==pytest.approx(7.5,abs=.065)
-    assert result['export_padding_audit']['pages'][0]['measured_margins_pt']==pytest.approx([4]*4,abs=.065)
-    assert result['layout']['texts']==original['layout']['texts']
-    assert result['layout']['layout_evidence']['export_crop']['rescaled'] is False
+def test_pdf_margin_comes_only_from_the_rule_file(reg,tmp_path):
+    margin=float(load_rules()['normative']['margin_pt'])
+    result,_=render_sample(reg,tmp_path,'rule')
+    assert result['layout']['layout_evidence']['export_crop']['protection_pt']==margin
+    assert result['export_padding_audit']['pages'][0]['measured_margins_pt']==pytest.approx([margin]*4,abs=.065)
+    assert min(result['export_padding_audit']['pages'][0]['measured_margins_pt'])>0.05
 
 
-def test_absent_setting_uses_quarter_point_export_behavior(reg,tmp_path):
-    original,size,crop,pixels=render_sample(reg,tmp_path,'absent')
-    explicit,other_size,other_crop,other_pixels=render_sample(reg,tmp_path,'explicit',.25)
-    assert original['layout']['layout_evidence']['export_crop']==explicit['layout']['layout_evidence']['export_crop']
-    assert size==other_size and crop==other_crop and pixels==other_pixels
-
-
-@pytest.mark.parametrize('padding',[0,.1,.25,2,4,12])
-def test_explicit_padding_remains_controllable(reg,tmp_path,padding):
-    result,*_=render_sample(reg,tmp_path,'controlled',padding)
-    assert result['export_padding_audit']['target_padding_pt']==padding
-    assert result['pdf_audit']['editable_text_margin_passed'] is True
-
-
-@pytest.mark.parametrize('value',[-.01,12.01,float('inf'),float('-inf'),float('nan'),True,False,'4',None,[],{}])
-def test_invalid_export_padding_is_rejected_before_outputs_or_scene_construction(tmp_path,value):
+@pytest.mark.parametrize('value',[0,4,12,-.01,12.01,float('inf'),float('nan'),True,False,'4',None,[],{}])
+def test_any_other_export_padding_is_rejected(tmp_path,value):
     spec={'policy':{'export_crop_padding_pt':value}}
     with pytest.raises(FigureError) as error:render_one(spec,None,None,tmp_path/'source',tmp_path/'output')
     assert error.value.code=='export_crop_padding_invalid'

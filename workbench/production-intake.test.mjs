@@ -114,7 +114,7 @@ test('intake also discovers SVG chart routes without treating unsupported extens
 
 test('intake proposes Word subfigures and source objects without treating them as an executable plan',async t=>{
  const {runProductionRequests}=await import('./production-intake.mjs');
- const python=process.env.JFW_TEST_PYTHON||'python';
+ const python=process.env.JFW_TEST_PYTHON||process.env.WORKSPACE_TEST_PYTHON||process.env.JFW_PYTHON||'python';
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'intake-word-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const word=path.join(root,'paper.docx'),pdf=path.join(root,'source.pdf');
  const script=`import sys, zipfile, fitz\nw,p=sys.argv[1:]\nxml='<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>(a) 左侧 (b) 右侧</w:t></w:r></w:p><w:p><w:r><w:t>图3 架构</w:t></w:r></w:p></w:body></w:document>'\nwith zipfile.ZipFile(w,'w') as z: z.writestr('word/document.xml',xml)\nd=fitz.open(); page=d.new_page(); page.insert_text((20,30),'input'); page.insert_text((20,30),'input'); page.draw_line((10,40),(100,40)); page.draw_rect((21,25,23,29),color=None,fill=(.8,.8,.8)); page.set_cropbox(fitz.Rect(5,5,200,200)); d.save(p)`;

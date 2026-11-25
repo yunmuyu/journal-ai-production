@@ -138,12 +138,23 @@ def render(plan: dict) -> dict:
     with Image.open(output) as actual:
         actual.load()
         require(actual.format == 'JPEG' and actual.mode == 'L', 'output_decode_mismatch')
+        from production_rules.gray import assert_grayscale_image, excess_color_pixels
+        try:
+            assert_grayscale_image(actual)
+        except ValueError as error:
+            raise RasterError('color_output') from error
         measured_dpi = [float(v) for v in actual.info['dpi']]
         actual_width = actual.width / measured_dpi[0] * 25.4
         require(abs(actual_width - width) <= .05, 'output_width_mismatch')
         actual.save(preview, format='PNG')
+        with Image.open(preview) as preview_image:
+            preview_image.load()
+            try:
+                assert_grayscale_image(preview_image)
+            except ValueError as error:
+                raise RasterError('color_output') from error
         output_ref = dict(**ref(output), format='jpg', pixels=list(actual.size), dpi=measured_dpi,
-            width_mm=actual_width, nonneutral_pixels=0)
+            width_mm=actual_width, nonneutral_pixels=excess_color_pixels(actual))
     for item in plan['inputs']:
         require(ref(Path(item['path']))['sha256'] == item['sha256'], 'source_changed_during_render')
     result = dict(version=1, tool='public-raster', inputs=evidence, layout=plan['layout'], grayscale_weights=weights,

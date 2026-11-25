@@ -13,7 +13,7 @@ function fixture(t){
  const sha256=createHash('sha256').update(fs.readFileSync(file)).digest('hex');
  const manifest={schema:'jfw-current-delivery-v1',issues:[],items:[{articleId:'a',author:'Example',number:'1',state:'review',relative:'a.pdf',sha256}]};
  const manifestPath=path.join(current,'manifest.json'),save=()=>fs.writeFileSync(manifestPath,JSON.stringify(manifest));save();
- return {root,file,manifest,manifestPath,save,options:{manifestPath,articleId:'a',output:path.join(root,'author.zip'),python:process.env.WORKSPACE_TEST_PYTHON??'python'}};
+ return {root,file,manifest,manifestPath,save,options:{manifestPath,articleId:'a',output:path.join(root,'author.zip'),python:process.env.WORKSPACE_TEST_PYTHON??process.env.JFW_TEST_PYTHON??process.env.JFW_PYTHON??'python'}};
 }
 test('packaging is explicit and selected current figures keep review state',t=>{
  const f=fixture(t),before=fs.readFileSync(f.manifestPath),r=packageCurrentDelivery(f.options);

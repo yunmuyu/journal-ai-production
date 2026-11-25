@@ -183,7 +183,7 @@ def test_complete_vector_chart_render_applies_measured_layout(reg,tmp_path):
         span=next(s for s in spans if s['text']==t['text'])
         replacement.update(source_text=span['text'],source_bbox=list(span['bbox']))
     sha=hashlib.sha256(p.read_bytes()).hexdigest();spec['chart_vector_layout']['source_sha256']=sha;spec['legend_review']['source_sha256']=sha
-    spec.update(version=1,id='fixture-chart',author='synthetic',kind='scene',sources=[{'path':'source.pdf','sha256':sha,'role':'original'}],policy={'column':'single','design_font_size_pt':8,'export_crop_padding_pt':4})
+    spec.update(version=1,id='fixture-chart',author='synthetic',kind='scene',sources=[{'path':'source.pdf','sha256':sha,'role':'original'}],policy={'column':'single','design_font_size_pt':8})
     from journal_pdf.source_path_text_coverage import path_fingerprint
     with fitz.open(p) as original:
         spec['assets'][0]['nontext_path_bindings']=[{'index':i,'sha256':path_fingerprint(row),'role':'curve','basis':'Synthetic plot strokes drawn in this fixture; native text separately bound'} for i,row in enumerate(original[0].get_drawings())]

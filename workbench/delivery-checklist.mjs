@@ -22,7 +22,7 @@ export function deliveryChecklist(report,{outputSha256,widthMm,spec}={}){
   editableText:check(audit.text_multiset_exact===true&&audit.editable_text_pure_black===true,
    {expectedCharacters:audit.expected_text_characters,actualCharacters:audit.actual_text_characters},'已登记可编辑文字，不等于证明所有位图或轮廓中没有遗漏文字'),
   margins:check(audit.editable_text_margin_passed===true&&spec!==undefined&&verifyExportPadding(spec,report),
-   {minimumPt:audit.minimum_text_margin_pt,targetPt:report.export_padding_audit?.target_padding_pt,marginsPt:report.export_padding_audit?.pages?.[0]?.measured_margins_pt},'保存后四边留白匹配明确制作说明；默认0.25pt，可显式覆盖')
+   {minimumPt:audit.minimum_text_margin_pt,targetPt:report.export_padding_audit?.target_padding_pt,marginsPt:report.export_padding_audit?.pages?.[0]?.measured_margins_pt},'保存后四边留白匹配规则文件 margin_pt（0.25pt，1200dpi实测）')
  };
  return {version:1,type:'production-checklist',outputSha256,engineSignature:report.engine_signature,ruleset:report.editorial_ruleset,
   sourceBindings:(report.source_bindings??[]).map(({path,sha256,role})=>({path,sha256,role:role??'source'})),checks,

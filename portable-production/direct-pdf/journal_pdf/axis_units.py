@@ -4,9 +4,12 @@ Recognized terminal unit expressions are automatic; unknown expressions are
 left for semantic review. No unit conversion or spelling correction occurs.
 """
 from __future__ import annotations
+import contextvars
 import copy
 import re
 from .common import FigureError
+
+_DECISIONS = contextvars.ContextVar('unit_decisions', default=None)
 
 AXIS_UNIT_RULE = {
     "id": "axis-quantity-slash-unit-20261009-v1",
@@ -19,6 +22,13 @@ _SIMPLE = {"%", "‰", "°", "°C", "℃", "dB", "dBm", "rad", "sr", "min", "h",
 _BASE = {"m", "g", "s", "A", "K", "mol", "cd", "Hz", "N", "Pa", "J", "W", "C", "V", "F", "Ω", "S", "Wb", "T", "H", "Bq", "Gy", "Sv", "kat"}
 _PREFIX = ("da", "Y", "Z", "E", "P", "T", "G", "M", "k", "h", "d", "c", "m", "µ", "μ", "n", "p", "f", "a", "z", "y")
 _TERMINAL = re.compile(r"(?P<open>\(|（)(?P<unit>[^()（）]+)(?P<close>\)|）)\s*$")
+# U+00B2/00B3/00B9 sit outside the superscript block but appear in m²/m³.
+_ATOM = re.compile(r'^(?P<base>[^\s\^⁰¹²³⁴⁵⁶⁷⁸⁹⁻\u00b2\u00b3\u00b9]+)(?:\^-?\d+|[⁻⁰¹²³⁴⁵⁶⁷⁸⁹\u00b2\u00b3\u00b9]+)?$')
+
+
+def _lexicon():
+    from .journal_rules import load_rules
+    return set(load_rules().get('units', {}).get('lexicon') or [])
 
 
 def plain_content(content):
@@ -30,7 +40,16 @@ def plain_content(content):
 
 
 def is_known_single_unit(value: str) -> bool:
-    return value in _SIMPLE or value in _BASE or any(value.startswith(p) and value[len(p):] in _BASE for p in _PREFIX)
+    if value in _lexicon() or value in _SIMPLE or value in _BASE:
+        return True
+    return any(value.startswith(p) and value[len(p):] in _BASE for p in _PREFIX)
+
+
+def _atom_known(atom: str) -> bool:
+    if is_known_single_unit(atom) or atom in {'次', '秒', '分钟', '小时'}:
+        return True
+    match = _ATOM.fullmatch(atom)
+    return bool(match and (is_known_single_unit(match.group('base')) or match.group('base') in {'次', '秒', '分钟', '小时'}))
 
 
 def is_known_compound_unit(value: str) -> bool:
@@ -39,14 +58,24 @@ def is_known_compound_unit(value: str) -> bool:
     parts = re.split(r'\s*([/·*])\s*', value)
     if len(parts) < 3 or len(parts) % 2 == 0:
         return False
-    for atom in parts[::2]:
-        match = re.fullmatch(r'([^\s^⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+)(?:\^-?\d+|[⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+)?', atom)
-        if not match or not (is_known_single_unit(match.group(1)) or match.group(1) in {'次','秒','分钟','小时'}):
-            return False
-    return True
+    return all(_atom_known(atom) for atom in parts[::2])
 
 
-def _rewrite_plan(raw):
+def _recorded_decision(unit, raw, decisions):
+    """Job-file hook. None means no recorded decision; do not guess."""
+    if not decisions:
+        return None
+    for item in decisions:
+        if not isinstance(item, dict):
+            continue
+        if item.get('fragment') == unit or item.get('source') == raw:
+            if 'is_unit' not in item:
+                return None
+            return bool(item.get('is_unit'))
+    return None
+
+
+def _rewrite_plan(raw, decisions=None):
     match = _TERMINAL.search(raw)
     if not match:
         return None
@@ -62,7 +91,10 @@ def _rewrite_plan(raw):
         return None
     compound = is_known_compound_unit(unit)
     if not compound and not is_known_single_unit(unit):
-        return None
+        decision = _recorded_decision(unit, raw, decisions)
+        if decision is not True:
+            return None
+        compound = bool(re.search(r'[/·*]', unit))
     ustart = match.start('unit') + len(match['unit']) - len(match['unit'].lstrip())
     uend = match.end('unit') - len(match['unit']) + len(match['unit'].rstrip())
     formatted_unit = '次 / 分钟' if re.fullmatch(r'次\s*/\s*分钟', unit) else unit
@@ -81,10 +113,13 @@ def _slice_parts(parts, start, end):
     return selected
 
 
-def normalize_axis_title(content, role='axis-title'):
+def normalize_axis_title(content, role='axis-title', decisions=None):
+    # Legend and prose parentheses stay. See open question legend-parentheses.
     if role != 'axis-title':
         return copy.deepcopy(content)
-    raw=plain_content(content);plan=_rewrite_plan(raw)
+    if decisions is None:
+        decisions = _DECISIONS.get()
+    raw=plain_content(content);plan=_rewrite_plan(raw, decisions)
     if plan is None:
         return copy.deepcopy(content)
     qend,ustart,uend,normalized,compound=plan
@@ -102,9 +137,9 @@ def normalize_axis_title(content, role='axis-title'):
     return _slice_parts(content,0,qend) + [{'text':'/','style':'regular'}] + _slice_parts(content,ustart,uend)
 
 
-def axis_title_evidence(content):
+def axis_title_evidence(content, decisions=None):
     from .editorial import normalize_numeric_range_connectors
-    source=plain_content(content);normalized=plain_content(normalize_numeric_range_connectors(normalize_axis_title(content)))
+    source=plain_content(content);normalized=plain_content(normalize_numeric_range_connectors(normalize_axis_title(content, decisions=decisions)))
     tail=_TERMINAL.search(source)
     unresolved=source==normalized and tail is not None and not source[:tail.start()].rstrip().endswith('/')
     return {'source':source, 'display':normalized, 'changed':source!=normalized,

@@ -16,7 +16,7 @@ source_root = root / 'source'
 source_root.mkdir(parents=True, exist_ok=True)
 spec = {'version': 1, 'id': 'proof', 'author': 'fixture', 'kind': 'scene',
         'width_pt': 210, 'height_pt': 150,
-        'policy': {'column': 'single', 'design_font_size_pt': 8, 'export_crop_padding_pt': 4}}
+        'policy': {'column': 'single', 'design_font_size_pt': 8}}
 if operation == 'vector-reletter':
     source = source_root / 'original.pdf'
     with fitz.open() as doc:

@@ -24,7 +24,7 @@ with fitz.open(pdf) as doc:
     roles=['axis-tick']*6+['axis-title','axis-title','legend-label'];ids=['x1','x2','x3','y1','y2','y3','xt','yt','legend1']
     texts=[{'id':i,'text':s['text'],'role':r,'x':0,'y':0,'size':8} for i,s,r in zip(ids,spans,roles)]
     replacements=[{'target_text_id':i,'source_text':s['text'],'source_bbox':list(s['bbox'])} for i,s in zip(ids,spans)]
-    spec={'version':1,'id':'synthetic-chart','author':'fixture','kind':'scene','width_pt':200,'height_pt':160,'policy':{'column':'single','font_sizes':[8],'design_font_size_pt':8,'export_crop_padding_pt':4},'sources':[{'path':'source.pdf','sha256':sha,'role':'original'}],
+    spec={'version':1,'id':'synthetic-chart','author':'fixture','kind':'scene','width_pt':200,'height_pt':160,'policy':{'column':'single','font_sizes':[8],'design_font_size_pt':8},'sources':[{'path':'source.pdf','sha256':sha,'role':'original'}],
       'assets':[{'id':'body','path':'source.pdf','source_kind':'pdf','page':0,'clip':[0,0,200,160],'target':[0,0,200,160],'source_vector_body':True,'text_replacements':replacements}],
       'texts':texts,'legend_review':{'present':True,'source_sha256':sha,'reason':'synthetic legend','frame_rect':[110,22,175,42],'frame_path_indices':[11],'entries':[{'text_id':'legend1','swatch_path_index':12,'swatch_marker_index':13}]},
       'chart_vector_layout':{'body_id':'body','source_sha256':sha,'axis_origin':[30,110],'x_axis_end':[180,110],'y_axis_end':[30,20],'x_ticks':[{'id':i,'point':[x,110]} for i,x in zip(ids[:3],(50,100,150))],'y_ticks':[{'id':i,'point':[30,y]} for i,y in zip(ids[3:6],(90,60,30))],'x_title_id':'xt','y_title_id':'yt'}}

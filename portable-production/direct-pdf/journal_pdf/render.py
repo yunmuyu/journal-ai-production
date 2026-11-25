@@ -111,6 +111,15 @@ def draw_node(page,n):
     elif kind=='inputOutput':
         inset=min(r.height*.25,4)
         sh.draw_polyline([[r.x0+inset,r.y0],[r.x1,r.y0],[r.x1-inset,r.y1],[r.x0,r.y1]])
+    elif kind=='frame':sh.draw_rect(r)
+    elif kind=='actor':
+        cx=(r.x0+r.x1)/2;head=min(r.width,r.height)*0.18
+        sh.draw_oval(fitz.Rect(cx-head,r.y0,cx+head,r.y0+2*head))
+        neck=r.y0+2*head;hip=r.y0+r.height*0.62
+        sh.draw_line(fitz.Point(cx,neck),fitz.Point(cx,hip))
+        sh.draw_line(fitz.Point(r.x0+r.width*0.15,neck+(hip-neck)*0.35),fitz.Point(r.x1-r.width*0.15,neck+(hip-neck)*0.35))
+        sh.draw_line(fitz.Point(cx,hip),fitz.Point(r.x0+r.width*0.2,r.y1))
+        sh.draw_line(fitz.Point(cx,hip),fitz.Point(r.x1-r.width*0.2,r.y1))
     elif kind=='checkbox':
         # 复选框符号：外框即勾选位，选中态画同心的内嵌方框，不引入填充。
         sh.draw_rect(r)
@@ -121,7 +130,7 @@ def draw_node(page,n):
     sh.finish(width=n['width'] if n['width'] is not None else 0,
               color=None if n['width'] is None else (n.get('gray',0),),
               fill=(n['fill'],) if 'fill' in n else None,
-              dashes=('['+' '.join(map(str,n['dash']))+'] 0') if n.get('dash') else None,closePath=True);sh.commit()
+              dashes=('['+' '.join(map(str,n['dash']))+'] 0') if n.get('dash') else None,closePath=kind!='actor');sh.commit()
 
 
 def compile_figure(spec,reg,assets,root,verified_sources=None,export_padding_pt=0):
@@ -132,18 +141,22 @@ def compile_figure(spec,reg,assets,root,verified_sources=None,export_padding_pt=
     from .editorial import scale_scene
     kind=spec.get('kind');policy=spec.get('policy',{});mode=policy.get('column','single')
     if mode not in ('single','double','auto'):raise FigureError('column_policy','栏宽选项为single/double/auto')
-    col=160 if mode=='double' else 80
-    legacy=policy.get('font_sizes',[8])
-    if not legacy or any(not isinstance(x,(int,float)) or isinstance(x,bool) or not math.isfinite(x) or x<6 or x>8 for x in legacy):
-        raise FigureError('font_sizes_policy','设计字号必须在6—8pt之间')
+    from .journal_rules import load_rules, column_tiers
+    normative=load_rules()['normative']
+    floor=float(normative['scale_floor_pt']);body=float(normative['body_pt'])
+    legacy=policy.get('font_sizes',[body])
+    if not legacy or any(not isinstance(x,(int,float)) or isinstance(x,bool) or not math.isfinite(x) or x<floor or x>body for x in legacy):
+        raise FigureError('font_sizes_policy',f'设计字号必须在{floor:g}—{body:g}pt之间')
     size=policy.get('design_font_size_pt',legacy[0])
-    if not isinstance(size,(int,float)) or not math.isfinite(size) or not 6<=size<=8:
-        raise FigureError('font_sizes_policy','设计字号必须在6—8pt之间')
+    if not isinstance(size,(int,float)) or not math.isfinite(size) or not floor<=size<=body:
+        raise FigureError('font_sizes_policy',f'设计字号必须在{floor:g}—{body:g}pt之间')
     def attach_trusted_sources(value):
         value.verified_source_bindings=dict(verified_sources or {})
         value.source_root=Path(root) if root is not None else None
         return value
+    holder={'spec':spec}
     def build(font_size):
+        spec=holder['spec']
         if kind=='chart':value=chart(spec,reg,font_size,assets,root)
         elif kind in DIAGRAMS:
             if kind=='scene' and spec.get('chart_vector_layout') is not None:
@@ -207,48 +220,117 @@ def compile_figure(spec,reg,assets,root,verified_sources=None,export_padding_pt=
                 from .mixed_layout import apply_mixed_layout
                 apply_mixed_layout(value,spec['mixed_layout'])
         return value
-    scene=build(size)
-    initial_width=scene.width
-    layout_build_count=1
-    # Reserve the two export margins before fitting the complete artwork.
-    limit=col*PT_PER_MM-2*export_padding_pt-.5
-    if kind=='tree' and scene.width>limit:
-        from .layouts import compact_tree_to_width
-        compact,attempts=compact_tree_to_width(spec,reg,size,limit,policy.get('max_height_mm',240)*PT_PER_MM)
-        layout_build_count+=attempts
-        if compact is not None:
-            scene=attach_trusted_sources(compact)
-    factor=min(1.,limit/scene.width)
-    if factor<1 and any(p.get('exact_terminal') for p in scene.paths):
-        def rebuild(font_size):
-            nonlocal layout_build_count
+    def fits_width(scene, limit):
+        return scene.width<=limit+1e-7
+    def attempt_relayout(before_width):
+        """Line-break pass. Does not delete text. Trees already tried compact_tree."""
+        nonlocal layout_build_count
+        current=holder['spec']
+        if current.get('kind')=='tree' or kind=='tree':
+            return None,'tree-wrap-already-attempted'
+        nodes=current.get('nodes')
+        if not isinstance(nodes,list) or not nodes:
+            return None,'no-text-nodes'
+        copied=[];changed=False
+        for node in nodes:
+            node=dict(node);text=node.get('text')
+            if isinstance(text,str) and '\n' not in text and len(text)>=8 and 'wrap_chars' not in node:
+                node['wrap_chars']=max(4,len(text)//2);changed=True
+            copied.append(node)
+        if not changed:
+            return None,'no-wrap-candidate'
+        holder['spec']={**current,'nodes':copied}
+        try:
             layout_build_count+=1
-            return build(font_size)
-        # Exact 3 mm terminals are a final-size constraint. Rebuild the layout at
-        # the largest feasible font size instead of shrinking the completed scene.
-        smallest=rebuild(6.)
-        if smallest.width>limit+1e-7:
-            scene=smallest
-            factor=min(1.,limit/scene.width)
-        else:
-            low,high,best=6.,float(size),smallest
-            for _ in range(16):
-                mid=(low+high)/2
-                candidate=rebuild(mid)
-                if candidate.width<=limit+1e-7:
-                    low,best=mid,candidate
-                else:high=mid
-            scene=best
-            factor=1.
+            relaid=attach_trusted_sources(build(size))
+        except FigureError:
+            return None,'wrap-rejected'
+        finally:
+            holder['spec']=current
+        if relaid.width+1e-6>=before_width:
+            return None,'wrap-not-narrower'
+        return relaid,'wrapped-labels'
+    tiers=column_tiers(mode,spec,kind)
+    initial_width=None
+    layout_build_count=0
+    tier_log=[]
+    accepted=None
+    last_attempt=None
+    from .axis_units import _DECISIONS
     from .capacity import layout_capacity
+    decision_token=_DECISIONS.set(policy.get('unit_decisions'))
+    try:
+        for col in tiers:
+            scene=build(size)
+            layout_build_count+=1
+            if initial_width is None:
+                initial_width=scene.width
+            # Reserve the two export margins before fitting the complete artwork.
+            limit=col*PT_PER_MM-2*export_padding_pt-.5
+            if kind=='tree' and scene.width>limit:
+                from .layouts import compact_tree_to_width
+                compact,attempts=compact_tree_to_width(holder['spec'],reg,size,limit,policy.get('max_height_mm',240)*PT_PER_MM)
+                layout_build_count+=attempts
+                if compact is not None:
+                    scene=attach_trusted_sources(compact)
+            factor=min(1.,limit/scene.width) if scene.width else 1.
+            rebuilt=False
+            if factor<1 and any(p.get('exact_terminal') for p in scene.paths):
+                def rebuild(font_size):
+                    nonlocal layout_build_count
+                    layout_build_count+=1
+                    return build(font_size)
+                # Exact 3 mm terminals are a final-size constraint. Rebuild the layout at
+                # the largest feasible font size instead of shrinking the completed scene.
+                smallest=rebuild(floor)
+                if smallest.width>limit+1e-7:
+                    scene=smallest
+                    factor=min(1.,limit/scene.width)
+                else:
+                    low,high,best=float(floor),float(size),smallest
+                    for _ in range(16):
+                        mid=(low+high)/2
+                        candidate=rebuild(mid)
+                        if candidate.width<=limit+1e-7:
+                            low,best=mid,candidate
+                        else:high=mid
+                    scene=best
+                    factor=1.
+                    rebuilt=True
+            relayout_note=None
+            font_after=scene.size*factor
+            fits=font_after>=floor-1e-9 and (fits_width(scene,limit) if rebuilt or factor>=1-1e-12 else True)
+            if factor<1 and not rebuilt:
+                fits=font_after>=floor-1e-9
+            if not fits:
+                relaid,relayout_note=attempt_relayout(scene.width)
+                if relaid is not None:
+                    trial=min(1.,limit/relaid.width) if relaid.width else 1.
+                    if relaid.size*trial>=floor-1e-9:
+                        scene,factor,fits,relayout_note=relaid,trial,True,relayout_note
+            entry={'column_mm':col,'width_pt':scene.width,'factor':factor,'font_pt':scene.size*factor,'relayout':relayout_note}
+            last_attempt=(scene,col,factor,limit)
+            if fits:
+                tier_log.append({**entry,'result':'accepted'})
+                accepted=(scene,col,factor,limit)
+                break
+            tier_log.append({**entry,'result':'next-tier' if col!=tiers[-1] else 'stopped'})
+    finally:
+        _DECISIONS.reset(decision_token)
+    if accepted is None:
+        last_scene,last_col,last_factor,last_limit=last_attempt
+        capacity=layout_capacity(capacity_spec,spec_hash=capacity_spec_hash,effective_column=mode,
+            width_pt=last_scene.width,height_pt=last_scene.height,font_size_pt=last_scene.size,
+            scale=last_factor,column_mm=last_col,available_width_pt=last_limit,export_padding_pt=export_padding_pt,
+            verified_sources=verified_sources)
+        raise FigureError('layout_reflow_required',f'在{floor:g}pt下限仍放不进当前档，换行重排后仍超宽。显式单栏不自动改双栏；自动档会先升下一档。不删内容。',
+                          design_size=size,floor_pt=floor,width_pt=last_scene.width,column_mm=last_col,
+                          proposed_size=last_scene.size*last_factor,tier_log=tier_log,owner_flag=True,capacity=capacity)
+    scene,col,factor,limit=accepted
     capacity=layout_capacity(capacity_spec,spec_hash=capacity_spec_hash,effective_column=mode,
         width_pt=scene.width,height_pt=scene.height,font_size_pt=scene.size,
         scale=factor,column_mm=col,available_width_pt=limit,export_padding_pt=export_padding_pt,
         verified_sources=verified_sources)
-    if scene.size*factor<6-1e-7:
-        raise FigureError('layout_reflow_required','完整图件缩后低于6pt；先重新布局，不自动改双栏或只缩字',
-                          design_size=size,width_pt=scene.width,column_mm=col,proposed_size=scene.size*factor,
-                          capacity=capacity)
     legend_bindings=spec.get('source_legend_bindings',[])
     if isinstance(legend_bindings,list):
         for binding in legend_bindings:
@@ -277,7 +359,7 @@ def compile_figure(spec,reg,assets,root,verified_sources=None,export_padding_pt=
     scene.layout_evidence['capacity']=capacity
     attempts=[{'column_mm':col,'design_font_size_pt':size,'font_size_pt':scene.size,'whole_artwork_scale':factor,
                'width_pt':scene.width,'height_pt':scene.height,'issues':issues}]
-    scene.layout_evidence.update({'fit_attempts':attempts,'column_mm':col,
+    scene.layout_evidence.update({'fit_attempts':attempts,'column_mm':col,'tier_log':tier_log,
         'layout_build_count':layout_build_count,'pdf_font_ladder_renders':False,
         'initial_design_font_size_pt':size,'initial_design_width_pt':initial_width,
         'priority':('default-8pt-first' if size==8 else 'explicit-design-size-input')+'; no exhaustive 8/7/6 PDF rendering',
@@ -308,8 +390,11 @@ def pdf_audit(path:Path,scene,reg):
         info=d.extract_font(row[0]);fontrows.append({'xref':row[0],'name':row[3],'embedded':bool(info[3])})
     pix=p.get_pixmap(dpi=300,colorspace=fitz.csRGB,alpha=False)
     img=Image.frombytes('RGB',(pix.width,pix.height),pix.samples)
-    r,g,b=img.split();dif=ImageChops.lighter(ImageChops.difference(r,g),ImageChops.lighter(ImageChops.difference(r,b),ImageChops.difference(g,b)))
-    hist=dif.histogram();off=sum(hist[3:]);color_ok=off==0
+    from production_rules.gray import channel_delta_image
+    from .journal_rules import load_rules
+    delta=channel_delta_image(img);hist=delta.histogram()
+    max_delta=int(load_rules()['normative']['grayscale_channel_delta_max'])
+    off=sum(hist[max_delta+1:]);color_ok=off==0
     ink=ImageChops.difference(img,Image.new('RGB',img.size,'white')).getbbox()
     if not ink:raise FigureError('empty_pdf','最终PDF没有可见内容')
     text_bounds=[span['bbox'] for block in p.get_text('dict')['blocks'] if block['type']==0 for line in block['lines'] for span in line['spans'] if span['text'].strip()]
@@ -374,11 +459,12 @@ def validate_render_policy(spec):
     """Reject invalid export policy before source, identity or output checks."""
     diagnostic_only=spec.get('policy',{}).get('diagnostic_only',False)
     if not isinstance(diagnostic_only,bool):raise FigureError('diagnostic_policy','diagnostic_only must be boolean')
-    from .export_padding import DEFAULT_PADDING_PT
-    crop_padding=spec.get('policy',{}).get('export_crop_padding_pt',DEFAULT_PADDING_PT)
-    if isinstance(crop_padding,bool) or not isinstance(crop_padding,(int,float)) or not math.isfinite(crop_padding) or not 0<=crop_padding<=12:
-        raise FigureError('export_crop_padding_invalid','导出裁切留白必须为0到12pt的有限数值')
-    return crop_padding,diagnostic_only
+    from .journal_rules import load_rules
+    required_padding=float(load_rules()['normative']['margin_pt'])
+    requested=spec.get('policy',{}).get('export_crop_padding_pt', required_padding)
+    if isinstance(requested,bool) or not isinstance(requested,(int,float)) or not math.isfinite(requested) or abs(float(requested)-required_padding)>1e-9:
+        raise FigureError('export_crop_padding_invalid','矢量 PDF 留白只使用规则文件中的 margin_pt', expected=required_padding)
+    return required_padding,diagnostic_only
 
 
 def compile_bound_figure(spec,reg,assets,source_root:Path):

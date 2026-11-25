@@ -6,10 +6,10 @@ import tempfile
 import pymupdf as fitz
 from PIL import Image, ImageChops, ImageStat
 from .common import FigureError
-DEFAULT_PADDING_PT = 0.25
-MEASURE_DPI = 1200
-# One measurement pixel plus float32 page-box rounding, not the full default.
-MARGIN_TOLERANCE_PT = 72 / MEASURE_DPI + 0.005
+from .journal_rules import load_rules, margin_tolerance_pt
+DEFAULT_PADDING_PT = float(load_rules()['normative']['margin_pt'])
+MEASURE_DPI = int(load_rules()['normative']['margin_measure_dpi'])
+MARGIN_TOLERANCE_PT = margin_tolerance_pt(DEFAULT_PADDING_PT)
 
 def ink_rect(page):
     pix = page.get_pixmap(dpi=MEASURE_DPI, colorspace=fitz.csRGB, alpha=False)
@@ -21,8 +21,9 @@ def ink_rect(page):
 
 def _normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADDING_PT, corrections=None):
     """Stage and check page boxes, retaining original content and clipping."""
-    if isinstance(padding, bool) or not isinstance(padding, (int, float)) or not math.isfinite(padding) or not 0 <= padding <= 12:
-        raise FigureError('export_crop_padding_invalid', '导出留白须为0到12pt的有限数值')
+    required = float(load_rules()['normative']['margin_pt'])
+    if isinstance(padding, bool) or not isinstance(padding, (int, float)) or not math.isfinite(padding) or abs(float(padding) - required) > 1e-9:
+        raise FigureError('export_crop_padding_invalid', '矢量 PDF 留白只使用规则文件中的 margin_pt', expected=required)
     if source.resolve() == destination.resolve():
         raise FigureError('output_isolation', '先验证裁边副本，不能原位写入')
     pages = []
@@ -66,7 +67,8 @@ def _normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADD
             actual = ink_rect(page)
             margins = [actual.x0,actual.y0,page.rect.width-actual.x1,page.rect.height-actual.y1]
             receipt['measured_margins_pt'] = margins
-            if any(abs(value-padding) > MARGIN_TOLERANCE_PT for value in margins):
+            tolerance = margin_tolerance_pt(padding)
+            if any(abs(value-padding) > tolerance for value in margins):
                 mismatches.append({'actual':margins,'page_index':index})
                 continue
             after.xref_set_key(page.xref,'MediaBox',before.xref_get_key(before[index].xref,'MediaBox')[1])
@@ -85,10 +87,11 @@ def _normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADD
             receipt['source_view_pixels_identical'] = a.samples==b.samples
             receipt['viewport_edge_antialias_only'] = a.samples!=b.samples
             receipt['source_view_mean_pixel_difference'] = sum(ImageStat.Stat(difference).mean) / 3
+    tolerance = margin_tolerance_pt(padding)
     if mismatches:
-        raise FigureError('export_padding_mismatch','保存后四边留白不符合目标',expected=padding,mismatches=mismatches)
-    return {'method':'saved-PDF-1200dpi-visible-ink','measurement_dpi':MEASURE_DPI,
-            'tolerance_pt':MARGIN_TOLERANCE_PT,'target_padding_pt':padding,
+        raise FigureError('export_padding_mismatch','保存后四边留白不符合目标',expected=padding,tolerance_pt=tolerance,mismatches=mismatches)
+    return {'method':f'saved-PDF-{MEASURE_DPI}dpi-visible-ink','measurement_dpi':MEASURE_DPI,
+            'tolerance_pt':tolerance,'target_padding_pt':padding,
             'pages':pages,'rescaled':False}
 
 

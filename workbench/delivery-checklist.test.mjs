@@ -31,12 +31,17 @@ test('workbench candidate and user acceptance are separate, hash-bound observati
  figure.status='终检通过';assert.equal(verifiedDeliveryState(figure,receipt).stage,'user-accepted');
  figure.outputs[0].file.meta.sha256='changed';assert.throws(()=>verifiedDeliveryState(figure,receipt),/binding/);
 });
-test('requested spec binds every margin at default and explicit values',()=>{
- for(const target of [0,.1,.25,2,4,12]){
+test('requested spec binds rule-file margin_pt (0.25pt) and rejects other padding values',()=>{
+ {
+  const r=fixture();
+  assert.equal(assertDeliveryChecklist(r,{...options,spec:{policy:{export_crop_padding_pt:.25}}}).checks.margins.status,'checked');
+  assert.equal(assertDeliveryChecklist(r,options).checks.margins.status,'checked');
+ }
+ for(const target of [0,.1,2,4,12]){
   const r=fixture();r.export_padding_audit.target_padding_pt=target;r.export_padding_audit.pages[0].protection_pt=target;r.export_padding_audit.pages[0].measured_margins_pt=[target,target,target,target];r.pdf_audit.minimum_text_margin_pt=target;
   const bound={...options,spec:{policy:{export_crop_padding_pt:target}}};
-  assert.equal(assertDeliveryChecklist(r,bound).checks.margins.status,'checked');
-  if(target!==.25)assert.throws(()=>assertDeliveryChecklist(r,options),/margins/);
+  assert.throws(()=>assertDeliveryChecklist(r,bound),/margins/);
+  assert.throws(()=>assertDeliveryChecklist(r,options),/margins/);
  }
  for(const change of [r=>delete r.export_padding_audit,r=>r.export_padding_audit.pages[0].measured_margins_pt[3]=NaN,r=>r.export_padding_audit.pages[0].measured_margins_pt[3]=0]){const r=fixture();change(r);assert.throws(()=>assertDeliveryChecklist(r,options),/margins/);}
  assert.throws(()=>assertDeliveryChecklist(fixture(),{outputSha256:hash,widthMm:80}),/margins/);
