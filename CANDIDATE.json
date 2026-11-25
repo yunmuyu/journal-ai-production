@@ -2437,8 +2437,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4022,
-      "sha256": "e6ddc837d5d7b488e5c75b7fa19756720f0ee4012d16114b813a8d119bab81fa"
+      "bytes": 5125,
+      "sha256": "a52c7b27b76891e9502e1eb05b59202eb540b9fc8e16485ca69785242919ed34"
     },
     {
       "path": "RELEASE.json",
@@ -2867,8 +2867,8 @@
     },
     {
       "path": "journal.mjs",
-      "bytes": 5255,
-      "sha256": "0106801f6b277561d038076677cdb40abfc12df53be2617de692e2158d8cbdac"
+      "bytes": 5669,
+      "sha256": "57787a8784372931bc520500769c36989c2004d84b3daa479422be968c669668"
     },
     {
       "path": "knowledge/README.md",
@@ -3494,6 +3494,11 @@
       "path": "scripts/extract_docx.py",
       "bytes": 4128,
       "sha256": "2dd6f8b06491393c5c39946888088b337debebbab0eef245d549f5565c8854b0"
+    },
+    {
+      "path": "scripts/figure-inventory.mjs",
+      "bytes": 3052,
+      "sha256": "df43eff9f208ef83a79ad3beb2b38d4c71a589b17d94805da7b2935deb56f742"
     },
     {
       "path": "scripts/ink_bounds.py",
@@ -4417,8 +4422,8 @@
     },
     {
       "path": "workbench/issue-manifest.mjs",
-      "bytes": 2483,
-      "sha256": "d5435583c0d0874d0adb60226cdc792f2c11890c0295bd7837c4d38fbee0bb8e"
+      "bytes": 2617,
+      "sha256": "a9f9980170f8da904a811ba43ba44cf0d06fbf40077b3388ab1f5dd0a19fd256"
     },
     {
       "path": "workbench/issue-manifest.test.mjs",

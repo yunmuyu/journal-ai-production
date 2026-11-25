@@ -7,6 +7,11 @@ const WORD = /\.docx?$/i;
 const OUTPUT = /\.(pdf|jpe?g)$/i;
 const NAMED = /^(.+)-图([1-9]\d*(?:\.[1-9]\d*)?)\.(pdf|jpe?g)$/i;
 
+export function namedFigureNumber(filename, author) {
+  const match = filename.match(NAMED);
+  return match?.[1] === author ? match[2] : undefined;
+}
+
 export function loadNovemberData(file) {
   const context = {window: {}};
   vm.runInNewContext(fs.readFileSync(file, 'utf8'), context);
@@ -28,8 +33,8 @@ export function scanIssueFolder(root) {
     if (base.startsWith('~$') || base.startsWith('.')) return;
     if (WORD.test(base)) row.words.push(file);
     else if (OUTPUT.test(base)) {
-      const named = base.match(NAMED);
-      if (named && named[1] === author) row.files.push({number: named[2], url: pathToFileURL(file).href});
+      const number = namedFigureNumber(base, author);
+      if (number) row.files.push({number, url: pathToFileURL(file).href});
     }
   };
   for (const entry of fs.readdirSync(root, {withFileTypes: true})) {

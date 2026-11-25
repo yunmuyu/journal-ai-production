@@ -18,7 +18,13 @@ async function run(script,parameters=[],env={}){
 }
 try{
  if(command==='help'||!command){
-  console.log('journal configure --python EXE --fonts PROFILE --data DIRECTORY --config FILE\njournal start --config FILE\njournal produce --input DIR [--output DIR] [--job job.json]\njournal produce --config FILE --request JSON\njournal status --config FILE\njournal doctor [--config FILE]\njournal package --config FILE --request JSON (optional current-delivery snapshot)\njournal capacity --config FILE --spec JSON --source-root DIRECTORY');
+  console.log('journal configure --python EXE --fonts PROFILE --data DIRECTORY --config FILE\njournal start --config FILE\njournal produce --input DIR [--output DIR] [--job job.json]\njournal produce --config FILE --request JSON\njournal inventory --input DIR --expected JSON\njournal status --config FILE\njournal doctor [--config FILE]\njournal package --config FILE --request JSON (optional current-delivery snapshot)\njournal capacity --config FILE --spec JSON --source-root DIRECTORY');
+ }else if(command==='inventory'){
+  const {inspectFigureInventory}=await import('./scripts/figure-inventory.mjs');
+  const articles=JSON.parse(fs.readFileSync(required('expected'),'utf8').replace(/^\uFEFF/,''));
+  const report=inspectFigureInventory(required('input'),articles);
+  console.log(JSON.stringify(report,null,2));
+  if(!report.complete)process.exitCode=1;
  }else if(command==='produce'&&args.includes('--input')){
   const codexPython=process.env.USERPROFILE?path.join(process.env.USERPROFILE,'.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'):undefined;
   const python=process.env.JFW_PYTHON||(codexPython&&fs.existsSync(codexPython)?codexPython:'python3');
