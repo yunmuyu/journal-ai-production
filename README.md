@@ -33,6 +33,22 @@ node journal.mjs produce --config '<机器配置.json>' --request '<本轮任务
 
 produce委托现有production-runner，JPG由同一执行器分流raster-batch。内部组件文档的直调示例只用于开发和特殊兼容，不是其他生产入口。具备条件时至少5图并行，Adobe串行；已有候选先复用，卡点记录并跳过，终审由用户完成。
 
+### 本地交付目录清点
+
+从已核对的 Word 图号准备包外 JSON。例如目录内有“01 示例作者”，图 2 已确定拆成两个分图：
+
+~~~json
+[{"folder":"01 示例作者","author":"示例作者","numbers":["1","2.1","2.2"]}]
+~~~
+
+~~~powershell
+node journal.mjs inventory --input '<交付根目录>' --expected '<预期图号.json>'
+~~~
+
+命令仅扫描指定作者目录的根层，按“作者-图号.pdf/.jpg/.jpeg”识别成品。缺图、额外图号、重复格式、主图与分图混放均报告并返回非零。清点通过时，标准输出按预期清单顺序列出相对路径和 SHA-256，可用于汇总置入前对照。这一步只核对交付集合，PDF 内容、字体与视觉仍由各自的质量检查核验。
+
+临时探查成品 PDF 或原图可使用公共 PDF 环境中的 `python -m journal_pdf inspect <图件路径> --output <报告.json>`，查看 PDF 页尺寸、字体、文字、矢量路径和图像资源。可编辑成品的字号、线宽和渲染灰度继续复用 [direct-pdf 的成品审计](portable-production/direct-pdf/README.md)。
+
 ## 发布与维护
 
 - 正式版本以 Git tag、GitHub Release、`RELEASE.json` 和下载包校验和共同确定。`files` 保持旧 runtime 安装契约，`portableFiles` 锁定当前制作程序。
