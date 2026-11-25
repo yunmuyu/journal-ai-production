@@ -507,6 +507,13 @@ def primitive(spec,reg,size):
             s.line(p['id'],p['points'],p.get('arrow',False),p.get('both',False),p.get('dash'),p.get('width',.5),
                                              exact_terminal=p.get('exact_terminal',False),endpoint_nodes=p.get('endpoint_nodes'),
                                              shared_net=p.get('shared_net'),semantic_role=p.get('semantic_role','connection'),arrow_style=p.get('arrow_style','standard'))
+    protected_routes=set(spec.get('rebuild_fidelity',{}).get('connections',{}))
+    for raw in spec.get('paths',[]):
+        if 'source_bound' in raw and not isinstance(raw['source_bound'],bool):
+            raise FigureError('source_route_protection_invalid','source_bound须为布尔值')
+        if raw.get('source_bound'):protected_routes.add(raw['id'])
+    for path in s.paths:
+        if path['id'] in protected_routes:path['source_bound']=True
     from .scene import require_arrow_styles
     require_arrow_styles(s.paths,spec.get('required_arrow_styles',{}))
     from .legend_marker_alignment import prepare_legend_marker_centers

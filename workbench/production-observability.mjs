@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
+import {verifiedDeliveryState} from './delivery-checklist.mjs';
 
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const read=p=>JSON.parse(fs.readFileSync(p,'utf8').replace(/^\uFEFF/,''));
@@ -56,8 +57,8 @@ export async function verifyProductionDelivery(config,request){
   kind:request.kind??'ordinary',historical:request.historical===true,returnedAt:new Date().toISOString(),outputs:expected.map(o=>({number:o.number,sha256:o.sha256})).sort((a,b)=>a.number.localeCompare(b.number))};
  receipt.id=receiptId(receipt);validateReceipt(receipt);
  fs.mkdirSync(config.receiptRoot,{recursive:true});const file=path.join(config.receiptRoot,receipt.id+'.json');
- try{fs.writeFileSync(file,JSON.stringify(receipt,null,2)+'\n',{flag:'wx'});return {figure:f,receipt,newReceipt:true};}
- catch(error){if(error.code!=='EEXIST')throw error;const existing=validateReceipt(read(file));if(existing.id!==receipt.id)throw Error('receipt_identity_conflict');return {figure:f,receipt:existing,newReceipt:false};}
+ try{fs.writeFileSync(file,JSON.stringify(receipt,null,2)+'\n',{flag:'wx'});return {figure:latest,receipt,newReceipt:true,deliveryState:verifiedDeliveryState(latest,receipt)};}
+ catch(error){if(error.code!=='EEXIST')throw error;const existing=validateReceipt(read(file));if(existing.id!==receipt.id)throw Error('receipt_identity_conflict');return {figure:latest,receipt:existing,newReceipt:false,deliveryState:verifiedDeliveryState(latest,existing)};}
 }
 
 export function productionReport({receiptRoots,from,to}){

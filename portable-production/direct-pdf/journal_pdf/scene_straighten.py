@@ -1,46 +1,62 @@
 """Use straight connections when two free rectangular ports can align safely."""
 from __future__ import annotations
 from copy import deepcopy
+import math
 from .editorial import ARROW_LENGTH
 from .scene import audit_scene
 
 
 def straighten_connections(scene):
-    """Align free ports, retaining node identities, direction and arrow endpoints."""
+    """Prefer safe horizontal/vertical centre ports for explicitly free routes.
+
+    Called only for an explicit straighten_connections request. Never move nodes,
+    reroute source-bound/shared nets, or override explicit side/fraction bindings.
+    """
+    from .connection_layout import terminal_points
+    from .common import FigureError, segment_hits
+    if scene.assets:return
     nodes={n['id']:n for n in scene.nodes}
     baseline={(i.get('code'),i.get('id'),i.get('path')) for i in audit_scene(scene)}
     for path in scene.paths:
         ends=path.get('endpoint_nodes') or []
-        if len(ends)!=2 or not all(isinstance(v,str) and v in nodes for v in ends) or path.get('shared_net'):
+        if (len(ends)!=2 or not all(isinstance(v,str) and v in nodes for v in ends)
+                or path.get('shared_net') or path.get('source_bound')
+                or path.get('semantic_role','connection')!='connection'
+                or any(t.get('owner')==path['id'] for t in scene.texts)):
             continue
-        if len(path['points'])<=2:continue
         first,last=nodes[ends[0]],nodes[ends[1]];a,b=first['rect'],last['rect']
         if first['container'] or last['container'] or first['kind']!='rectangle' or last['kind']!='rectangle':continue
+        ax,ay=(a[0]+a[2])/2,(a[1]+a[3])/2
+        bx,by=(b[0]+b[2])/2,(b[1]+b[3])/2
+        # Preserve an explicitly chosen approach side; do not change a feedback
+        # route merely because the two rectangles happen to have aligned centres.
         start,end=path['points'][0],path['points'][-1];eps=.16
-        if abs(start[1]-a[3])<eps and abs(end[1]-b[1])<eps and a[3]<b[1]:
-            lo=max(a[0],b[0])+1;hi=min(a[2],b[2])-1
-            if lo>hi:continue
-            coord=min(max(start[0],lo),hi);u=[coord,a[3]];v=[coord,b[1]];sides=['bottom','top'];axis=0
-        elif abs(start[1]-a[1])<eps and abs(end[1]-b[3])<eps and b[3]<a[1]:
-            lo=max(a[0],b[0])+1;hi=min(a[2],b[2])-1
-            if lo>hi:continue
-            coord=min(max(start[0],lo),hi);u=[coord,a[1]];v=[coord,b[3]];sides=['top','bottom'];axis=0
-        else:continue
-        length=abs(v[1]-u[1]);stub=ARROW_LENGTH*scene.size/8
-        if path['both'] and length<2*stub or path['arrow'] and length<stub:continue
-        sign=1 if v[1]>u[1] else -1
-        pts=[u]
-        if path['both']:pts.append([coord,u[1]+sign*stub])
-        if path['arrow']:pts.append([coord,v[1]-sign*stub])
-        pts.append(v)
-        if len(pts)>2 and any(pts[i]==pts[i+1] for i in range(len(pts)-1)):continue
-        old=deepcopy(path)
-        path['points']=pts
-        path['endpoint_nodes']=[{'node':ends[0],'side':sides[0],'fraction':(coord-a[0])/(a[2]-a[0])},
-                                {'node':ends[1],'side':sides[1],'fraction':(coord-b[0])/(b[2]-b[0])}]
-        issues={(i.get('code'),i.get('id'),i.get('path')) for i in audit_scene(scene)}
-        if issues-baseline:path.clear();path.update(old)
-        else:scene.layout_evidence.setdefault('straightened_connections',[]).append({'path':path['id'],'axis':'vertical'})
+        candidates=[]
+        if abs(ax-bx)<1e-6:
+            if a[3]<b[1]:candidates.append(([ax,a[3]],[bx,b[1]],['bottom','top'],'vertical'))
+            if b[3]<a[1]:candidates.append(([ax,a[1]],[bx,b[3]],['top','bottom'],'vertical'))
+        if abs(ay-by)<1e-6:
+            if a[2]<b[0]:candidates.append(([a[2],ay],[b[0],by],['right','left'],'horizontal'))
+            if b[2]<a[0]:candidates.append(([a[0],ay],[b[2],by],['left','right'],'horizontal'))
+        for u,v,sides,axis in candidates:
+            if math.dist(start,u)>eps or math.dist(end,v)>eps:continue
+            if any(n['id'] not in ends and not n['container'] and
+                   segment_hits(u,v,n['rect'],.5) for n in scene.nodes):continue
+            try:
+                pts=terminal_points([u,v],arrow=path['arrow'],both=path['both'],
+                                    size=scene.size if path.get('arrow_style')=='block-outline' else 8)
+            except FigureError:continue
+            if pts==path['points']:continue
+            old=deepcopy(path);notes=deepcopy(scene.notes)
+            path['points']=pts
+            path['endpoint_nodes']=[{'node':ends[0],'side':sides[0],'fraction':.5},
+                                    {'node':ends[1],'side':sides[1],'fraction':.5}]
+            issues={(i.get('code'),i.get('id'),i.get('path')) for i in audit_scene(scene)}
+            scene.notes=notes
+            if issues-baseline:path.clear();path.update(old)
+            else:scene.layout_evidence.setdefault('straightened_connections',[]).append(
+                {'path':path['id'],'axis':axis,'centre_ports':True,'nodes_moved':False})
+            break
 
 
 def align_connected_nodes(scene, declarations):

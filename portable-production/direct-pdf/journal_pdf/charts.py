@@ -402,7 +402,7 @@ def chart(spec,reg,size,assets,root):
             points=[[[x0+(x-clip[0])*scale,y0+(y-clip[1])*scale] for x,y in line] for line in spec['protected_path_points']]
             candidates=[(x0+pw-lw-4,y0+5),(x0+4,y0+5),(x0+pw-lw-4,y0+ph-lh-5),(x0+4,y0+ph-lh-5)]
             safe=[(x,y) for x,y in candidates if x>=x0 and y>=y0 and x+lw<=x0+pw and y+lh<=y0+ph and not any(segment_hits(a,b,[x,y,x+lw,y+lh],3*scale) for line in points for a,b in zip(line,line[1:]))]
-            if safe and inside_grid.rows<=outside_grid.rows:
+            if safe:
                 lx,ly=safe[0]
             else:
                 placement='outside-top'
@@ -486,7 +486,7 @@ def chart(spec,reg,size,assets,root):
     s.layout_evidence['source_annotation_bindings']=spec.get('source_annotations',[])
     s.layout_evidence['legend_columns']=columns
     s.layout_evidence['legend_rows']=math.ceil(len(entries)/columns)
-    s.layout_evidence['legend_layout_priority']='measure-columns-before-placement; fewest-fitting-rows; safe-inside-on-tie'
+    s.layout_evidence['legend_layout_priority']='safe-inside-first; outside-only-if-no-safe-inside-fit'
     s.layout_evidence['legend_background_audit']=occupancy_evidence
     s.layout_evidence['axis_clearance_pt']={'tick':TICK_CLEARANCE,'title':LABEL_CLEARANCE,'source_tick_length':tick_len,'axis_frame_source':axis,'source_evidence':spec.get('tick_source_evidence')}
     if spec.get('tick_length_source_units') is None:

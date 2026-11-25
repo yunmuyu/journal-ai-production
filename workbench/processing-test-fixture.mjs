@@ -6,8 +6,8 @@ import {routeFixture,testRef} from './route-test-fixture.mjs';
 
 const python=process.env.WORKSPACE_TEST_PYTHON,profile=process.env.JFW_TEST_FONT_PROFILE;
 const engine=fileURLToPath(new URL('../portable-production/direct-pdf/',import.meta.url));
-export function renderedFixture(root,operation){
- const rendered=JSON.parse(execFileSync(python,[fileURLToPath(new URL('./processing-test-fixture.py',import.meta.url)),root,operation,profile],{env:{...process.env,PYTHONPATH:engine,PYTHONUTF8:'1'},encoding:'utf8',windowsHide:true}));
+export function renderedFixture(root,operation,{padding}={}){
+ const rendered=JSON.parse(execFileSync(python,[fileURLToPath(new URL('./processing-test-fixture.py',import.meta.url)),root,operation,profile,...(padding===undefined?[]:[String(padding)])],{env:{...process.env,PYTHONPATH:engine,PYTHONUTF8:'1'},encoding:'utf8',windowsHide:true}));
  const route=routeFixture(path.join(root,'source'));route.sourceReview.selected=rendered.source;
  route.sourceReview.candidates=[{...rendered.source,kind:operation==='vector-reletter'?'vector':'raster',decision:'selected',reason:'Synthetic source verified'}];
  route.processing={operation,basis:'Synthetic reviewed processing requirement',...(operation!=='chart-redraw'?{targetTextIds:['label']}:{})};

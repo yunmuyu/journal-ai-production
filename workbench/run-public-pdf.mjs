@@ -6,7 +6,7 @@ import path from 'node:path';
 const [python,...args]=process.argv.slice(2);
 if(!python||!args.length){console.error('Usage: node workbench/run-public-pdf.mjs <configured-python> <journal_pdf arguments...>');process.exitCode=2;}
 else{
- if(args[0]==='render'){
+ if(['render','capacity'].includes(args[0])){
   if(args[1])args[1]=path.resolve(args[1]);
   for(let i=2;i<args.length-1;i++)if(['--source-root','--profile','--output'].includes(args[i]))args[++i]=path.resolve(args[i]);
  }

@@ -27,5 +27,13 @@ export function extractToolDiagnostic(error){
   }
  };
  visit(detail);
- return {version:1,code:detail.code,message:detail.message??(typeof detail.detail==='string'?detail.detail:''),issues,detail};
+ // Capacity comes from the measured public layout engine, never image dimensions
+ // or a suggested replacement for a figure-specific user decision.
+ const capacity=detail.capacity;
+ const measured=capacity?.version===1&&typeof capacity.figure_id==='string'&&
+  typeof capacity.spec_hash==='string'&&/^[a-f\d]{64}$/.test(capacity.spec_hash)&&
+  Number.isFinite(capacity.column_mm)&&Number.isFinite(capacity.proposed_font_size_pt)&&
+  typeof capacity.summary==='string';
+ return {version:1,code:detail.code,message:detail.message??(typeof detail.detail==='string'?detail.detail:''),issues,detail,
+  ...(measured?{summary:capacity.summary,capacity}: {})};
 }

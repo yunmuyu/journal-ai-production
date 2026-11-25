@@ -28,7 +28,8 @@ test('one entry renders concurrent ordinary and revision jobs, publishes real PD
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'production-entry-'));let handler,review,origin,published=0,previewFailure=true,submitFailure=true;
  const rows=[],articles=[],files=new Map(),rendered=[];
  for(let i=0;i<6;i++){
-  const r=renderedFixture(path.join(root,'fixture-'+i),'raster-reletter');rendered.push(r);
+  const r=renderedFixture(path.join(root,'fixture-'+i),'raster-reletter',{padding:['default',.25,0,4,2,4][i]});rendered.push(r);
+  const paddingReport=JSON.parse(fs.readFileSync(r.evidence[0].report.path));assert.equal(paddingReport.export_padding_audit.target_padding_pt,[.25,.25,0,4,2,4][i]);
   articles.push({id:'A'+i,word:r.task.productionRoute.sourceReview.word});
   rows.push({id:'A'+i+'-F1',articleId:'A'+i,author:'fixture'+i,number:'1',editor:'fixture',type:'graph',status:'待制作',outputs:[],reviewVersion:'baseline',productionRoute:r.task.productionRoute});
  }
@@ -136,4 +137,15 @@ test('one entry renders concurrent ordinary and revision jobs, publishes real PD
  assert.equal(handler.queue.list().find(j=>j.figureId==='A4-F1').attempt,2,'incomplete wrapping must create a new attempt, preserving the first');
  assert.equal(handler.queue.list().find(j=>j.figureId==='A5-F1').attempt,2,'failed imported job must resume through a new attempt rather than a duplicate import');
  assert.equal(review.list().find(j=>j.figureId==='A2-F1').commonCandidate.attempt,2,'revision wrapping failure must preserve the first attempt and retry through the common revision entry');
+ rows[0].status='终检通过';
+ const accepted=await runProduction(config,plans[0]);assert.equal(accepted.deliveryState.userAccepted,true);
+ rows[0].status='待终检';
+ const withdrawn=await runProduction(config,plans[0]);assert.equal(withdrawn.deliveryState.userAccepted,false);
+ const priorHash=rows[0].outputs[0].file.meta.sha256;rows[0].outputs[0].file.meta.sha256='0'.repeat(64);
+ const changed=await runProduction(config,plans[0]);
+ assert.equal(changed.status,'awaiting-verification');assert.equal(changed.deliveryState.userAccepted,null);assert.equal(changed.deliveryState.workbenchReturned,null);
+ assert.equal(changed.deliveryState.lastVerifiedReceiptId,accepted.receipt.id);
+ rows[0].outputs[0].file.meta.sha256=priorHash;
+ const current=await runProduction(config,plans[0]);assert.equal(current.deliveryState.stage,'workbench-candidate');assert.equal(current.deliveryState.userAccepted,false);
+ assert.equal(published,6,'failed re-verification must not republish an existing candidate');
 });

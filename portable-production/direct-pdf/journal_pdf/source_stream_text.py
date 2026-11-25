@@ -19,7 +19,8 @@ from .source_icons import PreparedIcon, consume_paths, path_record
 
 def prepare_stream_body(source: Path, page_no: int, clip: list[float], text_replacements) -> PreparedIcon:
     """Accept only a full-page, one-stream vector source with fully registered text."""
-    with fitz.open(source) as original, fitz.open(source) as edited:
+    from .source_origin import preparation_source
+    with preparation_source(source,page_no) as (original,origin_proof), fitz.open(stream=original.tobytes(no_new_id=True),filetype='pdf') as edited:
         if len(original)!=1 or page_no!=0 or original[0].rotation or fitz.Rect(clip)!=original[0].rect:
             raise FigureError('source_stream_scope','仅支持单页、未旋转、完整页面的源图')
         page=original[0]
@@ -31,7 +32,9 @@ def prepare_stream_body(source: Path, page_no: int, clip: list[float], text_repl
             raise FigureError('source_stream_content','须有单一内容流及已登记原字')
         raw=edited.xref_stream(streams[0])
         blocks=re.findall(rb'(?ms)^BT\r?\n.*?^ET\r?\n',raw)
-        reader=PdfReader(source);parsed=ContentStream(reader.pages[0].get_contents(),reader)
+        from io import BytesIO
+        source_data=original.tobytes(no_new_id=True)
+        reader=PdfReader(BytesIO(source_data));parsed=ContentStream(reader.pages[0].get_contents(),reader)
         if not blocks or len(blocks)!=sum(op==b'BT' for _,op in parsed.operations) or len(blocks)!=sum(op==b'ET' for _,op in parsed.operations):
             raise FigureError('source_stream_content','不能可靠识别全部原始文字对象')
         text_ops={b'BT',b'ET',b'Tf',b'Tm',b'Td',b'TD',b'T*',b'Tj',b'TJ',b"'",b'"',b'Tc',b'Tw',b'Tz',b'TL',b'Ts',b'Tr'}
@@ -69,7 +72,7 @@ def prepare_stream_body(source: Path, page_no: int, clip: list[float], text_repl
                 b=result.get_pixmap(matrix=fitz.Matrix(zoom,zoom),alpha=False)
                 # Use the original glyph raster, including italic overhang, rather
                 # than widening reported span rectangles over nearby circuitry.
-                with fitz.open(source) as glyph_document:
+                with fitz.open(stream=source_data,filetype='pdf') as glyph_document:
                     glyph_stream=ContentStream(reader.pages[0].get_contents(),reader)
                     paint_ops={b'S',b's',b'f',b'F',b'f*',b'B',b'B*',b'b',b'b*'}
                     if any(op in (b'Do',b'sh') for _,op in glyph_stream.operations):
@@ -91,4 +94,5 @@ def prepare_stream_body(source: Path, page_no: int, clip: list[float], text_repl
                     raise FigureError('source_icon_pixels_changed','原文字实际墨迹之外像素改变，拒绝继续')
                 comparisons.append({'dpi':zoom*72,'width':a.width,'height':a.height,'pixel_sha256':hashlib.sha256(a.samples).hexdigest(),'exact':False,'nontext_exact':True})
             receipt={'mode':'source-vector-body','preparation_mode':'source-vector-reletter','text_replacements':replacements,'whitespace_spans_removed':[],'outside_clip_text_removed':[],'unused_font_resource_owners_removed':owners,'source_path':str(source.resolve()),'source_sha256':digest_file(source),'source_page':page_no,'source_clip':list(page.rect),'source_cropbox_position':list(page.cropbox_position),'absolute_mediabox_clip':list(page.cropbox),'prepared_sha256':hashlib.sha256(data).hexdigest(),'font_count':0,'image_count':0,'path_count':len(after),'source_visible_path_count':len(before),'source_path_multiset_preserved':True,'pixels':comparisons,'native_operations':{'raw_text_objects_removed':len(blocks),'nontext_stream_bytes_preserved':retained_state_operations==0,'text_block_graphic_state_operations_preserved':retained_state_operations},'source_text':'','source_text_character_count':0,'complete_icon_extent_proven':False,'extent_review_required':'完整页面源图仍须核对原始裁切范围'}
+            if origin_proof:receipt['origin_normalization']=origin_proof
             return PreparedIcon(data,json.dumps(receipt,ensure_ascii=False))

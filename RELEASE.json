@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "2026.11.04-r47-production",
-  "createdAt": "2026-11-04T10:05:33.048Z",
-  "status": "released",
+  "id": "2026.11.10-r48-fidelity-candidate",
+  "createdAt": "2026-11-10T03:32:24.615Z",
+  "status": "release-candidate",
   "constraints": {
     "fontSizePt": {
       "min": 6,
@@ -12,60 +12,119 @@
     "keepIllustratorDocuments": true
   },
   "validation": {
-    "platform": "Windows, Python 3.12.14, Node.js 24",
-    "resolved_preview_failures": 12,
-    "engine_full": {
-      "passed": 1529,
+    "schemaVersion": 1,
+    "release": "2026.11.10-r48-fidelity-candidate",
+    "status": "local-candidate-with-known-baseline-limitations",
+    "baseCommit": "87ba08ac31b5383208dc4985ad02352b2d150c7d",
+    "publication": {
+      "remoteChanged": false,
+      "deployed": false,
+      "productionConfigChanged": false,
+      "acceptanceChanged": false
+    },
+    "environment": {
+      "platform": "Linux",
+      "python": "3.12.14",
+      "node": "24.22.1",
+      "PyMuPDF": "1.26.7",
+      "pypdf": "6.1.1",
+      "Pillow": "12.3.0",
+      "pytest": "9.0.2",
+      "fontProfile": "Restored verified production fonts, not distributed"
+    },
+    "nodeFullWithRealFonts": {
+      "passed": 693,
+      "failed": 4,
+      "skipped": 16,
+      "baselineComparison": "All four failures reproduced unchanged on r47. Source coverage, editorial status and raster identity fixtures remain strict; no gates disabled."
+    },
+    "pythonEngineFull": {
+      "passed": 1570,
+      "failed": 6,
+      "skipped": 28,
+      "subtestsPassed": 7,
+      "baselineComparison": "The same six tests fail unchanged on r47 because this Linux executor lacks Windows icu.dll; no additional final failures."
+    },
+    "rasterTaskPreflightLocalAndUtilityPython": {
+      "passed": 427,
       "failed": 0,
-      "skipped": 3,
-      "subtests_passed": 7,
-      "seconds": 263.12,
-      "skip_reason": "Windows symlink privilege unavailable; same guards also run in Linux CI"
+      "subtestsPassed": 42
     },
-    "node_full": {
-      "passed": 620,
-      "failed": 0,
-      "skipped": 39,
-      "note": "conditional Office/font/runtime integration; real PDF integration executed separately"
+    "additionalFinalChecks": {
+      "realRasterReturn": {
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      },
+      "realConcurrentPdfReturnAndStateRecovery": {
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "finalWidthAndPadding": {
+        "passed": 36,
+        "failed": 0
+      },
+      "originalRouteCapacityAndPaddingComposition": {
+        "passed": 64,
+        "failed": 0
+      }
     },
-    "raster_quality_preflight": {
-      "passed": 251,
-      "failed": 0
+    "privateReadOnlyRegression": {
+      "originalRoutes": {
+        "figures": 2,
+        "routes": 35,
+        "maxCoordinateDeltaPt": 0,
+        "sourceAndPdfHashesVerified": true,
+        "movedBendsRejected": true
+      },
+      "mixedSources": {
+        "cases": 5,
+        "passed": 5,
+        "imageInstancesInThreeRecentFigures": [
+          6,
+          13,
+          7
+        ],
+        "duplicateRgbCase": {
+          "imageInstances": 184,
+          "imageResources": 72,
+          "vectorPaths": 208
+        },
+        "negativeOriginCase": {
+          "nativeSpans": 83,
+          "retainedPaths": 619
+        },
+        "sourceFilesUnchanged": true,
+        "scope": "Preparation and evidence replay; not re-delivery, visual acceptance or print approval"
+      },
+      "realPadding": {
+        "cases": 2,
+        "minimumPt": 2.0399999618530273,
+        "sourceViewportPixelsUnchanged": true,
+        "rescaled": false
+      }
     },
-    "canonical_cli_real_pdf_e2e": {
-      "passed": 2,
-      "failed": 0,
-      "skipped": 0,
-      "peak_render_processes": 6,
-      "minimum_check_processes": 2,
-      "note": "synthetic source-bound ordinary and revision PDFs through HTTP workbench, preview visibility, retries and CLI receipt reuse"
+    "review": {
+      "archivedManifestPackaging": "fixed and regression tested",
+      "staleAcceptanceAfterReverificationFailure": "fixed and real state recovery tested",
+      "newInvalidPaddingErrorPriorityRegression": "fixed",
+      "newRasterPaddingRoundingRegression": "fixed without relaxing minimum"
     },
-    "publication_bundle": {
-      "passed": 5,
-      "failed": 0
-    },
-    "migration": {
-      "passed": 2,
-      "current_word_files": 48,
-      "current_output_files": 258,
-      "restored_figures": 285,
-      "accepted_figures": 87,
-      "status_feedback_output_hash_differences": 0,
-      "browser_verified": true
-    },
-    "review_recovery": {
-      "passed": 5,
-      "note": "includes real JPG, text-only feedback restart recovery, stale new requests blocked and later candidate protected"
-    },
-    "new_computer": "not yet tested on separate hardware; follow docs/NEW-COMPUTER.md",
-    "quality": "Candidate delivery is not user acceptance; no curve data or user acceptance modified"
+    "remainingLimits": [
+      "Windows ICU word segmentation is unavailable on this Linux executor; six unchanged baseline engine tests fail.",
+      "Windows GDI, Adobe/InDesign and optional bold font tests are conditional or not run.",
+      "Native PDF text coverage cannot prove absence of unregistered outline or raster text.",
+      "Unsupported inline image/mask/clipping and rotated or annotated nonzero-origin PDF cases remain fail-closed.",
+      "No GitHub CI, installation or production deployment was performed."
+    ],
+    "commands": [
+      "node --test tests/*.test.mjs workbench/*.test.mjs collaboration/*.test.mjs collaboration/tests/*.test.mjs collaboration/state-transfer/*.test.mjs knowledge/*.test.mjs",
+      "python -m pytest portable-production/direct-pdf/tests -q",
+      "python -m pytest portable-production/tests-raster portable-production/tests-task portable-production/preflight/tests tests portable-production/tests-local -q"
+    ]
   },
   "files": [
-    {
-      "path": "运行说明.md",
-      "sha256": "42989de63dbebf14785b15bf115f376f739d4d36a21610182150c31baaee0b07",
-      "bytes": 13474
-    },
     {
       "path": "adobe/common.jsx",
       "sha256": "b5e334bc58cf222601a4920ef29e5bf06524378b8c5aaafa74763c19754449a9",
@@ -460,12 +519,16 @@
       "path": "scripts/typesafe_call.py",
       "sha256": "87eadea5858ab36fd7167b821bb8ecda9959d14df7c0daceeea0733e6a857db4",
       "bytes": 1232
+    },
+    {
+      "path": "运行说明.md",
+      "sha256": "42989de63dbebf14785b15bf115f376f739d4d36a21610182150c31baaee0b07",
+      "bytes": 13474
     }
   ],
   "skillSha256": "fbfa19e02afa62f702c20cf406e843f8ea9b7af219ce2da2a1b5292849241ab1",
-  "supersedes": "2026.11.04-r46-clean-move",
-  "packagingCorrection": "Exclude five local-only author plans from required runtime; runtime code bytes unchanged.",
-  "sourceParent": "dd23ecab65f37ef797249c13c32de951dfa116ac",
+  "supersedes": "2026.11.04-r47-production",
+  "sourceParent": "87ba08ac31b5383208dc4985ad02352b2d150c7d",
   "productionRoute": "portable-production",
   "compatibilityRoutes": [
     "workbench",
@@ -474,17 +537,19 @@
     "collaboration/scripts"
   ],
   "scope": [
-    "verified portable public capabilities",
-    "stable workbench retained unchanged",
-    "task-quality evidence gate",
-    "font descriptor completeness",
-    "network endpoint and exact terminal audit"
+    "source-bound original route geometry protection",
+    "scoped PDF delivery checklist and verified delivery states",
+    "mixed image instance, paint-order and viewport-origin fidelity",
+    "read-only source-bound layout capacity inspection",
+    "explicit optional current-delivery author packaging",
+    "minimum padding and final saved width checks"
   ],
   "limitations": [
-    "private author artifacts excluded",
-    "visual acceptance remains manual",
-    "InDesign placement is a separate gate",
-    "Adobe native reopen not rerun"
+    "Windows ICU word segmentation is unavailable on this Linux executor; six unchanged baseline engine tests fail.",
+    "Windows GDI, Adobe/InDesign and optional bold font tests are conditional or not run.",
+    "Native PDF text coverage cannot prove absence of unregistered outline or raster text.",
+    "Unsupported inline image/mask/clipping and rotated or annotated nonzero-origin PDF cases remain fail-closed.",
+    "No GitHub CI, installation or production deployment was performed."
   ],
   "portableFiles": [
     {
@@ -563,6 +628,11 @@
       "bytes": 3815
     },
     {
+      "path": "direct-pdf/docs/CAPACITY.md",
+      "sha256": "5bf75aca42d212dc4e6e9a7164d5b6b3a40cdb37e896882893bc14068c73397a",
+      "bytes": 2521
+    },
+    {
       "path": "direct-pdf/docs/DEPENDENCIES.md",
       "sha256": "3d26b0060eaa3b40858567febf20c1bb1e7c7c85a0d6230847c6d9581e17b27a",
       "bytes": 1623
@@ -628,6 +698,11 @@
       "bytes": 1593
     },
     {
+      "path": "direct-pdf/docs/MIXED-SOURCE-FIDELITY.md",
+      "sha256": "2c842d46e14dcaa151dd86b95a0539316f90af938a579d609095a4dd29e9f700",
+      "bytes": 2455
+    },
+    {
       "path": "direct-pdf/docs/NEW-v0.1.2.1.md",
       "sha256": "6a9dee352afe5ac87851a3a4453a97601867a38bf0cc95f9fdea6a98ad005331",
       "bytes": 2857
@@ -678,6 +753,11 @@
       "bytes": 4636
     },
     {
+      "path": "direct-pdf/docs/SOURCE-ROUTE-CONTRACT.md",
+      "sha256": "6a8a7a4033ed2f0e9e0b8478b064abfc3c94f8506a0b6cc5fe21829441f32b0b",
+      "bytes": 4396
+    },
+    {
       "path": "direct-pdf/docs/SOURCE-TEXT-COVERAGE.md",
       "sha256": "2d5f13ad36cf37ee3bc9a16a6b4d67aebe97839dd54467e1c394062da3b4fa1f",
       "bytes": 6848
@@ -689,8 +769,8 @@
     },
     {
       "path": "direct-pdf/docs/STRUCTURE-AND-VISIBILITY.md",
-      "sha256": "4f5ba418dc27ca031dcc10e44d18997344081a5837a4d84bef348828fc1c0300",
-      "bytes": 6025
+      "sha256": "653ff8567c3df6a107d17c2d091acd29d132eabe4b8e4727c2d4effa645e709e",
+      "bytes": 6218
     },
     {
       "path": "direct-pdf/docs/TEST-RESULTS.md",
@@ -888,6 +968,11 @@
       "bytes": 9415
     },
     {
+      "path": "direct-pdf/journal_pdf/capacity.py",
+      "sha256": "30ee982310ac783e0f54ca9ec9e8db1264a39cb6be44d469810bb34a64f0d571",
+      "bytes": 3124
+    },
+    {
       "path": "direct-pdf/journal_pdf/chart_annotations.py",
       "sha256": "3b12921002af0d78cea515e5ce991ebb60c3b736a1b99bdb096b071b9ba26d9f",
       "bytes": 3854
@@ -934,8 +1019,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/cli.py",
-      "sha256": "6d980b47a62c17d71c8f66a09952412ec05648f8680af8ead6767397cfb4349e",
-      "bytes": 11217
+      "sha256": "092411a17b91ced3cfd8a9f17c808d9af912fd85b14862bb8766b4969ab88343",
+      "bytes": 11886
     },
     {
       "path": "direct-pdf/journal_pdf/columns.py",
@@ -989,8 +1074,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/export_padding.py",
-      "sha256": "f3d878f9fbafa278a7cfa30d49ed176acbd8046d4c7a391e4784138d6909904d",
-      "bytes": 5407
+      "sha256": "f1b75e2f5f3ebc1e89d9f398840e2111e33f70625564bcab9105ce2a674b80a2",
+      "bytes": 7054
     },
     {
       "path": "direct-pdf/journal_pdf/final_visibility.py",
@@ -1159,8 +1244,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/render.py",
-      "sha256": "dd04c6d6099d4ad159215897f564563176b4925f95815e2bb9de107a44bd74da",
-      "bytes": 40776
+      "sha256": "bd299612f46d497e3e86e5c5a9816e6d113acfef2cb823b0e35ac890ffc1e8b4",
+      "bytes": 42990
     },
     {
       "path": "direct-pdf/journal_pdf/route_clearances.py",
@@ -1214,8 +1299,13 @@
     },
     {
       "path": "direct-pdf/journal_pdf/source_icons.py",
-      "sha256": "4783de898f066e3f6e86ed3a08c254cfc86201fa919b41f6958ddafb2af98ab4",
-      "bytes": 16367
+      "sha256": "79154c8727f5d311d59c29acb4afd6f54d759a98e0217cd591b05a572396f24b",
+      "bytes": 17205
+    },
+    {
+      "path": "direct-pdf/journal_pdf/source_image_paints.py",
+      "sha256": "dbc2d9e65ca740ecbfb51c56da1e92111c785f31125f21ee9bb78320fa3f0782",
+      "bytes": 7357
     },
     {
       "path": "direct-pdf/journal_pdf/source_legend.py",
@@ -1224,8 +1314,8 @@
     },
     {
       "path": "direct-pdf/journal_pdf/source_mixed_body.py",
-      "sha256": "1913a405d6c85a275c68d246013eaa60a25d945023583dc26854a3926bfa75c3",
-      "bytes": 14508
+      "sha256": "434ebe7bde9063aec766416f753638d8d7a340dfb3c7f973fbe68828defafd1c",
+      "bytes": 16100
     },
     {
       "path": "direct-pdf/journal_pdf/source_native_gray.py",
@@ -1236,6 +1326,11 @@
       "path": "direct-pdf/journal_pdf/source_native_paths.py",
       "sha256": "8030d16ccc88157f3e880d7e8dc8bf1aa17f96070cd93531208a9f442999d55c",
       "bytes": 8635
+    },
+    {
+      "path": "direct-pdf/journal_pdf/source_origin.py",
+      "sha256": "e1b75504a56fa1c6b43587f50fcc42494c58ceae64cb5ccc323014854d84da8a",
+      "bytes": 4067
     },
     {
       "path": "direct-pdf/journal_pdf/source_outline_chart.py",
@@ -1273,14 +1368,19 @@
       "bytes": 6545
     },
     {
+      "path": "direct-pdf/journal_pdf/source_route_contract.py",
+      "sha256": "c75e5e729bfcd928bec36ec5f481915c70c0a15bbdcb520b2d16591b76eda6ec",
+      "bytes": 10524
+    },
+    {
       "path": "direct-pdf/journal_pdf/source_shape_targets.py",
       "sha256": "5361c87d951620c3225750612fae300cb5f6531ab2352545cd2dfa2e84d85f33",
       "bytes": 5472
     },
     {
       "path": "direct-pdf/journal_pdf/source_stream_text.py",
-      "sha256": "5fd87770c32df02722252c625ee72494b7492b75a7d008cebe613bf89c553f65",
-      "bytes": 7454
+      "sha256": "7907c7d02d6f25a9627c1a7794b573d439baae813e6cbb6bdff6b65364fd09d8",
+      "bytes": 7782
     },
     {
       "path": "direct-pdf/journal_pdf/source_structure_contract.py",
@@ -1344,8 +1444,8 @@
     },
     {
       "path": "direct-pdf/README.md",
-      "sha256": "0bbb8b60846ee0da17129589369f70cca821fded2b938aaf13628269b71b12b3",
-      "bytes": 24526
+      "sha256": "ce518bd4468aaf11fddf6899802d7cbabb0df1f6fa370a2eeb51b80e19460c38",
+      "bytes": 25116
     },
     {
       "path": "direct-pdf/RELEASE-CANDIDATE.json",
@@ -1436,6 +1536,11 @@
       "path": "direct-pdf/tests/test_boundary_ports.py",
       "sha256": "bb849e2bc9f3fe4a7303c8dba8ba7fda982d12d2280d21ed243f9aa5aa114725",
       "bytes": 10660
+    },
+    {
+      "path": "direct-pdf/tests/test_capacity.py",
+      "sha256": "2e535e9eb5f9b60ac4c219e5989229ff469b5c43d121622b971330f2bba8f9ba",
+      "bytes": 7433
     },
     {
       "path": "direct-pdf/tests/test_chart_bar_bindings.py",
@@ -1554,8 +1659,8 @@
     },
     {
       "path": "direct-pdf/tests/test_export_crop_padding.py",
-      "sha256": "e7acb6c53bc965ad444007921bac2bafad9ff85267486fbd9f1c0eaa1b7b936b",
-      "bytes": 2713
+      "sha256": "0c14e5e20333ca904a126ac7bd74846e5dc02a1dafda33be015e016b42739adb",
+      "bytes": 3566
     },
     {
       "path": "direct-pdf/tests/test_export_margin.py",
@@ -1708,14 +1813,19 @@
       "bytes": 4596
     },
     {
+      "path": "direct-pdf/tests/test_mixed_paint_fidelity.py",
+      "sha256": "a6ea40c9ccb222e66310e4ba26678df2016e70da84fa3fb4bc870062e661b5db",
+      "bytes": 6863
+    },
+    {
       "path": "direct-pdf/tests/test_multiport_scene.py",
       "sha256": "529b0c31dde739ff2b4802a45260e4fb08990e8df74e56b9a4148564f7064a41",
       "bytes": 1779
     },
     {
       "path": "direct-pdf/tests/test_native_crop_contracts.py",
-      "sha256": "45d3f91cd4a57ad94183afe41e1b0e4577e2cddfea0f98f038e39d47a22f8223",
-      "bytes": 2456
+      "sha256": "6a43a995a4b0ca085bfd0a61036486eb1859061d2d862abc5e2578c27f89bb14",
+      "bytes": 6706
     },
     {
       "path": "direct-pdf/tests/test_native_glyph_contracts.py",
@@ -1759,8 +1869,8 @@
     },
     {
       "path": "direct-pdf/tests/test_original_asset_reference.py",
-      "sha256": "6c2cb565e6783b84ed2e34b660329452d441c23a4df7df6292e28bd700e53872",
-      "bytes": 5922
+      "sha256": "b2045b98cdfe15c61397732437bafed4b6cc75aaa9c2dacca819fa796054152a",
+      "bytes": 6151
     },
     {
       "path": "direct-pdf/tests/test_outside_legend_columns.py",
@@ -1898,14 +2008,19 @@
       "bytes": 2037
     },
     {
+      "path": "direct-pdf/tests/test_source_route_contract.py",
+      "sha256": "3c7e1cf44a37dbe4ae5e194a57e88cb03dee2cbbd8e0ba5a5abe2b19e11a33cd",
+      "bytes": 14032
+    },
+    {
       "path": "direct-pdf/tests/test_source_shape_replacements.py",
       "sha256": "14ac5d048abdfea404000653ba9fd78b9c273461e10b0a3135a3838c992a8b0a",
       "bytes": 7335
     },
     {
       "path": "direct-pdf/tests/test_source_stream_text.py",
-      "sha256": "83f0c839c9b3727a1b00793693fc3fedcb1a5860485de2a614b9261d8b49d555",
-      "bytes": 2024
+      "sha256": "e4f2e8fd872ae5afa0d58c2fb2f60236dcf50ec03e8310689ce59fc59b472780",
+      "bytes": 3291
     },
     {
       "path": "direct-pdf/tests/test_source_structure_contract.py",
@@ -1989,8 +2104,8 @@
     },
     {
       "path": "direct-pdf/tests/test_uniform_padding.py",
-      "sha256": "446a5ff136b4d7c64ba63581de1d2ed00c224a743c960414dfc7a49568af4be4",
-      "bytes": 1645
+      "sha256": "5e13668d019d5679ea85ffc2424b6a61e7a5bb8810fd239791c8a94f44ff4f89",
+      "bytes": 2379
     },
     {
       "path": "direct-pdf/tests/test_v012_new_raster.py",
@@ -2365,16 +2480,6 @@
   ],
   "publicFiles": [
     {
-      "path": "实施进度.md",
-      "sha256": "bb4713107dd500a46339bcc0e3cefe6d1b579408f7e1edf0fe0fa5d35be8716a",
-      "bytes": 718
-    },
-    {
-      "path": "运行说明.md",
-      "sha256": "569ba3e12efdfd5aa33281bf68dde44e9792c4f09d87ae597cbcd4288e54fd4e",
-      "bytes": 13247
-    },
-    {
       "path": "adobe/common.jsx",
       "sha256": "b5e334bc58cf222601a4920ef29e5bf06524378b8c5aaafa74763c19754449a9",
       "bytes": 1443
@@ -2486,8 +2591,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "sha256": "3a78f2db8d1b5a583b56081a16ed8044f62c34153c67fec70fb8e6bbbc33f7fa",
-      "bytes": 7086
+      "sha256": "e94e771ec67f067ce3cba86a1a30ee5cd3353e54b579c80867891a1a1c2f4064",
+      "bytes": 7421
     },
     {
       "path": "collaboration/20261012-tool-handoff.md",
@@ -2498,11 +2603,6 @@
       "path": "collaboration/20261013-consolidation.md",
       "sha256": "fbf19ff4abbb147964af14699d2217a594b131bd583d7d888728a078e985574e",
       "bytes": 3124
-    },
-    {
-      "path": "collaboration/下一批返工优化-20261012.md",
-      "sha256": "bff13867abfc9cdb3edde3d44dba79b7e3a3f7063c372e2810cb77a2620775fb",
-      "bytes": 5154
     },
     {
       "path": "collaboration/common-shapes.md",
@@ -2680,6 +2780,11 @@
       "bytes": 1727
     },
     {
+      "path": "collaboration/下一批返工优化-20261012.md",
+      "sha256": "bff13867abfc9cdb3edde3d44dba79b7e3a3f7063c372e2810cb77a2620775fb",
+      "bytes": 5154
+    },
+    {
       "path": "docs/common-revision-candidates.md",
       "sha256": "35b10b9a08f157584254875b8620c01da6b2e62b08918c820ac254594eee1754",
       "bytes": 5372
@@ -2718,6 +2823,11 @@
       "path": "docs/production-dispatch-bridge.md",
       "sha256": "fba00a1ac872bd9a216f1b2fa28893827b7bcfe846d8ba7d0a5627706d0bf050",
       "bytes": 2757
+    },
+    {
+      "path": "docs/production-fidelity-20261110.md",
+      "sha256": "3a6b650d9698996862f2b7f6324b2ce1e8d1a36f2cab8c959b135ba8437e8a10",
+      "bytes": 3570
     },
     {
       "path": "docs/production-intake.md",
@@ -2786,8 +2896,8 @@
     },
     {
       "path": "journal.mjs",
-      "sha256": "b1ddab5af5ef77d08734bb01df5271a3a8e3c07ea344ba0a6690b10f0d7b62df",
-      "bytes": 2756
+      "sha256": "7c47f8f1cae68246fbc91ea41631a468387cbc57287161eea3b5fdb4c66f4a97",
+      "bytes": 3450
     },
     {
       "path": "knowledge/decision-boundary.md",
@@ -3255,6 +3365,11 @@
       "bytes": 2422
     },
     {
+      "path": "release-notes/2026.11.10-r48-fidelity-candidate.md",
+      "sha256": "483b8380c4f0eb6fc24c00340d6d22675ca9a3c5c4cbd2def2651db58c69b8c6",
+      "bytes": 2538
+    },
+    {
       "path": "release-validation-20261014.json",
       "sha256": "ee1e3ee204093120320b86fae278cfa3287cc7e06f26cb66bfc5e18541e3f235",
       "bytes": 788
@@ -3335,6 +3450,11 @@
       "bytes": 1322
     },
     {
+      "path": "release-validation-20261110-r48.json",
+      "sha256": "8aff554cba2371905d2101eed642251b1c2b70498baae386ead41bd39008b5b4",
+      "bytes": 3779
+    },
+    {
       "path": "scripts/archive-manuscripts.ps1",
       "sha256": "16b7d622013c5e09442997f451ce249a4be6bd1aecc49927e6a62105710ad83d",
       "bytes": 3752
@@ -3413,6 +3533,11 @@
       "path": "scripts/normalize_svg_color.py",
       "sha256": "ce55ccdba8e6d9990929583f558420fb5271f2f5ebcb9b53a2ea40825be6ec40",
       "bytes": 22576
+    },
+    {
+      "path": "scripts/package-current-delivery.mjs",
+      "sha256": "bdb38a15152ccb3137a9c5ec219d2a66cd355f789ab02c0f378965b1669bdd94",
+      "bytes": 5498
     },
     {
       "path": "scripts/package-manuscript-folder.py",
@@ -3715,6 +3840,11 @@
       "bytes": 1516
     },
     {
+      "path": "tests/package-current-delivery.test.mjs",
+      "sha256": "bd6dc41583ac78d3079a9193b20b5c8764548d217eab742bc1fd03cc42b95195",
+      "bytes": 4283
+    },
+    {
       "path": "tests/path-containment-geometry.test.mjs",
       "sha256": "521c24fa8c766582f018d16d7b4ea61098f2e650b39fb702217eada80f473903",
       "bytes": 3213
@@ -3980,6 +4110,11 @@
       "bytes": 1751
     },
     {
+      "path": "workbench/canonical-capacity.test.mjs",
+      "sha256": "1500771e81f9e75d7ce511a11fc4e8a0f21dd7adfe642d7e8ded852f7562e22c",
+      "bytes": 2300
+    },
+    {
       "path": "workbench/chart_object_candidates.py",
       "sha256": "55b112b99da3461102665481a0c9e853a78a73d1b04ff677130a324be1bd520f",
       "bytes": 6771
@@ -4138,6 +4273,16 @@
       "path": "workbench/decision-store.test.mjs",
       "sha256": "7167712d1bb4d78676c1d68e4bc594e51e2156b0a8b5e638d0a578fa52f4a2d8",
       "bytes": 22278
+    },
+    {
+      "path": "workbench/delivery-checklist.mjs",
+      "sha256": "94e7945e54e8dbb0dba8020271b6b5826660255a399b8d05bba0e7551aca0599",
+      "bytes": 4922
+    },
+    {
+      "path": "workbench/delivery-checklist.test.mjs",
+      "sha256": "e5d044b418001b1c0dcbe4f7aef4f36447cde5186f34d9bb98f1fa45d5abd6c8",
+      "bytes": 3150
     },
     {
       "path": "workbench/DESIGN.md",
@@ -4306,13 +4451,13 @@
     },
     {
       "path": "workbench/processing-evidence.mjs",
-      "sha256": "041c4585b3f4be8c8f21ae4e80d074251f358e78cbaaccc34bc9048f661ca7b1",
-      "bytes": 14988
+      "sha256": "d720c0299839b794e77e7953dc0a32b352cec53a419fe565629f45712dce92e5",
+      "bytes": 15179
     },
     {
       "path": "workbench/processing-evidence.test.mjs",
-      "sha256": "8c71c559a0de3bbe9bf35c900af612f2fc9e027827770cd11ca4021e84e3eaa5",
-      "bytes": 8877
+      "sha256": "52827e4235224e5cca92e4b66b897efe4c539cb4094faa39dfa89c5d36b8d912",
+      "bytes": 8902
     },
     {
       "path": "workbench/processing-test-fixture.mjs",
@@ -4356,13 +4501,13 @@
     },
     {
       "path": "workbench/production-observability.mjs",
-      "sha256": "7a28b43fd0e37d8f718266e8e5c60b301ff63d410359e109609cc6ef6510a36c",
-      "bytes": 7865
+      "sha256": "f4f9f29b021ad56e7d6d3e96deb83327de3a980de906bdcc6ddc4bfa7d813e14",
+      "bytes": 8044
     },
     {
       "path": "workbench/production-observability.test.mjs",
-      "sha256": "cc2bd95f85b6d196165b876edc4ad29d66aeca9ec6269346d9c4fceab69bef84",
-      "bytes": 7804
+      "sha256": "ad18461db5b1d7e9024da81ae4d6290b7615727a437b8fa2e9544d70fdd87959",
+      "bytes": 7921
     },
     {
       "path": "workbench/production-route.mjs",
@@ -4376,13 +4521,13 @@
     },
     {
       "path": "workbench/production-runner.mjs",
-      "sha256": "b3cb9173585fa5ef56295c495bab0abe1b3eaa574fc351a4f805c6a023420cad",
-      "bytes": 34302
+      "sha256": "7626eafc73b619acdf977170dbf2295435425d75d3dfd5d82218db46276e1440",
+      "bytes": 34604
     },
     {
       "path": "workbench/production-runner.test.mjs",
-      "sha256": "274c72375a9a7073c2ac4075ed4be6458211d5e7f6bfb91902e45fbf770d4dd4",
-      "bytes": 15720
+      "sha256": "a12c6d85208ed0d74faf8d5b8cf9ad917413be3b42043eb48e12554e783aebe5",
+      "bytes": 16722
     },
     {
       "path": "workbench/production-workspace.mjs",
@@ -4411,13 +4556,13 @@
     },
     {
       "path": "workbench/raster-batch.mjs",
-      "sha256": "7545ca7c25c92e199b359d740dd031eccde3b809204200082b599132c9130637",
-      "bytes": 19392
+      "sha256": "ce36c729475ca3f25538a127ebef0595fc5db4a85f289d9e0902ec7af6c44e83",
+      "bytes": 19427
     },
     {
       "path": "workbench/raster-batch.test.mjs",
-      "sha256": "15b7dafae79a9ea87870412e4811f5c84decdee29adf975bce7cb3e50fccb524",
-      "bytes": 9230
+      "sha256": "8886bde21056a71c0ed0a049f8765d969f7e982ce250af005663abd228978d10",
+      "bytes": 9410
     },
     {
       "path": "workbench/raster-job.mjs",
@@ -4606,8 +4751,8 @@
     },
     {
       "path": "workbench/run-public-pdf.mjs",
-      "sha256": "d47e30efc2375035f79fa8675dd5b14104a730fc2d6c79d7289dd4d7deb9498e",
-      "bytes": 1403
+      "sha256": "873ef296bc7ff2feac649e199f70f8fefe3d2cc099e12ea552fc8aef277e61dc",
+      "bytes": 1424
     },
     {
       "path": "workbench/run-public-pdf.test.mjs",
@@ -4651,13 +4796,13 @@
     },
     {
       "path": "workbench/tool-diagnostics.mjs",
-      "sha256": "68fe9c116f06c46395a5a2db2b299787fc2f53c54b696d6b2b843e6bf1f85d7b",
-      "bytes": 1371
+      "sha256": "672ee01e8bfbe55383c6fd4bc7755f7c8c5dbf426a4c078de264459e05f9090d",
+      "bytes": 1899
     },
     {
       "path": "workbench/tool-diagnostics.test.mjs",
-      "sha256": "189fd8ea514356ab721a71b9dceaa62857b9c3f704870363667c67e54eb83457",
-      "bytes": 2537
+      "sha256": "075ad142396f62dfb12a25bdbf31516281fb60ca4bedb7b5e1248dbd7f5605bf",
+      "bytes": 6083
     },
     {
       "path": "workbench/vendor/LICENSE.tabler",
@@ -4778,6 +4923,16 @@
       "path": "workbench/workspace.test.mjs",
       "sha256": "ab6097fa9983612220e739997c0622fa8cf997976cb969561b62b8c40e9f1c2d",
       "bytes": 2824
+    },
+    {
+      "path": "实施进度.md",
+      "sha256": "bb4713107dd500a46339bcc0e3cefe6d1b579408f7e1edf0fe0fa5d35be8716a",
+      "bytes": 718
+    },
+    {
+      "path": "运行说明.md",
+      "sha256": "569ba3e12efdfd5aa33281bf68dde44e9792c4f09d87ae597cbcd4288e54fd4e",
+      "bytes": 13247
     }
   ]
 }

@@ -43,7 +43,7 @@ description: 从现有期刊工作台领取已授权的按图种制作任务，�
 {"summary":"图1已制作并自检，待独立内部复核","evidence":"实际原图与JPG核验步骤及证据文件路径","outputs":[{"number":"1","path":"本次目录内JPG绝对路径","preview":"本次目录内PNG绝对路径","sha256":"产物实算SHA256","columnLabel":"单栏约100%","fontLabel":""}],"quality":{"contract":{"path":"本次目录内contract.json绝对路径","sha256":"合同实算SHA256"}}}
 ```
 
-`outputs` 必须恰好覆盖 job.outputNumbers，禁止悄悄增删子图。JPG的fontLabel为空。PDF四边2pt，栏宽按10%档，字号不计上下角标；不能以计划字号代替实测。
+`outputs` 必须恰好覆盖 job.outputNumbers，禁止悄悄增删子图。JPG的fontLabel为空。PDF四边默认0.25pt，栏宽按10%档，字号不计上下角标；不能以计划字号代替实测。
 
 制作／修订任务运行 `node RUNNER CONFIG submit-candidate LEASE_FILE RESULT_FILE`。以服务端领取任务的 `returnMode` 为准：
 
