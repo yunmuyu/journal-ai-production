@@ -95,6 +95,60 @@ def _normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADD
             'pages':pages,'rescaled':False}
 
 
+def rebase_pdf_page(page: fitz.Page) -> None:
+    """Translate the visible PDF viewport and its contents to the same zero origin."""
+    if page.rotation:
+        raise FigureError('export_rotation_unsupported', '旋转页面须先显式归一化')
+    document = page.parent
+    kind, raw = document.xref_get_key(page.xref, 'CropBox')
+    if kind != 'array':
+        # Page.cropbox is top-down while the PDF streams use bottom-up coordinates.
+        crop, media = page.cropbox, page.mediabox
+        box = fitz.Rect(crop.x0, media.y1 - crop.y1, crop.x1, media.y1 - crop.y0)
+    else:
+        box = fitz.Rect([float(value) for value in raw[1:-1].split()])
+    box &= page.mediabox
+    if box.is_empty or box.is_infinite:
+        raise FigureError('export_page_box_invalid', 'PDF 可见页面框无效')
+    if page.mediabox == box and box.tl == fitz.Point(0, 0):
+        return
+    page.wrap_contents()
+    contents = page.get_contents()
+    prefix, suffix = document.get_new_xref(), document.get_new_xref()
+    for xref in (prefix, suffix):
+        document.update_object(xref, '<<>>')
+    translation = f'q 1 0 0 1 {-box.x0:.12f} {-box.y0:.12f} cm\n'
+    document.update_stream(prefix, translation.encode('ascii'))
+    document.update_stream(suffix, b'\nQ\n')
+    viewport = fitz.Rect(0, 0, box.width, box.height)
+    page.set_mediabox(viewport)
+    _, media_box = document.xref_get_key(page.xref, 'MediaBox')
+    document.xref_set_key(page.xref, 'CropBox', media_box)
+    document.xref_set_key(page.xref, 'Contents', '[' + ' '.join(
+        f'{xref} 0 R' for xref in (prefix, *contents, suffix)
+    ) + ']')
+
+
+def _verify_rebased_pdf(source: Path, destination: Path, receipt: dict) -> None:
+    """Verify the saved zero-origin layout without changing its text or rendering."""
+    with fitz.open(source) as document:
+        for page in document:
+            rebase_pdf_page(page)
+        document.save(destination, garbage=0, deflate=True)
+    with fitz.open(source) as before, fitz.open(destination) as after:
+        for original, page, evidence in zip(before, after, receipt['pages'], strict=True):
+            first = original.get_pixmap(dpi=300)
+            second = page.get_pixmap(dpi=300)
+            if ((first.width, first.height) != (second.width, second.height)
+                    or first.samples != second.samples
+                    or original.get_text() != page.get_text()
+                    or page.mediabox != page.rect or page.cropbox != page.rect):
+                raise FigureError('export_page_origin_changed', '坐标归一改变了 PDF 实际内容或页面框')
+            evidence['crop_box'] = list(page.cropbox)
+            evidence['media_box'] = list(page.mediabox)
+            evidence['zero_origin_verified'] = True
+
+
 def normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADDING_PT):
     """Publish the copy only after verification; leave existing outputs untouched on failure."""
     source,destination=Path(source),Path(destination)
@@ -121,5 +175,7 @@ def normalize_pdf_padding(source: Path, destination: Path, padding=DEFAULT_PADDI
                 staged.unlink(missing_ok=True)
                 continue
             receipt['normalization_attempts']=attempt+1
-            os.replace(staged,destination)
+            rebased = Path(folder)/'zero-origin.pdf'
+            _verify_rebased_pdf(staged, rebased, receipt)
+            os.replace(rebased,destination)
             return receipt
